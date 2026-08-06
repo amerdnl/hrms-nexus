@@ -1,15 +1,50 @@
-function App() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100">
-      <section className="rounded-xl bg-white p-10 text-center shadow-lg">
-        <h1 className="text-4xl font-bold text-blue-700">HR Nexus</h1>
+import { Navigate, Route, Routes } from "react-router-dom";
+import AppLayout from "./components/layout/AppLayout";
+import { useAuth } from "./context/useAuth";
+import PlaceholderPage from "./pages/PlaceholderPage";
+import LoginPage from "./pages/auth/LoginPage";
+import ChangePasswordPage from "./pages/employee/ChangePasswordPage";
+import ProfilePage from "./pages/employee/ProfilePage";
+import ProtectedRoute from "./routes/ProtectedRoute";
+import { roleDashboard } from "./routes/roleDashboard";
 
-        <p className="mt-2 text-slate-600">Employee Management System</p>
+function HomeRedirect() {
+  const { user, isLoading } = useAuth();
 
-        <p className="mt-6 text-sm text-green-600">Frontend setup is working</p>
-      </section>
-    </main>
-  );
+  if (isLoading) {
+    return <div className="grid min-h-screen place-items-center text-slate-600">Loading…</div>;
+  }
+
+  return <Navigate to={user ? roleDashboard(user.role) : "/login"} replace />;
 }
 
-export default App;
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={<HomeRedirect />} />
+
+      <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+        <Route element={<AppLayout />}>
+          <Route path="/admin/dashboard" element={<PlaceholderPage title="Admin Dashboard" />} />
+          <Route path="/admin/employees" element={<PlaceholderPage title="Employee Management" />} />
+          <Route path="/admin/departments" element={<PlaceholderPage title="Department Management" />} />
+          <Route path="/admin/attendance" element={<PlaceholderPage title="Attendance Management" />} />
+          <Route path="/admin/leave" element={<PlaceholderPage title="Leave Management" />} />
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["employee"]} />}>
+        <Route element={<AppLayout />}>
+          <Route path="/employee/dashboard" element={<PlaceholderPage title="Employee Dashboard" />} />
+          <Route path="/employee/profile" element={<ProfilePage />} />
+          <Route path="/employee/profile/password" element={<ChangePasswordPage />} />
+          <Route path="/employee/attendance" element={<PlaceholderPage title="My Attendance" />} />
+          <Route path="/employee/leave" element={<PlaceholderPage title="My Leave" />} />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<HomeRedirect />} />
+    </Routes>
+  );
+}
