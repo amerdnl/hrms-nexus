@@ -1,6 +1,12 @@
 import cors from "cors";
-import express, { type Request, type Response } from "express";
+import express, {
+  type ErrorRequestHandler,
+  type Request,
+  type Response,
+} from "express";
 import pool from "./config/db.js";
+import authRoutes from "./routes/authRoutes.js";
+import profileRoutes from "./routes/profileRoutes.js";
 
 const app = express();
 
@@ -11,6 +17,9 @@ app.use(
 );
 
 app.use(express.json());
+
+app.use("/api/auth", authRoutes);
+app.use("/api/profile", profileRoutes);
 
 app.get("/api/health", (_request: Request, response: Response) => {
   response.status(200).json({
@@ -42,5 +51,23 @@ app.get(
     }
   },
 );
+
+app.use((_request: Request, response: Response) => {
+  response.status(404).json({
+    success: false,
+    message: "API endpoint not found",
+  });
+});
+
+const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
+  console.error(error);
+
+  response.status(500).json({
+    success: false,
+    message: "An unexpected server error occurred",
+  });
+};
+
+app.use(errorHandler);
 
 export default app;
