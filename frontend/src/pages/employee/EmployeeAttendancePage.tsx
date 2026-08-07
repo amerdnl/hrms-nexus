@@ -35,12 +35,25 @@ function formatTime(time: string | null): string {
   return time.slice(0, 5);
 }
 
-function formatDate(date: string): string {
+function formatDate(value: string): string {
+  const text = String(value);
+  const match = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+
+  if (!match) {
+    return text || "—";
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  const displayDate = new Date(year, month - 1, day);
+
   return new Intl.DateTimeFormat("en-MY", {
     year: "numeric",
     month: "short",
     day: "2-digit",
-  }).format(new Date(`${date}T00:00:00`));
+  }).format(displayDate);
 }
 
 function EmployeeAttendancePage() {

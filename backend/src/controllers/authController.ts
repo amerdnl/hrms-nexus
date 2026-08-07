@@ -22,9 +22,14 @@ function getJwtConfiguration(): {
   };
 }
 
-export async function login(request: Request, response: Response): Promise<void> {
-  const email = typeof request.body.email === "string" ? request.body.email.trim() : "";
-  const password = typeof request.body.password === "string" ? request.body.password : "";
+export async function login(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const email =
+    typeof request.body.email === "string" ? request.body.email.trim() : "";
+  const password =
+    typeof request.body.password === "string" ? request.body.password : "";
 
   if (!email || !password) {
     response.status(400).json({
@@ -36,7 +41,10 @@ export async function login(request: Request, response: Response): Promise<void>
 
   const userRecord = await findUserRecordByEmail(email);
 
-  if (!userRecord || !(await bcrypt.compare(password, userRecord.password_hash))) {
+  if (
+    !userRecord ||
+    !(await bcrypt.compare(password, userRecord.password_hash))
+  ) {
     response.status(401).json({
       success: false,
       message: "Invalid email or password",
@@ -53,10 +61,17 @@ export async function login(request: Request, response: Response): Promise<void>
   }
 
   const { secret, expiresIn } = getJwtConfiguration();
+
   const token = jwt.sign(
-    { role: userRecord.role },
+    {
+      role: userRecord.role,
+      employeeId: userRecord.employee_id,
+    },
     secret,
-    { subject: String(userRecord.id), expiresIn },
+    {
+      subject: String(userRecord.id),
+      expiresIn,
+    },
   );
   const user = await findSafeUserById(userRecord.id);
 
@@ -99,6 +114,7 @@ export async function getCurrentUser(
 export function logout(_request: Request, response: Response): void {
   response.status(200).json({
     success: true,
-    message: "Logout successful. Remove the authentication token from the client.",
+    message:
+      "Logout successful. Remove the authentication token from the client.",
   });
 }

@@ -7,12 +7,18 @@ import ChangePasswordPage from "./pages/employee/ChangePasswordPage";
 import ProfilePage from "./pages/employee/ProfilePage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import { roleDashboard } from "./routes/roleDashboard";
+import AdminAttendancePage from "./pages/admin/AdminAttendancePage";
+import EmployeeAttendancePage from "./pages/employee/EmployeeAttendancePage";
 
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div className="grid min-h-screen place-items-center text-slate-600">Loading…</div>;
+    return (
+      <div className="grid min-h-screen place-items-center text-slate-600">
+        Loading…
+      </div>
+    );
   }
 
   return <Navigate to={user ? roleDashboard(user.role) : "/login"} replace />;
@@ -26,21 +32,45 @@ export default function App() {
 
       <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
         <Route element={<AppLayout />}>
-          <Route path="/admin/dashboard" element={<PlaceholderPage title="Admin Dashboard" />} />
-          <Route path="/admin/employees" element={<PlaceholderPage title="Employee Management" />} />
-          <Route path="/admin/departments" element={<PlaceholderPage title="Department Management" />} />
-          <Route path="/admin/attendance" element={<PlaceholderPage title="Attendance Management" />} />
-          <Route path="/admin/leave" element={<PlaceholderPage title="Leave Management" />} />
+          <Route
+            path="/admin/dashboard"
+            element={<PlaceholderPage title="Admin Dashboard" />}
+          />
+          <Route
+            path="/admin/employees"
+            element={<PlaceholderPage title="Employee Management" />}
+          />
+          <Route
+            path="/admin/departments"
+            element={<PlaceholderPage title="Department Management" />}
+          />
+          <Route path="/admin/attendance" element={<AdminAttendancePage />} />
+          <Route
+            path="/admin/leave"
+            element={<PlaceholderPage title="Leave Management" />}
+          />
         </Route>
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["employee"]} />}>
         <Route element={<AppLayout />}>
-          <Route path="/employee/dashboard" element={<PlaceholderPage title="Employee Dashboard" />} />
+          <Route
+            path="/employee/dashboard"
+            element={<PlaceholderPage title="Employee Dashboard" />}
+          />
           <Route path="/employee/profile" element={<ProfilePage />} />
-          <Route path="/employee/profile/password" element={<ChangePasswordPage />} />
-          <Route path="/employee/attendance" element={<PlaceholderPage title="My Attendance" />} />
-          <Route path="/employee/leave" element={<PlaceholderPage title="My Leave" />} />
+          <Route
+            path="/employee/profile/password"
+            element={<ChangePasswordPage />}
+          />
+          <Route
+            path="/employee/attendance"
+            element={<EmployeeAttendancePage />}
+          />
+          <Route
+            path="/employee/leave"
+            element={<PlaceholderPage title="My Leave" />}
+          />
         </Route>
       </Route>
 
