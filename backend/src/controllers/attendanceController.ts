@@ -10,19 +10,14 @@ import {
   getMalaysiaDateTime,
 } from "../utils/attendanceTime.js";
 
-interface AuthenticatedUser {
-  employeeId?: number;
-}
-
-type AuthenticatedRequest = Request & {
-  user?: AuthenticatedUser;
-};
-
 function getEmployeeId(request: Request): number | null {
-  const authenticatedRequest = request as AuthenticatedRequest;
-  const employeeId = authenticatedRequest.user?.employeeId;
+  const employeeId = request.user?.employeeId;
 
-  if (!employeeId || !Number.isInteger(employeeId)) {
+  if (
+    employeeId === null ||
+    employeeId === undefined ||
+    !Number.isInteger(employeeId)
+  ) {
     return null;
   }
 

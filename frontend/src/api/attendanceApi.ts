@@ -1,4 +1,5 @@
-import axios from "axios";
+import apiClient from "./axios";
+
 import type {
   ApiResponse,
   AttendanceFilters,
@@ -8,23 +9,8 @@ import type {
   UpdateAttendanceInput,
 } from "../types/attendance";
 
-const attendanceClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:5000/api",
-});
-
-attendanceClient.interceptors.request.use((config) => {
-  const token =
-    localStorage.getItem("accessToken") ?? localStorage.getItem("token");
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  return config;
-});
-
 export async function checkIn(): Promise<AttendanceRecord> {
-  const response = await attendanceClient.post<ApiResponse<AttendanceRecord>>(
+  const response = await apiClient.post<ApiResponse<AttendanceRecord>>(
     "/attendance/check-in",
   );
 
@@ -32,7 +18,7 @@ export async function checkIn(): Promise<AttendanceRecord> {
 }
 
 export async function checkOut(): Promise<AttendanceRecord> {
-  const response = await attendanceClient.patch<ApiResponse<AttendanceRecord>>(
+  const response = await apiClient.patch<ApiResponse<AttendanceRecord>>(
     "/attendance/check-out",
   );
 
@@ -41,7 +27,7 @@ export async function checkOut(): Promise<AttendanceRecord> {
 
 export async function getTodayAttendance(): Promise<AttendanceRecord | null> {
   const response =
-    await attendanceClient.get<ApiResponse<AttendanceRecord | null>>(
+    await apiClient.get<ApiResponse<AttendanceRecord | null>>(
       "/attendance/today",
     );
 
@@ -52,7 +38,7 @@ export async function getMyAttendanceHistory(
   startDate?: string,
   endDate?: string,
 ): Promise<AttendanceRecord[]> {
-  const response = await attendanceClient.get<ApiResponse<AttendanceRecord[]>>(
+  const response = await apiClient.get<ApiResponse<AttendanceRecord[]>>(
     "/attendance/my-history",
     {
       params: {
@@ -68,7 +54,7 @@ export async function getMyAttendanceHistory(
 export async function getAllAttendance(
   filters: AttendanceFilters,
 ): Promise<AttendanceRecord[]> {
-  const response = await attendanceClient.get<ApiResponse<AttendanceRecord[]>>(
+  const response = await apiClient.get<ApiResponse<AttendanceRecord[]>>(
     "/attendance",
     {
       params: filters,
@@ -81,7 +67,7 @@ export async function getAllAttendance(
 export async function createManualAttendance(
   input: ManualAttendanceInput,
 ): Promise<AttendanceRecord> {
-  const response = await attendanceClient.post<ApiResponse<AttendanceRecord>>(
+  const response = await apiClient.post<ApiResponse<AttendanceRecord>>(
     "/attendance/manual",
     input,
   );
@@ -93,7 +79,7 @@ export async function updateAttendance(
   attendanceId: number,
   input: UpdateAttendanceInput,
 ): Promise<AttendanceRecord> {
-  const response = await attendanceClient.patch<ApiResponse<AttendanceRecord>>(
+  const response = await apiClient.patch<ApiResponse<AttendanceRecord>>(
     `/attendance/${attendanceId}`,
     input,
   );
@@ -104,11 +90,12 @@ export async function updateAttendance(
 export async function getAttendanceStatistics(
   date?: string,
 ): Promise<AttendanceStatistics> {
-  const response = await attendanceClient.get<
-    ApiResponse<AttendanceStatistics>
-  >("/attendance/statistics", {
-    params: { date },
-  });
+  const response = await apiClient.get<ApiResponse<AttendanceStatistics>>(
+    "/attendance/statistics",
+    {
+      params: { date },
+    },
+  );
 
   return response.data.data;
 }

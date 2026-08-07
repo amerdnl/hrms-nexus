@@ -2,6 +2,7 @@ export type UserRole = "admin" | "employee";
 
 export interface AuthenticatedUser {
   id: number;
+  employeeId: number | null;
   role: UserRole;
 }
 

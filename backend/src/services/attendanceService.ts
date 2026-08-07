@@ -9,11 +9,25 @@ import type {
   UpdateAttendanceInput,
 } from "../types/attendance.js";
 
+function normalizeDatabaseDate(value: string | Date): string {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  const match = String(value).match(/(\d{4})-(\d{2})-(\d{2})/);
+
+  if (!match) {
+    throw new Error("Invalid attendance date returned by database");
+  }
+
+  return `${match[1]}-${match[2]}-${match[3]}`;
+}
+
 function mapAttendanceRow(row: AttendanceDatabaseRow): AttendanceRecord {
   return {
     id: Number(row.id),
     employeeId: Number(row.employee_id),
-    attendanceDate: row.attendance_date,
+    attendanceDate: normalizeDatabaseDate(row.attendance_date),
     checkInTime: row.check_in_time,
     checkOutTime: row.check_out_time,
     status: row.status,
