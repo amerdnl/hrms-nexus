@@ -40,3 +40,29 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_employee_id ON users(employee_id);
+
+CREATE TABLE IF NOT EXISTS leave_requests (
+  id SERIAL PRIMARY KEY,
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  leave_type VARCHAR(30) NOT NULL CHECK (
+    leave_type IN ('annual', 'medical', 'emergency', 'unpaid')
+  ),
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  reason TEXT NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (
+    status IN ('pending', 'approved', 'rejected')
+  ),
+  admin_comment TEXT,
+  reviewed_by INTEGER REFERENCES users(id),
+  reviewed_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK (start_date <= end_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_leave_requests_employee_id
+  ON leave_requests(employee_id);
+
+CREATE INDEX IF NOT EXISTS idx_leave_requests_status
+  ON leave_requests(status);

@@ -7,6 +7,7 @@ import express, {
 import pool from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
+import leaveRoutes from "./routes/leaveRoutes.js";
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/leaves", leaveRoutes);
 
 app.get("/api/health", (_request: Request, response: Response) => {
   response.status(200).json({
@@ -59,7 +61,12 @@ app.use((_request: Request, response: Response) => {
   });
 });
 
-const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
+const errorHandler: ErrorRequestHandler = (
+  error,
+  _request,
+  response,
+  _next,
+) => {
   console.error(error);
 
   response.status(500).json({
