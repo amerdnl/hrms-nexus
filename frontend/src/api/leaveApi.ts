@@ -73,8 +73,18 @@ export async function getMyLeaveRequests(): Promise<LeaveRequest[]> {
   return response.data.data.leaves.map(mapLeaveRequest);
 }
 
-export async function getAllLeaveRequests(): Promise<LeaveRequest[]> {
-  const response = await apiClient.get<LeaveHistoryApiResponse>("/leaves");
+interface LeaveFilters {
+  status?: string;
+  employee?: string;
+  date?: string;
+}
+
+export async function getAllLeaveRequests(
+  filters: LeaveFilters = {},
+): Promise<LeaveRequest[]> {
+  const response = await apiClient.get<LeaveHistoryApiResponse>("/leaves", {
+    params: filters,
+  });
 
   return response.data.data.leaves.map(mapLeaveRequest);
 }

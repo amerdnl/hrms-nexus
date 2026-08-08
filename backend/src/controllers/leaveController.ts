@@ -148,7 +148,30 @@ export async function getAllLeaveRequests(
   request: Request,
   response: Response,
 ): Promise<void> {
-  const result = await pool.query(`
+  const status =
+    typeof request.query.status === "string" ? request.query.status.trim() : "";
+
+  const allowedStatuses = ["pending", "approved", "rejected"];
+
+  const employee =
+    typeof request.query.employee === "string"
+      ? request.query.employee.trim()
+      : "";
+
+  const date =
+    typeof request.query.date === "string" ? request.query.date.trim() : "";
+
+  if (status && !allowedStatuses.includes(status)) {
+    response.status(400).json({
+      success: false,
+      message: "Invalid leave status filter",
+    });
+    return;
+  }
+
+  const values: string[] = [];
+
+  let query = `
     SELECT
       lr.id,
       lr.employee_id,
@@ -167,8 +190,36 @@ export async function getAllLeaveRequests(
     FROM leave_requests lr
     JOIN employees e ON lr.employee_id = e.id
     LEFT JOIN departments d ON e.department_id = d.id
+  `;
+
+  const conditions: string[] = [];
+
+  if (status) {
+    values.push(status);
+    conditions.push(`lr.status = $${values.length}`);
+  }
+
+  if (employee) {
+    values.push(`%${employee}%`);
+    conditions.push(`e.full_name ILIKE $${values.length}`);
+  }
+
+  if (date) {
+    values.push(date);
+    conditions.push(`$${values.length} BETWEEN lr.start_date AND lr.end_date`);
+  }
+
+  if (conditions.length > 0) {
+    query += `
+    WHERE ${conditions.join(" AND ")}
+  `;
+  }
+
+  query += `
     ORDER BY lr.created_at DESC
-  `);
+  `;
+
+  const result = await pool.query(query, values);
 
   response.status(200).json({
     success: true,
