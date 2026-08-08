@@ -4,11 +4,14 @@ import type {
   LeaveRequest,
   LeaveStatus,
   LeaveType,
+  UpdateLeaveStatusInput,
 } from "../types/leave";
 
 interface ApiLeaveRequest {
   id: number;
   employee_id: number;
+  employee_name?: string;
+  department_name?: string;
   leave_type: LeaveType;
   start_date: string;
   end_date: string;
@@ -41,6 +44,8 @@ function mapLeaveRequest(leave: ApiLeaveRequest): LeaveRequest {
   return {
     id: leave.id,
     employeeId: leave.employee_id,
+    employeeName: leave.employee_name,
+    departmentName: leave.department_name,
     leaveType: leave.leave_type,
     startDate: leave.start_date,
     endDate: leave.end_date,
@@ -66,4 +71,22 @@ export async function getMyLeaveRequests(): Promise<LeaveRequest[]> {
   const response = await apiClient.get<LeaveHistoryApiResponse>("/leaves/me");
 
   return response.data.data.leaves.map(mapLeaveRequest);
+}
+
+export async function getAllLeaveRequests(): Promise<LeaveRequest[]> {
+  const response = await apiClient.get<LeaveHistoryApiResponse>("/leaves");
+
+  return response.data.data.leaves.map(mapLeaveRequest);
+}
+
+export async function updateLeaveStatus(
+  leaveId: number,
+  input: UpdateLeaveStatusInput,
+): Promise<LeaveRequest> {
+  const response = await apiClient.put<LeaveApiResponse>(
+    `/leaves/${leaveId}/status`,
+    input,
+  );
+
+  return mapLeaveRequest(response.data.data.leave);
 }

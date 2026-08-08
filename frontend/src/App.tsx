@@ -8,6 +8,7 @@ import ProfilePage from "./pages/employee/ProfilePage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import { roleDashboard } from "./routes/roleDashboard";
 import EmployeeLeavePage from "./pages/employee/EmployeeLeavePage";
+import AdminLeavePage from "./pages/admin/AdminLeavePage";
 
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
@@ -47,10 +48,7 @@ export default function App() {
             path="/admin/attendance"
             element={<PlaceholderPage title="Attendance Management" />}
           />
-          <Route
-            path="/admin/leave"
-            element={<PlaceholderPage title="Leave Management" />}
-          />
+          <Route path="/admin/leave" element={<AdminLeavePage />} />
         </Route>
       </Route>
 
