@@ -16,7 +16,7 @@ export interface AttendanceRecord {
 export interface AttendanceDatabaseRow {
   id: number | string;
   employee_id: number | string;
-  attendance_date: string;
+  attendance_date: string | Date;
   check_in_time: string | null;
   check_out_time: string | null;
   status: AttendanceStatus;
