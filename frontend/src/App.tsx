@@ -11,6 +11,8 @@ import EmployeeLeavePage from "./pages/employee/EmployeeLeavePage";
 import AdminLeavePage from "./pages/admin/AdminLeavePage";
 import EmployeeDashboardPage from "./pages/employee/EmployeeDashboardPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+import AdminAttendancePage from "./pages/admin/AdminAttendancePage";
+import EmployeeAttendancePage from "./pages/employee/EmployeeAttendancePage";
 
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
@@ -43,10 +45,7 @@ export default function App() {
             path="/admin/departments"
             element={<PlaceholderPage title="Department Management" />}
           />
-          <Route
-            path="/admin/attendance"
-            element={<PlaceholderPage title="Attendance Management" />}
-          />
+          <Route path="/admin/attendance" element={<AdminAttendancePage />} />
           <Route path="/admin/leave" element={<AdminLeavePage />} />
         </Route>
       </Route>
@@ -64,9 +63,9 @@ export default function App() {
           />
           <Route
             path="/employee/attendance"
-            element={<PlaceholderPage title="My Attendance" />}
+            element={<EmployeeAttendancePage />}
           />
-          <Route path="/employee/leave" element={<EmployeeLeavePage />} />{" "}
+          <Route path="/employee/leave" element={<EmployeeLeavePage />} />
         </Route>
       </Route>
 
