@@ -7,6 +7,8 @@ import express, {
 import pool from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
+import leaveRoutes from "./routes/leaveRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 import { authenticateToken } from "./middleware/authMiddleware.js";
 import { authorizeRoles } from "./middleware/roleMiddleware.js";
 import { createAttendanceRouter } from "./routes/attendanceRoutes.js";
@@ -23,6 +25,8 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/leaves", leaveRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.use(
   "/api/attendance",
