@@ -7,13 +7,19 @@ export default function AdminLeavePage() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [statusFilter, setStatusFilter] = useState("");
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
+
   const [decisionStatus, setDecisionStatus] = useState<
     "approved" | "rejected" | null
   >(null);
+
+  const [isUpdatingDecision, setIsUpdatingDecision] = useState(false);
+
   const [adminComment, setAdminComment] = useState("");
 
   useEffect(() => {
@@ -47,6 +53,8 @@ export default function AdminLeavePage() {
     }
 
     try {
+      setIsUpdatingDecision(true);
+
       const updatedLeave = await updateLeaveStatus(selectedLeave.id, {
         status: decisionStatus,
         adminComment,
@@ -63,7 +71,21 @@ export default function AdminLeavePage() {
       setAdminComment("");
     } catch (error) {
       setError(getApiErrorMessage(error, "Unable to update leave request."));
+    } finally {
+      setIsUpdatingDecision(false);
     }
+  }
+
+  function getStatusClasses(status: LeaveRequest["status"]) {
+    if (status === "approved") {
+      return "bg-emerald-100 text-emerald-700";
+    }
+
+    if (status === "rejected") {
+      return "bg-red-100 text-red-700";
+    }
+
+    return "bg-amber-100 text-amber-700";
   }
 
   return (
@@ -190,8 +212,14 @@ export default function AdminLeavePage() {
                       {leave.reason}
                     </td>
 
-                    <td className="px-4 py-4 text-sm capitalize text-slate-600">
-                      {leave.status}
+                    <td className="px-4 py-4 text-sm">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium capitalize ${getStatusClasses(
+                          leave.status,
+                        )}`}
+                      >
+                        {leave.status}
+                      </span>
                     </td>
 
                     <td className="px-4 py-4">
@@ -272,19 +300,21 @@ export default function AdminLeavePage() {
             <button
               type="button"
               onClick={() => void confirmDecision()}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+              disabled={isUpdatingDecision}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Confirm
+              {isUpdatingDecision ? "Updating..." : "Confirm"}
             </button>
 
             <button
               type="button"
+              disabled={isUpdatingDecision}
               onClick={() => {
                 setSelectedLeave(null);
                 setDecisionStatus(null);
                 setAdminComment("");
               }}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancel
             </button>

@@ -3,6 +3,7 @@ import {
   createLeaveRequest,
   getMyLeaveRequests,
   getAllLeaveRequests,
+  getLeaveRequestById,
   updateLeaveStatus,
 } from "../controllers/leaveController.js";
 import { authenticateToken } from "../middleware/authMiddleware.js";
@@ -22,6 +23,13 @@ router.get(
   authenticateToken,
   authorizeRoles("admin"),
   getAllLeaveRequests,
+);
+
+router.get(
+  "/:id",
+  authenticateToken,
+  authorizeRoles("employee"),
+  getLeaveRequestById,
 );
 
 router.post(

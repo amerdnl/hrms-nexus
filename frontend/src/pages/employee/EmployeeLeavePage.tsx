@@ -20,6 +20,7 @@ export default function EmployeeLeavePage() {
   const [success, setSuccess] = useState("");
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [isLoadingLeaves, setIsLoadingLeaves] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     async function loadLeaveHistory() {
@@ -53,6 +54,10 @@ export default function EmployeeLeavePage() {
     }
 
     try {
+      setIsSubmitting(true);
+
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
       const newLeave = await createLeaveRequest(form);
 
       setLeaves((currentLeaves) => [newLeave, ...currentLeaves]);
@@ -60,7 +65,21 @@ export default function EmployeeLeavePage() {
       setForm(initialForm);
     } catch (error) {
       setError(getApiErrorMessage(error, "Unable to submit leave request."));
+    } finally {
+      setIsSubmitting(false);
     }
+  }
+
+  function getStatusClasses(status: LeaveRequest["status"]) {
+    if (status === "approved") {
+      return "bg-emerald-100 text-emerald-700";
+    }
+
+    if (status === "rejected") {
+      return "bg-red-100 text-red-700";
+    }
+
+    return "bg-amber-100 text-amber-700";
   }
 
   return (
@@ -189,9 +208,10 @@ export default function EmployeeLeavePage() {
 
           <button
             type="submit"
-            className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700"
+            disabled={isSubmitting}
+            className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Submit request
+            {isSubmitting ? "Submitting..." : "Submit request"}
           </button>
         </form>
       </div>
@@ -235,7 +255,15 @@ export default function EmployeeLeavePage() {
                       {new Date(leave.endDate).toLocaleDateString()}
                     </td>
 
-                    <td className="px-3 py-3 capitalize">{leave.status}</td>
+                    <td className="px-4 py-4 text-sm">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium capitalize ${getStatusClasses(
+                          leave.status,
+                        )}`}
+                      >
+                        {leave.status}
+                      </span>
+                    </td>
 
                     <td className="px-3 py-3">{leave.adminComment ?? "-"}</td>
 

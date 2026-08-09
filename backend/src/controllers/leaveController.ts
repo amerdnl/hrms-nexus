@@ -300,3 +300,75 @@ export async function updateLeaveStatus(
     },
   });
 }
+
+export async function getLeaveRequestById(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const leaveId = Number(request.params.id);
+
+  if (!Number.isInteger(leaveId) || leaveId <= 0) {
+    response.status(400).json({
+      success: false,
+      message: "Invalid leave request ID",
+    });
+    return;
+  }
+
+  const employeeResult = await pool.query(
+    `
+      SELECT employee_id
+      FROM users
+      WHERE id = $1
+    `,
+    [request.user!.id],
+  );
+
+  const employeeId = employeeResult.rows[0]?.employee_id;
+
+  if (!employeeId) {
+    response.status(403).json({
+      success: false,
+      message: "Authenticated user is not linked to an employee record",
+    });
+    return;
+  }
+
+  const result = await pool.query(
+    `
+      SELECT
+        id,
+        employee_id,
+        leave_type,
+        start_date,
+        end_date,
+        reason,
+        status,
+        admin_comment,
+        reviewed_by,
+        reviewed_at,
+        created_at,
+        updated_at
+      FROM leave_requests
+      WHERE id = $1
+        AND employee_id = $2
+    `,
+    [leaveId, employeeId],
+  );
+
+  if (result.rowCount === 0) {
+    response.status(404).json({
+      success: false,
+      message: "Leave request not found",
+    });
+    return;
+  }
+
+  response.status(200).json({
+    success: true,
+    message: "Leave request retrieved successfully",
+    data: {
+      leave: result.rows[0],
+    },
+  });
+}
