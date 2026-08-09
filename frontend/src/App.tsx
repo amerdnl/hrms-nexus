@@ -9,6 +9,8 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import { roleDashboard } from "./routes/roleDashboard";
 import EmployeeLeavePage from "./pages/employee/EmployeeLeavePage";
 import AdminLeavePage from "./pages/admin/AdminLeavePage";
+import EmployeeDashboardPage from "./pages/employee/EmployeeDashboardPage";
+import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
@@ -32,10 +34,7 @@ export default function App() {
 
       <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
         <Route element={<AppLayout />}>
-          <Route
-            path="/admin/dashboard"
-            element={<PlaceholderPage title="Admin Dashboard" />}
-          />
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route
             path="/admin/employees"
             element={<PlaceholderPage title="Employee Management" />}
@@ -56,7 +55,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route
             path="/employee/dashboard"
-            element={<PlaceholderPage title="Employee Dashboard" />}
+            element={<EmployeeDashboardPage />}
           />
           <Route path="/employee/profile" element={<ProfilePage />} />
           <Route
