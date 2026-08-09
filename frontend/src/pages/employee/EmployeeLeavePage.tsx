@@ -236,6 +236,7 @@ export default function EmployeeLeavePage() {
                   <th className="px-3 py-3">Leave Type</th>
                   <th className="px-3 py-3">Start Date</th>
                   <th className="px-3 py-3">End Date</th>
+                  <th>Reason</th>
                   <th className="px-3 py-3">Status</th>
                   <th className="px-3 py-3">Admin Comment</th>
                   <th className="px-3 py-3">Submitted</th>
@@ -254,6 +255,8 @@ export default function EmployeeLeavePage() {
                     <td className="px-3 py-3">
                       {new Date(leave.endDate).toLocaleDateString()}
                     </td>
+
+                    <td>{leave.reason}</td>
 
                     <td className="px-4 py-4 text-sm">
                       <span
