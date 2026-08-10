@@ -2,8 +2,36 @@ import type { Request, Response } from "express";
 import pool from "../config/db.js";
 import bcrypt from "bcrypt";
 
-export const getEmployees = async (_request: Request, response: Response) => {
+export const getEmployees = async (request: Request, response: Response) => {
   try {
+    const { search, department_id, employment_status } = request.query;
+
+    const conditions: string[] = [];
+    const values: string[] = [];
+
+    if (search) {
+      values.push(`%${String(search)}%`);
+      conditions.push(`
+    (
+      e.full_name ILIKE $${values.length}
+      OR e.employee_number ILIKE $${values.length}
+    )
+  `);
+    }
+
+    if (department_id) {
+      values.push(String(department_id));
+      conditions.push(`e.department_id = $${values.length}`);
+    }
+
+    if (employment_status) {
+      values.push(String(employment_status));
+      conditions.push(`e.employment_status = $${values.length}`);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
     const result = await pool.query(
       `
       SELECT
@@ -26,9 +54,11 @@ export const getEmployees = async (_request: Request, response: Response) => {
         e.updated_at
       FROM employees e
       LEFT JOIN departments d
-      ON e.department_id = d.id
+        ON e.department_id = d.id
+      ${whereClause}
       ORDER BY e.id;
       `,
+      values,
     );
 
     response.status(200).json({
@@ -116,7 +146,48 @@ export const createEmployee = async (request: Request, response: Response) => {
       return;
     }
 
+    const validStatuses = ["active", "inactive"];
+
+    if (employment_status && !validStatuses.includes(employment_status)) {
+      response.status(400).json({
+        success: false,
+        message: "Employment status must be active or inactive",
+      });
+
+      return;
+    }
+
+    if (!department_id) {
+      response.status(400).json({
+        success: false,
+        message: "Department is required",
+      });
+
+      return;
+    }
+
     await client.query("BEGIN");
+    // Check department exists
+
+    const departmentCheck = await client.query(
+      `
+  SELECT id
+  FROM departments
+  WHERE id = $1
+  `,
+      [department_id],
+    );
+
+    if (departmentCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+
+      response.status(404).json({
+        success: false,
+        message: "Department not found",
+      });
+
+      return;
+    }
 
     // Check duplicate employee number
 
@@ -262,7 +333,39 @@ export const updateEmployee = async (request: Request, response: Response) => {
       emergency_contact_phone,
     } = request.body;
 
+    const validStatuses = ["active", "inactive"];
+
+    if (employment_status && !validStatuses.includes(employment_status)) {
+      response.status(400).json({
+        success: false,
+        message: "Employment status must be active or inactive",
+      });
+
+      return;
+    }
+
     await client.query("BEGIN");
+    if (department_id) {
+      const departmentCheck = await client.query(
+        `
+    SELECT id
+    FROM departments
+    WHERE id = $1
+    `,
+        [department_id],
+      );
+
+      if (departmentCheck.rows.length === 0) {
+        await client.query("ROLLBACK");
+
+        response.status(404).json({
+          success: false,
+          message: "Department not found",
+        });
+
+        return;
+      }
+    }
 
     // Check employee exists
 
@@ -320,14 +423,35 @@ export const updateEmployee = async (request: Request, response: Response) => {
     // Update user email if provided
 
     if (email) {
+      const emailCheck = await client.query(
+        `
+    SELECT id
+    FROM users
+    WHERE email = $1
+      AND employee_id <> $2
+    `,
+        [email, id],
+      );
+
+      if (emailCheck.rows.length > 0) {
+        await client.query("ROLLBACK");
+
+        response.status(409).json({
+          success: false,
+          message: "Email already exists",
+        });
+
+        return;
+      }
+
       await client.query(
         `
-        UPDATE users
-        SET
-          email = $1,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE employee_id = $2
-        `,
+    UPDATE users
+    SET
+      email = $1,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE employee_id = $2
+    `,
         [email, id],
       );
     }
@@ -423,6 +547,142 @@ export const deleteEmployee = async (request: Request, response: Response) => {
     response.status(500).json({
       success: false,
       message: "Failed to deactivate employee",
+    });
+  } finally {
+    client.release();
+  }
+};
+
+export const permanentlyDeleteEmployee = async (
+  request: Request,
+  response: Response,
+) => {
+  const client = await pool.connect();
+
+  try {
+    const { id } = request.params;
+
+    await client.query("BEGIN");
+
+    // Check employee exists
+    const employeeCheck = await client.query(
+      `
+      SELECT id, full_name
+      FROM employees
+      WHERE id = $1
+      `,
+      [id],
+    );
+
+    if (employeeCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+
+      response.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+
+      return;
+    }
+
+    // Delete employee.
+    // Related users, attendance and leave records
+    // are removed automatically because of ON DELETE CASCADE.
+    await client.query(
+      `
+      DELETE FROM employees
+      WHERE id = $1
+      `,
+      [id],
+    );
+
+    await client.query("COMMIT");
+
+    response.status(200).json({
+      success: true,
+      message: "Employee permanently deleted",
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    console.error(error);
+
+    response.status(500).json({
+      success: false,
+      message: "Failed to permanently delete employee",
+    });
+  } finally {
+    client.release();
+  }
+};
+
+export const reactivateEmployee = async (
+  request: Request,
+  response: Response,
+) => {
+  const client = await pool.connect();
+
+  try {
+    const { id } = request.params;
+
+    await client.query("BEGIN");
+
+    const employeeCheck = await client.query(
+      `
+      SELECT id
+      FROM employees
+      WHERE id = $1
+      `,
+      [id],
+    );
+
+    if (employeeCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+
+      response.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+
+      return;
+    }
+
+    await client.query(
+      `
+      UPDATE employees
+      SET
+        employment_status = 'active',
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      `,
+      [id],
+    );
+
+    await client.query(
+      `
+      UPDATE users
+      SET
+        is_active = TRUE,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE employee_id = $1
+      `,
+      [id],
+    );
+
+    await client.query("COMMIT");
+
+    response.status(200).json({
+      success: true,
+      message: "Employee reactivated successfully",
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    console.error(error);
+
+    response.status(500).json({
+      success: false,
+      message: "Failed to reactivate employee",
     });
   } finally {
     client.release();

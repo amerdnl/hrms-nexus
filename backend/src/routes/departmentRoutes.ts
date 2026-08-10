@@ -13,9 +13,9 @@ const router = Router();
 
 router.get("/", getDepartments);
 
-router.get("/:id", getDepartmentById);
-
 router.get("/:id/employees", getDepartmentEmployees);
+
+router.get("/:id", getDepartmentById);
 
 router.post("/", createDepartment);
 
