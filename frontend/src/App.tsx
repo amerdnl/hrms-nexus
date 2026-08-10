@@ -1,14 +1,25 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/layout/AppLayout";
 import { useAuth } from "./context/useAuth";
-import PlaceholderPage from "./pages/PlaceholderPage";
 import LoginPage from "./pages/auth/LoginPage";
 import ChangePasswordPage from "./pages/employee/ChangePasswordPage";
 import ProfilePage from "./pages/employee/ProfilePage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import { roleDashboard } from "./routes/roleDashboard";
+import EmployeeLeavePage from "./pages/employee/EmployeeLeavePage";
+import AdminLeavePage from "./pages/admin/AdminLeavePage";
+import EmployeeDashboardPage from "./pages/employee/EmployeeDashboardPage";
+import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminAttendancePage from "./pages/admin/AdminAttendancePage";
 import EmployeeAttendancePage from "./pages/employee/EmployeeAttendancePage";
+import EmployeeListPage from "./pages/admin/EmployeeListPage";
+import DepartmentListPage from "./pages/admin/DepartmentListPage";
+import DepartmentFormPage from "./pages/admin/DepartmentFormPage";
+import DepartmentDetailsPage from "./pages/admin/DepartmentDetailsPage";
+import DepartmentEditPage from "./pages/admin/DepartmentEditPage";
+import EmployeeDetailsPage from "./pages/admin/EmployeeDetailsPage";
+import EmployeeEditPage from "./pages/admin/EmployeeEditPage";
+import EmployeeFormPage from "./pages/admin/EmployeeFormPage";
 
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
@@ -32,31 +43,39 @@ export default function App() {
 
       <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
         <Route element={<AppLayout />}>
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="/admin/employees" element={<EmployeeListPage />} />
+          <Route path="/admin/employees/new" element={<EmployeeFormPage />} />
           <Route
-            path="/admin/dashboard"
-            element={<PlaceholderPage title="Admin Dashboard" />}
+            path="/admin/employees/:id/edit"
+            element={<EmployeeEditPage />}
           />
           <Route
-            path="/admin/employees"
-            element={<PlaceholderPage title="Employee Management" />}
+            path="/admin/employees/:id"
+            element={<EmployeeDetailsPage />}
+          />
+          <Route path="/admin/departments" element={<DepartmentListPage />} />
+          <Route
+            path="/admin/departments/new"
+            element={<DepartmentFormPage />}
           />
           <Route
-            path="/admin/departments"
-            element={<PlaceholderPage title="Department Management" />}
+            path="/admin/departments/:id/edit"
+            element={<DepartmentEditPage />}
+          />
+          <Route
+            path="/admin/departments/:id"
+            element={<DepartmentDetailsPage />}
           />
           <Route path="/admin/attendance" element={<AdminAttendancePage />} />
-          <Route
-            path="/admin/leave"
-            element={<PlaceholderPage title="Leave Management" />}
-          />
+          <Route path="/admin/leave" element={<AdminLeavePage />} />
         </Route>
       </Route>
-
       <Route element={<ProtectedRoute allowedRoles={["employee"]} />}>
         <Route element={<AppLayout />}>
           <Route
             path="/employee/dashboard"
-            element={<PlaceholderPage title="Employee Dashboard" />}
+            element={<EmployeeDashboardPage />}
           />
           <Route path="/employee/profile" element={<ProfilePage />} />
           <Route
@@ -67,10 +86,7 @@ export default function App() {
             path="/employee/attendance"
             element={<EmployeeAttendancePage />}
           />
-          <Route
-            path="/employee/leave"
-            element={<PlaceholderPage title="My Leave" />}
-          />
+          <Route path="/employee/leave" element={<EmployeeLeavePage />} />
         </Route>
       </Route>
 
