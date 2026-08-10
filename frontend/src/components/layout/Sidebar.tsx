@@ -2,7 +2,6 @@ import {
   Building2,
   CalendarDays,
   Clock3,
-  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -12,8 +11,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
+import LogoutConfirmationModal from "../common/LogoutConfirmationModal";
 
 interface NavigationItem {
   label: string;
@@ -34,7 +34,6 @@ const employeeNavigation: NavigationItem[] = [
   { label: "Profile", to: "/employee/profile", icon: UserRound },
   { label: "Attendance", to: "/employee/attendance", icon: Clock3 },
   { label: "Leave", to: "/employee/leave", icon: CalendarDays },
-  { label: "Change Password", to: "/employee/profile/password", icon: KeyRound },
 ];
 
 function getInitials(name: string) {
@@ -48,12 +47,26 @@ function getInitials(name: string) {
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   if (!user) return null;
 
   const name = user.employee?.fullName ?? (user.role === "admin" ? "Administrator" : "Employee");
   const navigation = user.role === "admin" ? adminNavigation : employeeNavigation;
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      navigate("/login", { replace: true });
+    } finally {
+      setIsLoggingOut(false);
+      setIsLogoutModalOpen(false);
+    }
+  };
 
   return (
     <>
@@ -117,11 +130,18 @@ export default function Sidebar() {
               <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">{user.role}</p>
             </div>
           </div>
-          <button className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-red-500/10 hover:text-red-300" type="button" onClick={() => void logout()}>
+          <button className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-red-500/10 hover:text-red-300" type="button" onClick={() => setIsLogoutModalOpen(true)}>
             <LogOut size={18} /> Logout
           </button>
         </div>
       </aside>
+
+      <LogoutConfirmationModal
+        isOpen={isLogoutModalOpen}
+        isLoggingOut={isLoggingOut}
+        onCancel={() => setIsLogoutModalOpen(false)}
+        onConfirm={() => void handleLogout()}
+      />
     </>
   );
 }
