@@ -18,6 +18,7 @@ export default function EmployeeFormPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [showTemporaryPassword, setShowTemporaryPassword] = useState(false);
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -183,15 +184,33 @@ export default function EmployeeFormPage() {
               Temporary Password *
             </label>
 
-            <input
-              id="temporary-password"
-              type="password"
-              value={temporaryPassword}
-              onChange={(event) => setTemporaryPassword(event.target.value)}
-              placeholder="Temporary password"
-              disabled={isSubmitting}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
+            <div className="relative">
+              <input
+                id="temporary-password"
+                type={showTemporaryPassword ? "text" : "password"}
+                value={temporaryPassword}
+                onChange={(event) => setTemporaryPassword(event.target.value)}
+                placeholder="Temporary password"
+                disabled={isSubmitting}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowTemporaryPassword((previous) => !previous)
+                }
+                disabled={isSubmitting}
+                aria-label={
+                  showTemporaryPassword
+                    ? "Hide temporary password"
+                    : "Show temporary password"
+                }
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 disabled:cursor-not-allowed"
+              >
+                {showTemporaryPassword ? "◉" : "◌"}
+              </button>
+            </div>
           </div>
 
           <div>
