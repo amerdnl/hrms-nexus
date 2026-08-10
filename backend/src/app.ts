@@ -6,7 +6,9 @@ import express, {
 } from "express";
 import pool from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
-import profileRoutes from "./routes/profileRoutes.js";
+import profileRoutes from "./routes/profileRoutes.ts";
+import employeeRoutes from "./routes/employeeRoutes.ts";
+import departmentRoutes from "./routes/departmentRoutes.ts";
 
 const app = express();
 
@@ -20,6 +22,8 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/employees", employeeRoutes);
+app.use("/api/departments", departmentRoutes);
 
 app.get("/api/health", (_request: Request, response: Response) => {
   response.status(200).json({
@@ -59,7 +63,12 @@ app.use((_request: Request, response: Response) => {
   });
 });
 
-const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
+const errorHandler: ErrorRequestHandler = (
+  error,
+  _request,
+  response,
+  _next,
+) => {
   console.error(error);
 
   response.status(500).json({
