@@ -4,10 +4,10 @@ import bcrypt from "bcrypt";
 
 export const getEmployees = async (request: Request, response: Response) => {
   try {
-    const { search, department_id, employment_status } = request.query;
+    const { search, department, employment_status } = request.query;
 
     const conditions: string[] = [];
-    const values: string[] = [];
+    const values: (string | number)[] = [];
 
     if (search) {
       values.push(`%${String(search)}%`);
@@ -19,9 +19,14 @@ export const getEmployees = async (request: Request, response: Response) => {
   `);
     }
 
-    if (department_id) {
-      values.push(String(department_id));
-      conditions.push(`e.department_id = $${values.length}`);
+    if (department) {
+      if (!isNaN(Number(department))) {
+        values.push(Number(department));
+        conditions.push(`e.department_id = $${values.length}`);
+      } else {
+        values.push(`%${department}%`);
+        conditions.push(`d.name ILIKE $${values.length}`);
+      }
     }
 
     if (employment_status) {

@@ -20,7 +20,7 @@ export interface Employee {
 
 export interface EmployeeFilters {
   search?: string;
-  department_id?: number;
+  department?: string;
   employment_status?: string;
 }
 

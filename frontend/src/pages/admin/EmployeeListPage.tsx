@@ -15,7 +15,7 @@ export default function EmployeeListPage() {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
+  const [departmentSearch, setDepartmentSearch] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState("");
 
   async function loadEmployees() {
@@ -25,7 +25,7 @@ export default function EmployeeListPage() {
 
       const data = await getEmployees({
         search: search || undefined,
-        department_id: departmentId ? Number(departmentId) : undefined,
+        department: departmentSearch || undefined,
         employment_status: employmentStatus || undefined,
       });
 
@@ -39,7 +39,7 @@ export default function EmployeeListPage() {
 
   useEffect(() => {
     void loadEmployees();
-  }, [search, departmentId, employmentStatus]);
+  }, [search, departmentSearch, employmentStatus]);
 
   async function handleDeactivate(id: number, name: string) {
     const confirmed = window.confirm(
@@ -139,22 +139,22 @@ export default function EmployeeListPage() {
           </div>
 
           <div>
+            {" "}
             <label
               htmlFor="department-filter"
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Department ID
-            </label>
-
+              {" "}
+              Department{" "}
+            </label>{" "}
             <input
               id="department-filter"
-              type="number"
-              min="1"
-              value={departmentId}
-              onChange={(event) => setDepartmentId(event.target.value)}
-              placeholder="e.g. 1"
+              type="text"
+              value={departmentSearch}
+              onChange={(event) => setDepartmentSearch(event.target.value)}
+              placeholder="Department ID or name"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
+            />{" "}
           </div>
 
           <div>
