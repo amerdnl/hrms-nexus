@@ -43,7 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_users_employee_id ON users(employee_id);
 
 CREATE TABLE IF NOT EXISTS leave_requests (
   id SERIAL PRIMARY KEY,
-  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  employee_id BIGINT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
   leave_type VARCHAR(30) NOT NULL CHECK (
     leave_type IN ('annual', 'medical', 'emergency', 'unpaid')
   ),
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS leave_requests (
     status IN ('pending', 'approved', 'rejected')
   ),
   admin_comment TEXT,
-  reviewed_by INTEGER REFERENCES users(id),
+  reviewed_by BIGINT REFERENCES users(id),
   reviewed_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -69,7 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_leave_requests_status
 
 CREATE TABLE IF NOT EXISTS attendance (
   id BIGSERIAL PRIMARY KEY,
-  employee_id INTEGER NOT NULL
+  employee_id BIGINT NOT NULL
     REFERENCES employees(id) ON DELETE CASCADE,
   attendance_date DATE NOT NULL,
   check_in_time TIME,
