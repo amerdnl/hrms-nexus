@@ -4,11 +4,19 @@ import express, {
   type Request,
   type Response,
 } from "express";
+
 import pool from "./config/db.js";
+
 import authRoutes from "./routes/authRoutes.js";
-import profileRoutes from "./routes/profileRoutes.ts";
-import employeeRoutes from "./routes/employeeRoutes.ts";
-import departmentRoutes from "./routes/departmentRoutes.ts";
+import profileRoutes from "./routes/profileRoutes.js";
+import employeeRoutes from "./routes/employeeRoutes.js";
+import departmentRoutes from "./routes/departmentRoutes.js";
+import leaveRoutes from "./routes/leaveRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+
+import { authenticateToken } from "./middleware/authMiddleware.js";
+import { authorizeRoles } from "./middleware/roleMiddleware.js";
+import { createAttendanceRouter } from "./routes/attendanceRoutes.js";
 
 const app = express();
 
@@ -24,6 +32,17 @@ app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/departments", departmentRoutes);
+
+app.use("/api/leaves", leaveRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+
+app.use(
+  "/api/attendance",
+  createAttendanceRouter({
+    authenticate: authenticateToken,
+    requireAdmin: authorizeRoles("admin"),
+  }),
+);
 
 app.get("/api/health", (_request: Request, response: Response) => {
   response.status(200).json({

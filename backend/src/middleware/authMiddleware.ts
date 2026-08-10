@@ -5,6 +5,7 @@ import type { AuthenticatedUser, UserRole } from "../types/auth.js";
 interface TokenPayload extends jwt.JwtPayload {
   sub: string;
   role: UserRole;
+  employeeId: number | null;
 }
 
 function getJwtSecret(): string {
@@ -44,16 +45,32 @@ export function authenticateToken(
 
   try {
     const decoded = jwt.verify(token, getJwtSecret()) as TokenPayload;
+
     const userId = Number(decoded.sub);
 
-    if (!Number.isInteger(userId) || !["admin", "employee"].includes(decoded.role)) {
+    const employeeId =
+      decoded.employeeId === null || decoded.employeeId === undefined
+        ? null
+        : Number(decoded.employeeId);
+
+    const hasValidEmployeeId =
+      employeeId === null || (Number.isInteger(employeeId) && employeeId > 0);
+
+    if (
+      !Number.isInteger(userId) ||
+      !["admin", "employee"].includes(decoded.role) ||
+      !hasValidEmployeeId ||
+      (decoded.role === "employee" && employeeId === null)
+    ) {
       throw new jwt.JsonWebTokenError("Invalid token payload");
     }
 
     const authenticatedUser: AuthenticatedUser = {
       id: userId,
+      employeeId,
       role: decoded.role,
     };
+
     request.user = authenticatedUser;
     next();
   } catch (error) {
