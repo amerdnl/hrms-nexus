@@ -1,4 +1,3 @@
-import axios from "axios";
 import { CalendarDays, Pencil, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -7,6 +6,7 @@ import {
   getAttendanceStatistics,
   updateAttendance,
 } from "../../api/attendanceApi";
+import { getApiErrorMessage } from "../../api/axios";
 import AttendanceStatsCards from "../../components/attendance/AttendanceStatsCards";
 import EditAttendanceForm from "../../components/attendance/EditAttendanceForm";
 import ManualAttendanceForm from "../../components/attendance/ManualAttendanceForm";
@@ -18,6 +18,11 @@ import type {
   ManualAttendanceInput,
   UpdateAttendanceInput,
 } from "../../types/attendance";
+import {
+  formatDate,
+  formatTime,
+  getMalaysiaDate,
+} from "../../utils/datetime";
 
 const emptyStatistics: AttendanceStatistics = {
   total: 0,
@@ -34,46 +39,8 @@ const statusStyles: Record<AttendanceStatus, string> = {
   on_leave: "bg-blue-100 text-blue-700",
 };
 
-function getMalaysiaDate(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kuala_Lumpur",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
 function getErrorMessage(error: unknown): string {
-  if (axios.isAxiosError<{ message?: string }>(error)) {
-    return error.response?.data?.message ?? "Unable to complete the request";
-  }
-
-  return "An unexpected error occurred";
-}
-
-function formatTime(time: string | null): string {
-  return time ? time.slice(0, 5) : "—";
-}
-
-function formatDate(value: string): string {
-  const text = String(value);
-  const match = text.match(/(\d{4})-(\d{2})-(\d{2})/);
-
-  if (!match) {
-    return text || "—";
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-
-  const displayDate = new Date(year, month - 1, day);
-
-  return new Intl.DateTimeFormat("en-MY", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  }).format(displayDate);
+  return getApiErrorMessage(error, "Unable to complete the request");
 }
 
 function AdminAttendancePage() {

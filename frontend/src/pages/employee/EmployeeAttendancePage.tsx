@@ -1,4 +1,3 @@
-import axios from "axios";
 import { CalendarDays, CheckCircle2, Clock, LogIn, LogOut } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -7,10 +6,12 @@ import {
   getMyAttendanceHistory,
   getTodayAttendance,
 } from "../../api/attendanceApi";
+import { getApiErrorMessage } from "../../api/axios";
 import type {
   AttendanceRecord,
   AttendanceStatus,
 } from "../../types/attendance";
+import { formatDate, formatTime } from "../../utils/datetime";
 
 const statusStyles: Record<AttendanceStatus, string> = {
   present: "bg-green-100 text-green-700",
@@ -20,40 +21,15 @@ const statusStyles: Record<AttendanceStatus, string> = {
 };
 
 function getErrorMessage(error: unknown): string {
-  if (axios.isAxiosError<{ message?: string }>(error)) {
-    return error.response?.data?.message ?? "Unable to complete the request";
-  }
-
-  return "An unexpected error occurred";
+  return getApiErrorMessage(error, "Unable to complete the request");
 }
 
-function formatTime(time: string | null): string {
-  if (!time) {
-    return "Not recorded";
-  }
-
-  return time.slice(0, 5);
-}
-
-function formatDate(value: string): string {
-  const text = String(value);
-  const match = text.match(/(\d{4})-(\d{2})-(\d{2})/);
-
-  if (!match) {
-    return text || "—";
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-
-  const displayDate = new Date(year, month - 1, day);
-
-  return new Intl.DateTimeFormat("en-MY", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  }).format(displayDate);
+/**
+ * This page shows "Not recorded" where the admin page shows an em dash, so the
+ * fallback is bound here rather than changing the shared default.
+ */
+function formatAttendanceTime(time: string | null): string {
+  return formatTime(time, "Not recorded");
 }
 
 function EmployeeAttendancePage() {
@@ -160,7 +136,7 @@ function EmployeeAttendancePage() {
           </div>
 
           <p className="mt-3 text-2xl font-semibold text-slate-900">
-            {formatTime(today?.checkInTime ?? null)}
+            {formatAttendanceTime(today?.checkInTime ?? null)}
           </p>
         </div>
 
@@ -171,7 +147,7 @@ function EmployeeAttendancePage() {
           </div>
 
           <p className="mt-3 text-2xl font-semibold text-slate-900">
-            {formatTime(today?.checkOutTime ?? null)}
+            {formatAttendanceTime(today?.checkOutTime ?? null)}
           </p>
         </div>
 
@@ -303,11 +279,11 @@ function EmployeeAttendancePage() {
                     </td>
 
                     <td className="px-5 py-4">
-                      {formatTime(record.checkInTime)}
+                      {formatAttendanceTime(record.checkInTime)}
                     </td>
 
                     <td className="px-5 py-4">
-                      {formatTime(record.checkOutTime)}
+                      {formatAttendanceTime(record.checkOutTime)}
                     </td>
 
                     <td className="px-5 py-4">
