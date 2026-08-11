@@ -10,8 +10,9 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { resolveProfileImageUrl } from "../../api/axios";
 import { useAuth } from "../../context/useAuth";
 import LogoutConfirmationModal from "../common/LogoutConfirmationModal";
 
@@ -51,11 +52,17 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
+
+  useEffect(() => {
+    setProfileImageFailed(false);
+  }, [user?.employee?.profileImage]);
 
   if (!user) return null;
 
   const name = user.employee?.fullName ?? (user.role === "admin" ? "Administrator" : "Employee");
   const navigation = user.role === "admin" ? adminNavigation : employeeNavigation;
+  const profileImageUrl = resolveProfileImageUrl(user.employee?.profileImage ?? null);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -121,9 +128,18 @@ export default function Sidebar() {
 
         <div className="border-t border-slate-800 p-4">
           <div className="mb-3 flex items-center gap-3 rounded-lg bg-slate-900 p-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-600 text-sm font-bold text-white">
-              {getInitials(name)}
-            </div>
+            {profileImageUrl && !profileImageFailed ? (
+              <img
+                className="h-10 w-10 shrink-0 rounded-full object-cover"
+                src={profileImageUrl}
+                alt=""
+                onError={() => setProfileImageFailed(true)}
+              />
+            ) : (
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                {getInitials(name)}
+              </div>
+            )}
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">{name}</p>
               <p className="truncate text-xs text-slate-400">{user.email}</p>

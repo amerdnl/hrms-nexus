@@ -1,22 +1,27 @@
-import { Camera, KeyRound, Save, UserRound } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { Camera, KeyRound, Save, Trash2, UserRound } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
+  deleteProfileImageRequest,
   getProfileRequest,
+  uploadProfileImageRequest,
   updateProfileRequest,
   type ProfileUpdates,
 } from "../../api/profile";
-import { getApiErrorMessage } from "../../api/axios";
+import { getApiErrorMessage, resolveProfileImageUrl } from "../../api/axios";
 import { useAuth } from "../../context/useAuth";
 import type { CurrentUser } from "../../types/auth";
 import ChangePasswordModal from "./ChangePasswordPage";
+import ConfirmationModal from "../../components/common/ConfirmationModal";
 
 const emptyForm: ProfileUpdates = {
   phone: "",
   address: "",
   emergency_contact_name: "",
   emergency_contact_phone: "",
-  profile_image: "",
 };
+
+const supportedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const maxProfileImageSize = 2 * 1024 * 1024;
 
 function displayDate(value: string | null | undefined) {
   if (!value) return "Not provided";
@@ -36,6 +41,7 @@ function initials(name: string | undefined) {
 
 export default function ProfilePage() {
   const { refreshUser } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<CurrentUser | null>(null);
   const [form, setForm] = useState<ProfileUpdates>(emptyForm);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,6 +49,12 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isRemovePhotoModalOpen, setIsRemovePhotoModalOpen] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isRemovingPhoto, setIsRemovingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const [photoSuccess, setPhotoSuccess] = useState("");
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -54,7 +66,6 @@ export default function ProfilePage() {
           address: user.employee?.address ?? "",
           emergency_contact_name: user.employee?.emergencyContactName ?? "",
           emergency_contact_phone: user.employee?.emergencyContactPhone ?? "",
-          profile_image: user.employee?.profileImage ?? "",
         });
       } catch (requestError) {
         setError(getApiErrorMessage(requestError, "Unable to load your profile."));
@@ -65,6 +76,10 @@ export default function ProfilePage() {
 
     void loadProfile();
   }, []);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [profile?.employee?.profileImage]);
 
   const updateField = (field: keyof ProfileUpdates, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -88,6 +103,60 @@ export default function ProfilePage() {
     }
   };
 
+  const handlePhotoSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setPhotoError("");
+    setPhotoSuccess("");
+
+    if (!supportedImageTypes.has(file.type)) {
+      setPhotoError("Only JPG, PNG and WEBP images are allowed.");
+      return;
+    }
+
+    if (file.size > maxProfileImageSize) {
+      setPhotoError("Profile image must be 2 MB or smaller.");
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      const updatedUser = await uploadProfileImageRequest(file);
+      setProfile(updatedUser);
+      await refreshUser();
+      setPhotoSuccess("Profile photo updated successfully.");
+    } catch (requestError) {
+      setPhotoError(
+        getApiErrorMessage(requestError, "Unable to upload your profile photo."),
+      );
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    setIsRemovingPhoto(true);
+    setPhotoError("");
+    setPhotoSuccess("");
+
+    try {
+      const updatedUser = await deleteProfileImageRequest();
+      setProfile(updatedUser);
+      await refreshUser();
+      setPhotoSuccess("Profile photo removed successfully.");
+      setIsRemovePhotoModalOpen(false);
+    } catch (requestError) {
+      setPhotoError(
+        getApiErrorMessage(requestError, "Unable to remove your profile photo."),
+      );
+      setIsRemovePhotoModalOpen(false);
+    } finally {
+      setIsRemovingPhoto(false);
+    }
+  };
+
   if (isLoading) {
     return <p className="text-sm text-slate-600">Loading profile…</p>;
   }
@@ -101,6 +170,7 @@ export default function ProfilePage() {
   }
 
   const employee = profile.employee;
+  const profileImageUrl = resolveProfileImageUrl(employee.profileImage);
   const readOnlyFields = [
     ["Employee number", employee.employeeNumber],
     ["Full name", employee.fullName],
@@ -122,8 +192,13 @@ export default function ProfilePage() {
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-          {employee.profileImage ? (
-            <img className="mx-auto h-28 w-28 rounded-full object-cover ring-4 ring-blue-50" src={employee.profileImage} alt={employee.fullName} />
+          {profileImageUrl && !imageFailed ? (
+            <img
+              className="mx-auto h-28 w-28 rounded-full object-cover ring-4 ring-blue-50"
+              src={profileImageUrl}
+              alt={`${employee.fullName}'s profile`}
+              onError={() => setImageFailed(true)}
+            />
           ) : (
             <div className="mx-auto grid h-28 w-28 place-items-center rounded-full bg-blue-100 text-3xl font-bold text-blue-700">
               {initials(employee.fullName)}
@@ -134,6 +209,43 @@ export default function ProfilePage() {
           <span className="mt-4 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold capitalize text-emerald-700">
             {employee.employmentStatus}
           </span>
+          <input
+            ref={fileInputRef}
+            className="hidden"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => void handlePhotoSelected(event)}
+          />
+          <div className="mt-5 flex flex-col items-center gap-2">
+            <button
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingPhoto || isRemovingPhoto}
+            >
+              {isUploadingPhoto ? "Uploading..." : "Change Photo"}
+            </button>
+            {employee.profileImage && (
+              <button
+                className="flex items-center gap-1.5 px-2 py-1 text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-60"
+                type="button"
+                onClick={() => setIsRemovePhotoModalOpen(true)}
+                disabled={isUploadingPhoto || isRemovingPhoto}
+              >
+                <Trash2 size={15} /> Remove Photo
+              </button>
+            )}
+          </div>
+          {photoError && (
+            <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-left text-xs text-red-700" role="alert">
+              {photoError}
+            </p>
+          )}
+          {photoSuccess && (
+            <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-left text-xs text-emerald-700" role="status">
+              {photoSuccess}
+            </p>
+          )}
         </aside>
 
         <div className="space-y-6">
@@ -166,7 +278,6 @@ export default function ProfilePage() {
                   ["Phone", "phone"],
                   ["Emergency contact name", "emergency_contact_name"],
                   ["Emergency contact phone", "emergency_contact_phone"],
-                  ["Profile image URL", "profile_image"],
                 ] as const).map(([label, field]) => (
                   <label className="text-sm font-semibold text-slate-700" key={field}>
                     {label}
@@ -230,6 +341,17 @@ export default function ProfilePage() {
       <ChangePasswordModal
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
+      />
+      <ConfirmationModal
+        isOpen={isRemovePhotoModalOpen}
+        isProcessing={isRemovingPhoto}
+        title="Remove profile photo?"
+        description="Your profile will return to showing your initials."
+        confirmLabel="Remove Photo"
+        processingLabel="Removing..."
+        icon={<Trash2 size={21} />}
+        onCancel={() => setIsRemovePhotoModalOpen(false)}
+        onConfirm={() => void handleRemovePhoto()}
       />
     </div>
   );

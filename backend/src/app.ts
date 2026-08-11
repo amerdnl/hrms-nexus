@@ -17,6 +17,7 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 import { authenticateToken } from "./middleware/authMiddleware.js";
 import { authorizeRoles } from "./middleware/roleMiddleware.js";
 import { createAttendanceRouter } from "./routes/attendanceRoutes.js";
+import { profileImagesDirectory } from "./middleware/profileImageUpload.js";
 
 const app = express();
 
@@ -27,6 +28,11 @@ app.use(
 );
 
 app.use(express.json());
+
+app.use(
+  "/uploads/profile-images",
+  express.static(profileImagesDirectory, { dotfiles: "deny", index: false }),
+);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
