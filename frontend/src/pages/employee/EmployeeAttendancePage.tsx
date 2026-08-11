@@ -1,5 +1,13 @@
-import { CalendarDays, CheckCircle2, Clock, LogIn, LogOut } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  CalendarDays,
+  CalendarOff,
+  Clock3,
+  Filter,
+  LogIn,
+  LogOut,
+  Timer,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   checkIn,
   checkOut,
@@ -7,29 +15,51 @@ import {
   getTodayAttendance,
 } from "../../api/attendanceApi";
 import { getApiErrorMessage } from "../../api/axios";
+import Alert from "../../components/ui/Alert";
+import Button from "../../components/ui/Button";
+import DataTable from "../../components/ui/DataTable";
+import EmptyState from "../../components/ui/EmptyState";
+import FilterPanel from "../../components/ui/FilterPanel";
+import FormField from "../../components/ui/FormField";
+import PageHeader from "../../components/ui/PageHeader";
+import SectionCard from "../../components/ui/SectionCard";
+import SelectInput from "../../components/ui/SelectInput";
+import StatCard from "../../components/ui/StatCard";
+import StatusBadge from "../../components/ui/StatusBadge";
+import TextInput from "../../components/ui/TextInput";
 import type {
   AttendanceRecord,
   AttendanceStatus,
 } from "../../types/attendance";
+import { calcWorkMinutes, formatWorkHours } from "../../utils/attendance";
 import { formatDate, formatTime } from "../../utils/datetime";
+import { attendanceStatusMeta, type StatusMeta } from "../../utils/status";
 
-const statusStyles: Record<AttendanceStatus, string> = {
-  present: "bg-green-100 text-green-700",
-  late: "bg-amber-100 text-amber-700",
-  absent: "bg-red-100 text-red-700",
-  on_leave: "bg-blue-100 text-blue-700",
+/** Ordered for the filter dropdown; the union itself has no inherent order. */
+const statusOptions: AttendanceStatus[] = [
+  "present",
+  "late",
+  "absent",
+  "on_leave",
+];
+
+const notRecordedMeta: StatusMeta = {
+  label: "Not recorded",
+  tone: "neutral",
+  icon: Clock3,
 };
+
+const tableHeaders = [
+  "Date",
+  "Check-in",
+  "Check-out",
+  "Work hours",
+  "Status",
+  "Note",
+];
 
 function getErrorMessage(error: unknown): string {
   return getApiErrorMessage(error, "Unable to complete the request");
-}
-
-/**
- * This page shows "Not recorded" where the admin page shows an em dash, so the
- * fallback is bound here rather than changing the shared default.
- */
-function formatAttendanceTime(time: string | null): string {
-  return formatTime(time, "Not recorded");
 }
 
 function EmployeeAttendancePage() {
@@ -37,6 +67,7 @@ function EmployeeAttendancePage() {
   const [history, setHistory] = useState<AttendanceRecord[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState<AttendanceStatus | "">("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -102,215 +133,242 @@ function EmployeeAttendancePage() {
   function clearFilters() {
     setStartDate("");
     setEndDate("");
+    setStatusFilter("");
   }
 
   const hasCheckedIn = Boolean(today?.checkInTime);
   const hasCheckedOut = Boolean(today?.checkOutTime);
 
+  // The date range is applied by the API; the status is applied here, over the
+  // rows already returned. Keeping it client-side means changing it costs no
+  // request and cannot disagree with the range the server filtered on.
+  const visibleHistory = useMemo(
+    () =>
+      statusFilter
+        ? history.filter((record) => record.status === statusFilter)
+        : history,
+    [history, statusFilter],
+  );
+
+  const activeFilterCount = [startDate, endDate, statusFilter].filter(
+    Boolean,
+  ).length;
+
+  const todayMeta = today ? attendanceStatusMeta(today.status) : notRecordedMeta;
+  const todayWorkMinutes = calcWorkMinutes(
+    today?.checkInTime,
+    today?.checkOutTime,
+  );
+
   return (
-    <section className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">My Attendance</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Record your daily check-in and check-out.
-        </p>
+    <section className="mx-auto max-w-7xl space-y-6">
+      <PageHeader
+        title="My attendance"
+        description="Record your daily check-in and check-out."
+      />
+
+      {message && <Alert tone="success">{message}</Alert>}
+      {error && <Alert tone="danger">{error}</Alert>}
+
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Check-in"
+          value={formatTime(today?.checkInTime)}
+          icon={LogIn}
+          tone={hasCheckedIn ? "success" : "neutral"}
+          hint={hasCheckedIn ? "Recorded today" : "Not recorded yet"}
+        />
+
+        <StatCard
+          label="Check-out"
+          value={formatTime(today?.checkOutTime)}
+          icon={LogOut}
+          tone={hasCheckedOut ? "success" : "neutral"}
+          hint={hasCheckedOut ? "Recorded today" : "Not recorded yet"}
+        />
+
+        <StatCard
+          label="Work hours"
+          value={formatWorkHours(todayWorkMinutes)}
+          icon={Timer}
+          tone={todayWorkMinutes === null ? "neutral" : "info"}
+          hint={workHoursHint(hasCheckedIn, hasCheckedOut, todayWorkMinutes)}
+        />
+
+        <StatCard
+          label="Status"
+          value={todayMeta.label}
+          icon={todayMeta.icon}
+          tone={todayMeta.tone}
+          hint={today ? "Today's record" : "Nothing recorded today"}
+        />
       </div>
 
-      {message && (
-        <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
-          {message}
+      <SectionCard
+        title="Record today's attendance"
+        description="Attendance uses Malaysia time."
+        icon={Clock3}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <Button
+            icon={LogIn}
+            onClick={handleCheckIn}
+            disabled={loading || actionLoading || hasCheckedIn}
+          >
+            Check in
+          </Button>
+
+          <Button
+            icon={LogOut}
+            onClick={handleCheckOut}
+            disabled={loading || actionLoading || !hasCheckedIn || hasCheckedOut}
+          >
+            Check out
+          </Button>
         </div>
-      )}
+      </SectionCard>
 
-      {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+      <FilterPanel
+        columns={3}
+        activeCount={activeFilterCount}
+        isBusy={loading}
+        onApply={() => void loadAttendance()}
+        onClear={clearFilters}
+      >
+        <FormField id="attendance-start" label="Start date">
+          <TextInput
+            id="attendance-start"
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+          />
+        </FormField>
+
+        <FormField id="attendance-end" label="End date">
+          <TextInput
+            id="attendance-end"
+            type="date"
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+          />
+        </FormField>
+
+        <FormField id="attendance-status" label="Status">
+          <SelectInput
+            id="attendance-status"
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as AttendanceStatus | "")
+            }
+          >
+            <option value="">All statuses</option>
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {attendanceStatusMeta(status).label}
+              </option>
+            ))}
+          </SelectInput>
+        </FormField>
+      </FilterPanel>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-fg">
+            <CalendarDays size={18} className="text-primary" aria-hidden="true" />
+            Attendance history
+          </h2>
+
+          {!loading && (
+            <p className="text-sm text-fg-muted">
+              {statusFilter
+                ? `${visibleHistory.length} of ${history.length} records`
+                : `${history.length} records`}
+            </p>
+          )}
         </div>
-      )}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3 text-slate-500">
-            <LogIn size={20} />
-            <span className="text-sm">Check-in</span>
-          </div>
-
-          <p className="mt-3 text-2xl font-semibold text-slate-900">
-            {formatAttendanceTime(today?.checkInTime ?? null)}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3 text-slate-500">
-            <LogOut size={20} />
-            <span className="text-sm">Check-out</span>
-          </div>
-
-          <p className="mt-3 text-2xl font-semibold text-slate-900">
-            {formatAttendanceTime(today?.checkOutTime ?? null)}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3 text-slate-500">
-            <CheckCircle2 size={20} />
-            <span className="text-sm">Status</span>
-          </div>
-
-          <div className="mt-3">
-            {today ? (
-              <span
-                className={`rounded-full px-3 py-1 text-sm font-medium ${statusStyles[today.status]}`}
-              >
-                {today.status.replace("_", " ")}
-              </span>
+        <DataTable
+          headers={tableHeaders}
+          caption="Your attendance records for the selected date range"
+          minWidthClass="min-w-200"
+          isLoading={loading}
+          loadingLabel="Loading attendance..."
+          isEmpty={visibleHistory.length === 0}
+          emptyState={
+            history.length === 0 ? (
+              <EmptyState
+                icon={CalendarOff}
+                title="No attendance records found"
+                description="Nothing was recorded in this date range. Try widening it, or clear the dates to see everything."
+              />
             ) : (
-              <span className="text-sm text-slate-500">Not checked in</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <button
-          type="button"
-          onClick={handleCheckIn}
-          disabled={loading || actionLoading || hasCheckedIn}
-          className="flex items-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <LogIn size={18} />
-          Check in
-        </button>
-
-        <button
-          type="button"
-          onClick={handleCheckOut}
-          disabled={loading || actionLoading || !hasCheckedIn || hasCheckedOut}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <LogOut size={18} />
-          Check out
-        </button>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-5">
-          <div className="flex items-center gap-2">
-            <CalendarDays size={20} className="text-blue-600" />
-
-            <h2 className="font-semibold text-slate-900">Attendance History</h2>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-end gap-3">
-            <label className="text-sm text-slate-600">
-              Start date
-              <input
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-                className="mt-1 block rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </label>
-
-            <label className="text-sm text-slate-600">
-              End date
-              <input
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-                className="mt-1 block rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </label>
-
-            <button
-              type="button"
-              onClick={loadAttendance}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white"
-            >
-              Apply
-            </button>
-
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-175 text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600">
-              <tr>
-                <th className="px-5 py-3">Date</th>
-                <th className="px-5 py-3">Check-in</th>
-                <th className="px-5 py-3">Check-out</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3">Note</th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-5 py-8 text-center text-slate-500"
+              <EmptyState
+                icon={Filter}
+                title={`No ${attendanceStatusMeta(statusFilter as AttendanceStatus).label.toLowerCase()} records found`}
+                description={`This date range has ${history.length} record${history.length === 1 ? "" : "s"}, but none with that status.`}
+                action={
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setStatusFilter("")}
                   >
-                    Loading attendance...
-                  </td>
-                </tr>
-              ) : history.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-5 py-8 text-center text-slate-500"
-                  >
-                    No attendance records found.
-                  </td>
-                </tr>
-              ) : (
-                history.map((record) => (
-                  <tr key={record.id}>
-                    <td className="px-5 py-4">
-                      {formatDate(record.attendanceDate)}
-                    </td>
+                    Show all statuses
+                  </Button>
+                }
+              />
+            )
+          }
+        >
+          {visibleHistory.map((record) => (
+            <tr key={record.id}>
+              <td className="px-5 py-4 font-medium text-fg">
+                {formatDate(record.attendanceDate)}
+              </td>
 
-                    <td className="px-5 py-4">
-                      {formatAttendanceTime(record.checkInTime)}
-                    </td>
+              <td className="px-5 py-4 text-fg-muted">
+                {formatTime(record.checkInTime)}
+              </td>
 
-                    <td className="px-5 py-4">
-                      {formatAttendanceTime(record.checkOutTime)}
-                    </td>
+              <td className="px-5 py-4 text-fg-muted">
+                {formatTime(record.checkOutTime)}
+              </td>
 
-                    <td className="px-5 py-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[record.status]}`}
-                      >
-                        {record.status.replace("_", " ")}
-                      </span>
-                    </td>
+              <td className="px-5 py-4 text-fg-muted">
+                {formatWorkHours(
+                  calcWorkMinutes(record.checkInTime, record.checkOutTime),
+                )}
+              </td>
 
-                    <td className="px-5 py-4 text-slate-600">
-                      {record.adminNote ?? "—"}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              <td className="px-5 py-4">
+                <StatusBadge {...attendanceStatusMeta(record.status)} />
+              </td>
 
-      <div className="flex items-center gap-2 text-xs text-slate-500">
-        <Clock size={15} />
-        Attendance uses Malaysia time.
-      </div>
+              <td className="max-w-60 truncate px-5 py-4 text-fg-muted">
+                {record.adminNote ?? "—"}
+              </td>
+            </tr>
+          ))}
+        </DataTable>
+      </section>
     </section>
   );
+}
+
+/**
+ * Explains an em dash rather than leaving it ambiguous: "no check-out yet" and
+ * "the recorded times do not make sense" both render as "—", and only the hint
+ * tells them apart.
+ */
+function workHoursHint(
+  hasCheckedIn: boolean,
+  hasCheckedOut: boolean,
+  minutes: number | null,
+): string {
+  if (!hasCheckedIn) return "Check in to start the day";
+  if (!hasCheckedOut) return "Check out to see the total";
+  if (minutes === null) return "Recorded times cannot be totalled";
+
+  return "No break deducted";
 }
 
 export default EmployeeAttendancePage;
