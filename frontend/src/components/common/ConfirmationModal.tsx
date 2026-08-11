@@ -4,9 +4,9 @@ import Modal from "../ui/Modal";
 import SecondaryButton from "../ui/SecondaryButton";
 
 /**
- * Prop signature is unchanged from the pre-Modal implementation. All existing
- * consumers (LogoutConfirmationModal, ProfilePage's remove-photo dialog) keep
- * working without edits.
+ * Prop signature is backwards compatible with the pre-Modal implementation.
+ * All existing consumers (LogoutConfirmationModal, ProfilePage's remove-photo
+ * dialog) keep working without edits.
  */
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -16,6 +16,13 @@ interface ConfirmationModalProps {
   confirmLabel: string;
   processingLabel: string;
   icon?: ReactNode;
+  /**
+   * Defaults to "danger" so every existing caller is unaffected. Set
+   * "primary" for a confirmation that is cautionary rather than destructive,
+   * such as reactivating an employee - a red dialog there would misreport the
+   * consequence.
+   */
+  tone?: "danger" | "primary";
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -28,6 +35,7 @@ export default function ConfirmationModal({
   confirmLabel,
   processingLabel,
   icon,
+  tone = "danger",
   onCancel,
   onConfirm,
 }: ConfirmationModalProps) {
@@ -42,7 +50,7 @@ export default function ConfirmationModal({
       title={title}
       description={description}
       icon={icon}
-      tone="danger"
+      tone={tone}
       size="md"
       // Matches the original guard: Escape was ignored while processing.
       isDismissDisabled={isProcessing}
@@ -57,7 +65,7 @@ export default function ConfirmationModal({
             Cancel
           </SecondaryButton>
           <Button
-            variant="danger"
+            variant={tone}
             onClick={onConfirm}
             isLoading={isProcessing}
             loadingLabel={processingLabel}

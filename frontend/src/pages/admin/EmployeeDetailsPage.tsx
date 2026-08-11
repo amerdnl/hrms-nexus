@@ -1,8 +1,35 @@
-import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { getEmployeeById } from "../../api/employeeApi";
+import { IdCard, Pencil } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
+import { getEmployeeById } from "../../api/employeeApi";
+import Alert from "../../components/ui/Alert";
+import LinkButton from "../../components/ui/LinkButton";
+import PageHeader from "../../components/ui/PageHeader";
+import SectionCard from "../../components/ui/SectionCard";
+import StatusBadge from "../../components/ui/StatusBadge";
 import type { Employee } from "../../types/employee";
+import { formatDate } from "../../utils/datetime";
+import { employmentStatusMeta } from "../../utils/status";
+
+function Detail({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <dt className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
+        {label}
+      </dt>
+      <dd className="mt-1 text-sm font-medium text-fg">{children}</dd>
+    </div>
+  );
+}
 
 export default function EmployeeDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,8 +49,8 @@ export default function EmployeeDetailsPage() {
       try {
         const data = await getEmployeeById(Number(id));
         setEmployee(data);
-      } catch (error) {
-        setError(getApiErrorMessage(error, "Unable to load employee."));
+      } catch (requestError) {
+        setError(getApiErrorMessage(requestError, "Unable to load employee."));
       } finally {
         setIsLoading(false);
       }
@@ -33,15 +60,11 @@ export default function EmployeeDetailsPage() {
   }, [id]);
 
   if (isLoading) {
-    return <div className="text-sm text-slate-500">Loading employee...</div>;
+    return <p className="text-sm text-fg-muted">Loading employee...</p>;
   }
 
   if (error) {
-    return (
-      <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-        {error}
-      </div>
-    );
+    return <Alert tone="danger">{error}</Alert>;
   }
 
   if (!employee) {
@@ -49,114 +72,58 @@ export default function EmployeeDetailsPage() {
   }
 
   return (
-    <section>
-      <div>
-        <Link
-          to="/admin/employees"
-          className="text-sm font-medium text-blue-600 hover:text-blue-700"
-        >
-          ← Back to Employees
-        </Link>
+    <section className="mx-auto max-w-4xl space-y-6">
+      <PageHeader
+        title="Employee details"
+        description="View employee information."
+        backTo="/admin/employees"
+        backLabel="Back to employees"
+        actions={
+          <LinkButton to={`/admin/employees/${employee.id}/edit`} icon={Pencil}>
+            Edit employee
+          </LinkButton>
+        }
+      />
 
-        <h1 className="mt-3 text-2xl font-semibold text-slate-900">
-          Employee Details
-        </h1>
+      <SectionCard title={employee.fullName} icon={IdCard}>
+        <dl className="grid gap-5 sm:grid-cols-2">
+          <Detail label="Employee number">{employee.employeeNumber}</Detail>
 
-        <p className="mt-1 text-sm text-slate-600">
-          View employee information.
-        </p>
-      </div>
+          <Detail label="Employment status">
+            <StatusBadge {...employmentStatusMeta(employee.employmentStatus)} />
+          </Detail>
 
-      <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">
-        <div className="grid gap-6 md:grid-cols-2">
-          <div>
-            <p className="text-sm text-slate-500">Full Name</p>
-            <p className="mt-1 font-medium text-slate-900">
-              {employee.fullName}
-            </p>
-          </div>
+          <Detail label="Job title">{employee.jobTitle ?? "—"}</Detail>
 
-          <div>
-            <p className="text-sm text-slate-500">Employee Number</p>
-            <p className="mt-1 font-medium text-slate-900">
-              {employee.employeeNumber}
-            </p>
-          </div>
+          <Detail label="Department">{employee.departmentName ?? "—"}</Detail>
 
-          <div>
-            <p className="text-sm text-slate-500">Job Title</p>
-            <p className="mt-1 text-slate-700">{employee.jobTitle ?? "-"}</p>
-          </div>
+          <Detail label="Phone">{employee.phone ?? "—"}</Detail>
 
-          <div>
-            <p className="text-sm text-slate-500">Department</p>
-            <p className="mt-1 text-slate-700">
-              {employee.departmentName ?? "-"}
-            </p>
-          </div>
+          <Detail label="Gender">{employee.gender ?? "—"}</Detail>
 
-          <div>
-            <p className="text-sm text-slate-500">Phone</p>
-            <p className="mt-1 text-slate-700">{employee.phone ?? "-"}</p>
-          </div>
+          <Detail label="Date of birth">
+            {employee.dateOfBirth ? formatDate(employee.dateOfBirth) : "—"}
+          </Detail>
 
-          <div>
-            <p className="text-sm text-slate-500">Gender</p>
-            <p className="mt-1 text-slate-700">{employee.gender ?? "-"}</p>
-          </div>
+          <Detail label="Employment date">
+            {employee.employmentDate
+              ? formatDate(employee.employmentDate)
+              : "—"}
+          </Detail>
 
-          <div>
-            <p className="text-sm text-slate-500">Date of Birth</p>
-            <p className="mt-1 text-slate-700">
-              {employee.dateOfBirth ? employee.dateOfBirth.slice(0, 10) : "-"}
-            </p>
-          </div>
+          <Detail label="Emergency contact">
+            {employee.emergencyContactName ?? "—"}
+          </Detail>
 
-          <div>
-            <p className="text-sm text-slate-500">Employment Date</p>
-            <p className="mt-1 text-slate-700">
-              {employee.employmentDate
-                ? employee.employmentDate.slice(0, 10)
-                : "-"}
-            </p>
-          </div>
+          <Detail label="Emergency contact phone">
+            {employee.emergencyContactPhone ?? "—"}
+          </Detail>
 
-          <div>
-            <p className="text-sm text-slate-500">Employment Status</p>
-            <p className="mt-1 text-slate-700 capitalize">
-              {employee.employmentStatus}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-sm text-slate-500">Address</p>
-            <p className="mt-1 text-slate-700">{employee.address ?? "-"}</p>
-          </div>
-
-          <div>
-            <p className="text-sm text-slate-500">Emergency Contact</p>
-            <p className="mt-1 text-slate-700">
-              {employee.emergencyContactName ?? "-"}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-sm text-slate-500">Emergency Contact Phone</p>
-            <p className="mt-1 text-slate-700">
-              {employee.emergencyContactPhone ?? "-"}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 border-t border-slate-200 pt-6">
-          <Link
-            to={`/admin/employees/${employee.id}/edit`}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Edit Employee
-          </Link>
-        </div>
-      </div>
+          <Detail label="Address" className="sm:col-span-2">
+            {employee.address ?? "—"}
+          </Detail>
+        </dl>
+      </SectionCard>
     </section>
   );
 }
