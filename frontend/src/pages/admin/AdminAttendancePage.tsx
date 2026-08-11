@@ -21,6 +21,7 @@ import DonutChart, {
 import EmptyState from "../../components/ui/EmptyState";
 import FilterPanel from "../../components/ui/FilterPanel";
 import FormField from "../../components/ui/FormField";
+import { fieldDescribedBy } from "../../components/ui/fieldStyles";
 import PageHeader from "../../components/ui/PageHeader";
 import Pagination from "../../components/ui/Pagination";
 import PrimaryButton from "../../components/ui/PrimaryButton";
@@ -357,6 +358,7 @@ function AdminAttendancePage() {
       >
         <TextInput
           id="statistics-date"
+          aria-describedby={fieldDescribedBy("statistics-date", { hint: true })}
           type="date"
           value={statisticsDate}
           onChange={(event) => setStatisticsDate(event.target.value)}
@@ -421,6 +423,7 @@ function AdminAttendancePage() {
         >
           <SelectInput
             id="filter-department"
+            aria-describedby={fieldDescribedBy("filter-department", { hint: directoryFailed })}
             value={department}
             onChange={(event) => setDepartment(event.target.value)}
             disabled={directoryFailed}
@@ -450,6 +453,7 @@ function AdminAttendancePage() {
         >
           <TextInput
             id="filter-end-date"
+            aria-describedby={fieldDescribedBy("filter-end-date", { hint: true })}
             type="date"
             value={endDate}
             onChange={(event) => setEndDate(event.target.value)}

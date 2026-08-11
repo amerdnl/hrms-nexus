@@ -8,6 +8,7 @@ import DataTable from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import FilterPanel from "../../components/ui/FilterPanel";
 import FormField from "../../components/ui/FormField";
+import { fieldDescribedBy } from "../../components/ui/fieldStyles";
 import Modal from "../../components/ui/Modal";
 import PageHeader from "../../components/ui/PageHeader";
 import Pagination from "../../components/ui/Pagination";
@@ -259,6 +260,7 @@ export default function AdminLeavePage() {
         >
           <TextInput
             id="leave-employee"
+            aria-describedby={fieldDescribedBy("leave-employee", { hint: true })}
             type="search"
             value={employeeFilter}
             onChange={(event) => setEmployeeFilter(event.target.value)}
@@ -297,6 +299,7 @@ export default function AdminLeavePage() {
         >
           <TextInput
             id="leave-range-end"
+            aria-describedby={fieldDescribedBy("leave-range-end", { hint: true })}
             type="date"
             value={rangeEnd}
             onChange={(event) => setRangeEnd(event.target.value)}

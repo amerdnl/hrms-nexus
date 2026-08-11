@@ -15,6 +15,7 @@ import DataTable from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import FilterPanel from "../../components/ui/FilterPanel";
 import FormField from "../../components/ui/FormField";
+import { fieldDescribedBy } from "../../components/ui/fieldStyles";
 import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
 import Pagination from "../../components/ui/Pagination";
@@ -284,6 +285,7 @@ export default function EmployeeListPage() {
         <FormField id="employee-search" label="Search" hint="Searches as you type.">
           <TextInput
             id="employee-search"
+            aria-describedby={fieldDescribedBy("employee-search", { hint: true })}
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -300,6 +302,7 @@ export default function EmployeeListPage() {
         >
           <SelectInput
             id="department-filter"
+            aria-describedby={fieldDescribedBy("department-filter", { hint: departmentsFailed })}
             value={departmentFilter}
             onChange={(event) => setDepartmentFilter(event.target.value)}
             disabled={departmentsFailed}

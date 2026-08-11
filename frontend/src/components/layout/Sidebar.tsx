@@ -47,8 +47,21 @@ const navigationItemBase =
    tokens are deliberately avoided for text here: --danger, for example, is
    tuned for the page background and only reaches 4.06:1 on the light-theme
    sidebar, so the logout hover keeps a fixed light red instead. */
+/**
+ * `visibility` is doing accessibility work here, not decoration.
+ *
+ * A drawer that is merely translated off-screen keeps its links in the tab
+ * order, so a keyboard user below `md` tabs through five invisible
+ * destinations. `visibility: hidden` removes them from both the tab order and
+ * the accessibility tree, and `md:visible` re-exposes them at the breakpoint
+ * where the sidebar is permanently on screen - so desktop is untouched.
+ *
+ * visibility is included in the transition because it interpolates discretely:
+ * on open it flips to visible immediately, on close it waits for the slide-out
+ * to finish instead of making the panel vanish.
+ */
 const sidebarPanel =
-  "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-sidebar text-sidebar-fg transition-transform md:sticky md:top-0 md:h-screen md:translate-x-0";
+  "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-sidebar text-sidebar-fg transition-[transform,visibility] md:sticky md:top-0 md:h-screen md:translate-x-0 md:visible";
 
 function getInitials(name: string) {
   return name
@@ -114,7 +127,10 @@ export default function Sidebar() {
       <aside
         id="app-sidebar"
         aria-label="Sidebar"
-        className={cn(sidebarPanel, isOpen ? "translate-x-0" : "-translate-x-full")}
+        className={cn(
+          sidebarPanel,
+          isOpen ? "visible translate-x-0" : "invisible -translate-x-full",
+        )}
       >
         <div className="flex h-20 items-center justify-between gap-3 border-b border-sidebar-line px-6">
           <div className="flex min-w-0 items-center gap-3">

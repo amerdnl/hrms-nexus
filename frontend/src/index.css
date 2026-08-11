@@ -78,7 +78,11 @@
   --primary-fg: #ffffff;
   --primary-soft: #eff6ff;  /* tinted background for primary chips */
   --accent: #4f46e5;
-  --ring: #93c5fd;          /* focus ring */
+  /* Focus ring. Matches --primary rather than a pale tint: at #93c5fd the
+     ring measured 1.80:1 on --surface and 1.65:1 on --canvas, well under the
+     3:1 WCAG needs for a non-text indicator. This reads 5.17:1 / 4.72:1, and
+     3.90:1 on the sidebar. */
+  --ring: #2563eb;
 
   /* Status - `soft` is the badge background, `fg` the badge text. */
   --success: #16a34a;
@@ -134,7 +138,8 @@
   --primary-fg: #0b1120;    /* dark text on a lighter blue reads better here */
   --primary-soft: #16233d;
   --accent: #818cf8;
-  --ring: #1d4ed8;
+  /* Same reasoning as light: #1d4ed8 was 2.65:1 on --surface. This is 4.82:1. */
+  --ring: #3b82f6;
 
   --success: #4ade80;
   --success-soft: #0f2e1e;
@@ -214,10 +219,7 @@
   --color-backdrop: var(--backdrop);
 }
 
-/* --- 5. Base ---------------------------------------------------------------
-   Kept deliberately minimal in this phase. Global focus-visible and
-   ::selection styling are intentionally NOT set here: they would alter the
-   current appearance. Focus rings arrive with the UI primitives that own them. */
+/* --- 5. Base --------------------------------------------------------------- */
 @layer base {
   /* color-scheme is load-bearing, not cosmetic: it is what makes native
      date/time pickers, select dropdowns and scrollbars render correctly.
@@ -245,5 +247,14 @@
   ::before,
   ::after {
     border-color: var(--line);
+  }
+
+  /* Baseline focus indicator for everything not built on the button/field
+     primitives - sidebar navigation, the drawer controls, the theme toggle.
+     Specificity is (0,1,0), so a primitive's own
+     `focus-visible:outline-*` utility (0,2,0) still wins where one exists. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 }

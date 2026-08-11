@@ -6,6 +6,7 @@ import { getDepartments } from "../../api/departmentApi";
 import { getEmployeeById, updateEmployee } from "../../api/employeeApi";
 import Alert from "../../components/ui/Alert";
 import FormField from "../../components/ui/FormField";
+import { fieldDescribedBy } from "../../components/ui/fieldStyles";
 import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
 import PrimaryButton from "../../components/ui/PrimaryButton";
@@ -153,6 +154,7 @@ export default function EmployeeEditPage() {
             >
               <TextInput
                 id="employee-number"
+                aria-describedby={fieldDescribedBy("employee-number", { hint: true })}
                 type="text"
                 value={employee.employeeNumber}
                 disabled
@@ -166,6 +168,7 @@ export default function EmployeeEditPage() {
             >
               <TextInput
                 id="email"
+                aria-describedby={fieldDescribedBy("email", { hint: true })}
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}

@@ -41,7 +41,16 @@ export default function DataTable({
         className,
       )}
     >
-      <div className="overflow-x-auto">
+      {/* Focusable so the horizontal scroll is reachable by keyboard: a
+          pointer user can drag a wide table sideways, and without a tab stop
+          nobody else can. Labelled from `caption` so the stop is not a
+          nameless box. */}
+      <div
+        className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+        tabIndex={0}
+        role="group"
+        aria-label={caption}
+      >
         <table className={cn("w-full text-left text-sm", minWidthClass)}>
           {caption && <caption className="sr-only">{caption}</caption>}
 
