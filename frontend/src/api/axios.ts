@@ -11,6 +11,10 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem(AUTH_TOKEN_KEY);
 
+  if (config.data instanceof FormData) {
+    config.headers.delete("Content-Type");
+  }
+
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -36,6 +40,17 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+export function resolveProfileImageUrl(imagePath: string | null): string | null {
+  if (!imagePath?.startsWith("/uploads/profile-images/")) return null;
+
+  const apiBaseUrl = new URL(
+    import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5001/api",
+    window.location.origin,
+  );
+
+  return new URL(imagePath, apiBaseUrl.origin).toString();
 }
 
 export default apiClient;

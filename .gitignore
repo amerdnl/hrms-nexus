@@ -17,3 +17,6 @@ npm-debug.log*
 Thumbs.db
 
 coverage/
+
+backend/uploads/profile-images/*
+!backend/uploads/profile-images/.gitkeep

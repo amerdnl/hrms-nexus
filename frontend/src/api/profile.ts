@@ -6,7 +6,6 @@ export interface ProfileUpdates {
   address: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
-  profile_image: string;
 }
 
 export interface PasswordChange {
@@ -33,4 +32,22 @@ export async function updateProfileRequest(updates: ProfileUpdates) {
 export async function changePasswordRequest(payload: PasswordChange) {
   const response = await apiClient.put<ApiResponse>("/profile/password", payload);
   return response.data;
+}
+
+export async function uploadProfileImageRequest(file: File) {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await apiClient.post<ApiResponse<{ user: CurrentUser }>>(
+    "/profile/image",
+    formData,
+  );
+  return response.data.data!.user;
+}
+
+export async function deleteProfileImageRequest() {
+  const response = await apiClient.delete<ApiResponse<{ user: CurrentUser }>>(
+    "/profile/image",
+  );
+  return response.data.data!.user;
 }

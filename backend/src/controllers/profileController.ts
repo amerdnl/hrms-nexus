@@ -1,6 +1,12 @@
 import bcrypt from "bcrypt";
+import { unlink } from "node:fs/promises";
+import path from "node:path";
 import type { Request, Response } from "express";
 import pool from "../config/db.js";
+import {
+  profileImagesDirectory,
+  profileImageUrlPrefix,
+} from "../middleware/profileImageUpload.js";
 import {
   findSafeUserById,
   findUserRecordById,
@@ -11,7 +17,6 @@ const editableFieldColumns = {
   address: "address",
   emergency_contact_name: "emergency_contact_name",
   emergency_contact_phone: "emergency_contact_phone",
-  profile_image: "profile_image",
 } as const;
 
 const restrictedFields = new Set([
@@ -23,7 +28,26 @@ const restrictedFields = new Set([
   "department_id",
   "employment_date",
   "employment_status",
+  "profile_image",
 ]);
+
+async function removeManagedProfileImage(imagePath: string | null): Promise<void> {
+  if (!imagePath?.startsWith(profileImageUrlPrefix)) return;
+
+  const filename = imagePath.slice(profileImageUrlPrefix.length);
+  if (!filename || filename !== path.basename(filename)) return;
+
+  const filePath = path.resolve(profileImagesDirectory, filename);
+  if (path.dirname(filePath) !== profileImagesDirectory) return;
+
+  try {
+    await unlink(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.error("Unable to remove managed profile image:", error);
+    }
+  }
+}
 
 async function requireActiveUser(request: Request, response: Response) {
   const user = await findUserRecordById(request.user!.id);
@@ -192,5 +216,151 @@ export async function changePassword(
   response.status(200).json({
     success: true,
     message: "Password changed successfully",
+  });
+}
+
+export async function uploadProfileImage(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const activeUser = await requireActiveUser(request, response);
+  if (!activeUser) {
+    if (request.file) {
+      await removeManagedProfileImage(
+        `${profileImageUrlPrefix}${request.file.filename}`,
+      );
+    }
+    return;
+  }
+
+  if (activeUser.employee_id === null) {
+    if (request.file) {
+      await removeManagedProfileImage(
+        `${profileImageUrlPrefix}${request.file.filename}`,
+      );
+    }
+    response.status(400).json({
+      success: false,
+      message: "This account is not connected to an employee profile",
+    });
+    return;
+  }
+
+  if (!request.file) {
+    response.status(400).json({
+      success: false,
+      message: 'Select an image using the field name "image"',
+    });
+    return;
+  }
+
+  const newImagePath = `${profileImageUrlPrefix}${request.file.filename}`;
+  const client = await pool.connect().catch(async (error: unknown) => {
+    await removeManagedProfileImage(newImagePath);
+    throw error;
+  });
+  let previousImagePath: string | null = null;
+
+  try {
+    await client.query("BEGIN");
+    const currentImage = await client.query<{ profile_image: string | null }>(
+      `SELECT profile_image
+       FROM employees
+       WHERE id = $1
+       FOR UPDATE`,
+      [activeUser.employee_id],
+    );
+
+    if (!currentImage.rows[0]) {
+      throw new Error("Employee profile was not found");
+    }
+
+    previousImagePath = currentImage.rows[0].profile_image;
+    await client.query(
+      `UPDATE employees
+       SET profile_image = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [newImagePath, activeUser.employee_id],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    await removeManagedProfileImage(newImagePath);
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  if (previousImagePath !== newImagePath) {
+    await removeManagedProfileImage(previousImagePath);
+  }
+
+  const user = await findSafeUserById(activeUser.id);
+  response.status(200).json({
+    success: true,
+    message: "Profile photo updated successfully",
+    data: { user },
+  });
+}
+
+export async function deleteProfileImage(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const activeUser = await requireActiveUser(request, response);
+  if (!activeUser) return;
+
+  if (activeUser.employee_id === null) {
+    response.status(400).json({
+      success: false,
+      message: "This account is not connected to an employee profile",
+    });
+    return;
+  }
+
+  const client = await pool.connect();
+  let previousImagePath: string | null = null;
+
+  try {
+    await client.query("BEGIN");
+    const currentImage = await client.query<{ profile_image: string | null }>(
+      `SELECT profile_image
+       FROM employees
+       WHERE id = $1
+       FOR UPDATE`,
+      [activeUser.employee_id],
+    );
+
+    if (!currentImage.rows[0]) {
+      await client.query("ROLLBACK");
+      response.status(404).json({
+        success: false,
+        message: "Employee profile was not found",
+      });
+      return;
+    }
+
+    previousImagePath = currentImage.rows[0].profile_image;
+    await client.query(
+      `UPDATE employees
+       SET profile_image = NULL, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [activeUser.employee_id],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  await removeManagedProfileImage(previousImagePath);
+
+  const user = await findSafeUserById(activeUser.id);
+  response.status(200).json({
+    success: true,
+    message: "Profile photo removed successfully",
+    data: { user },
   });
 }
