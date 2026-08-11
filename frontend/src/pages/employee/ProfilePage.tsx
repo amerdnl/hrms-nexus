@@ -1,4 +1,4 @@
-import { Camera, Save, UserRound } from "lucide-react";
+import { Camera, KeyRound, Save, UserRound } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   getProfileRequest,
@@ -8,6 +8,7 @@ import {
 import { getApiErrorMessage } from "../../api/axios";
 import { useAuth } from "../../context/useAuth";
 import type { CurrentUser } from "../../types/auth";
+import ChangePasswordModal from "./ChangePasswordPage";
 
 const emptyForm: ProfileUpdates = {
   phone: "",
@@ -41,6 +42,7 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -134,7 +136,7 @@ export default function ProfilePage() {
           </span>
         </aside>
 
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="space-y-6">
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-4">
               <UserRound className="text-blue-700" size={20} />
@@ -153,48 +155,82 @@ export default function ProfilePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-4">
-              <Camera className="text-blue-700" size={20} />
-              <h2 className="font-bold text-slate-900">Contact information</h2>
-            </div>
-            <div className="mt-5 grid gap-5 sm:grid-cols-2">
-              {([
-                ["Phone", "phone"],
-                ["Emergency contact name", "emergency_contact_name"],
-                ["Emergency contact phone", "emergency_contact_phone"],
-                ["Profile image URL", "profile_image"],
-              ] as const).map(([label, field]) => (
-                <label className="text-sm font-semibold text-slate-700" key={field}>
-                  {label}
-                  <input
-                    className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-                    value={form[field]}
-                    onChange={(event) => updateField(field, event.target.value)}
+          <form onSubmit={handleSubmit}>
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-4">
+                <Camera className="text-blue-700" size={20} />
+                <h2 className="font-bold text-slate-900">Contact information</h2>
+              </div>
+              <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                {([
+                  ["Phone", "phone"],
+                  ["Emergency contact name", "emergency_contact_name"],
+                  ["Emergency contact phone", "emergency_contact_phone"],
+                  ["Profile image URL", "profile_image"],
+                ] as const).map(([label, field]) => (
+                  <label className="text-sm font-semibold text-slate-700" key={field}>
+                    {label}
+                    <input
+                      className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+                      value={form[field]}
+                      onChange={(event) => updateField(field, event.target.value)}
+                    />
+                  </label>
+                ))}
+                <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
+                  Address
+                  <textarea
+                    className="mt-2 min-h-24 w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+                    value={form.address}
+                    onChange={(event) => updateField("address", event.target.value)}
                   />
                 </label>
-              ))}
-              <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
-                Address
-                <textarea
-                  className="mt-2 min-h-24 w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-                  value={form.address}
-                  onChange={(event) => updateField("address", event.target.value)}
-                />
-              </label>
+              </div>
+
+              {error && <p className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+              {success && <p className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</p>}
+
+              <div className="mt-6 flex justify-end">
+                <button className="flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 font-semibold text-white hover:bg-blue-800 disabled:opacity-60" type="submit" disabled={isSaving}>
+                  <Save size={18} /> {isSaving ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            </section>
+          </form>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2">
+                <KeyRound className="text-blue-700" size={20} />
+                <h2 className="font-bold text-slate-900">Account &amp; Security</h2>
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                Manage your password and account security.
+              </p>
             </div>
-
-            {error && <p className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-            {success && <p className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</p>}
-
-            <div className="mt-6 flex justify-end">
-              <button className="flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 font-semibold text-white hover:bg-blue-800 disabled:opacity-60" type="submit" disabled={isSaving}>
-                <Save size={18} /> {isSaving ? "Saving…" : "Save changes"}
+            <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Password</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Keep your account secure by using a strong password.
+                </p>
+              </div>
+              <button
+                className="shrink-0 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+                type="button"
+                onClick={() => setIsPasswordModalOpen(true)}
+              >
+                Change Password
               </button>
             </div>
           </section>
-        </form>
+        </div>
       </div>
+
+      <ChangePasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      />
     </div>
   );
 }

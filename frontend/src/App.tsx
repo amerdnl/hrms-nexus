@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/layout/AppLayout";
 import { useAuth } from "./context/useAuth";
 import LoginPage from "./pages/auth/LoginPage";
-import ChangePasswordPage from "./pages/employee/ChangePasswordPage";
 import ProfilePage from "./pages/employee/ProfilePage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import { roleDashboard } from "./routes/roleDashboard";
@@ -80,7 +79,7 @@ export default function App() {
           <Route path="/employee/profile" element={<ProfilePage />} />
           <Route
             path="/employee/profile/password"
-            element={<ChangePasswordPage />}
+            element={<Navigate to="/employee/profile" replace />}
           />
           <Route
             path="/employee/attendance"
