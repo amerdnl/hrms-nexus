@@ -15,6 +15,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { resolveProfileImageUrl } from "../../api/axios";
 import { useAuth } from "../../context/useAuth";
 import LogoutConfirmationModal from "../common/LogoutConfirmationModal";
+import ThemeToggle from "../ui/ThemeToggle";
 
 interface NavigationItem {
   label: string;
@@ -146,6 +147,7 @@ export default function Sidebar() {
               <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">{user.role}</p>
             </div>
           </div>
+          <ThemeToggle className="text-slate-300 hover:bg-slate-800 hover:text-white" />
           <button className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-red-500/10 hover:text-red-300" type="button" onClick={() => setIsLogoutModalOpen(true)}>
             <LogOut size={18} /> Logout
           </button>
