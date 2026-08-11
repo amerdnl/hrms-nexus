@@ -1,13 +1,13 @@
-import { Eye, EyeOff, KeyRound, X } from "lucide-react";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-  type RefObject,
-} from "react";
+import { KeyRound } from "lucide-react";
+import { useRef, useState, type FormEvent } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { changePasswordRequest } from "../../api/profile";
+import Alert from "../../components/ui/Alert";
+import FormField from "../../components/ui/FormField";
+import Modal from "../../components/ui/Modal";
+import PasswordInput from "../../components/ui/PasswordInput";
+import PrimaryButton from "../../components/ui/PrimaryButton";
+import SecondaryButton from "../../components/ui/SecondaryButton";
 
 type PasswordField = "currentPassword" | "newPassword" | "confirmPassword";
 
@@ -17,48 +17,23 @@ const initialForm = {
   confirmPassword: "",
 };
 
-function PasswordInput({
-  label,
-  field,
-  value,
-  visible,
-  inputRef,
-  onChange,
-  onToggle,
-}: {
-  label: string;
+const passwordFields: Array<{
   field: PasswordField;
-  value: string;
-  visible: boolean;
-  inputRef?: RefObject<HTMLInputElement | null>;
-  onChange: (field: PasswordField, value: string) => void;
-  onToggle: (field: PasswordField) => void;
-}) {
-  return (
-    <label className="block text-sm font-semibold text-slate-700">
-      {label}
-      <span className="relative mt-2 block">
-        <input
-          ref={inputRef}
-          className="w-full rounded-lg border border-slate-300 px-4 py-3 pr-12 font-normal outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-          type={visible ? "text" : "password"}
-          autoComplete={field === "currentPassword" ? "current-password" : "new-password"}
-          value={value}
-          onChange={(event) => onChange(field, event.target.value)}
-          required
-        />
-        <button
-          className="absolute inset-y-0 right-0 grid w-12 place-items-center text-slate-500 hover:text-slate-800"
-          type="button"
-          onClick={() => onToggle(field)}
-          aria-label={visible ? `Hide ${label}` : `Show ${label}`}
-        >
-          {visible ? <EyeOff size={18} /> : <Eye size={18} />}
-        </button>
-      </span>
-    </label>
-  );
-}
+  label: string;
+  autoComplete: string;
+}> = [
+  {
+    field: "currentPassword",
+    label: "Current password",
+    autoComplete: "current-password",
+  },
+  { field: "newPassword", label: "New password", autoComplete: "new-password" },
+  {
+    field: "confirmPassword",
+    label: "Confirm new password",
+    autoComplete: "new-password",
+  },
+];
 
 export default function ChangePasswordModal({
   isOpen,
@@ -69,22 +44,17 @@ export default function ChangePasswordModal({
 }) {
   const currentPasswordRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState(initialForm);
-  const [visible, setVisible] = useState<Record<PasswordField, boolean>>({
-    currentPassword: false,
-    newPassword: false,
-    confirmPassword: false,
-  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  /**
+   * Passwords must not survive a close. Visibility state no longer needs
+   * clearing here: PasswordInput owns its own toggle, and Modal unmounts its
+   * children when closed, so every field reopens masked.
+   */
   const clearSensitiveState = () => {
     setForm(initialForm);
-    setVisible({
-      currentPassword: false,
-      newPassword: false,
-      confirmPassword: false,
-    });
     setError("");
     setSuccess("");
   };
@@ -94,22 +64,6 @@ export default function ChangePasswordModal({
     clearSensitiveState();
     onClose();
   };
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    currentPasswordRef.current?.focus();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isSubmitting) {
-        clearSensitiveState();
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isSubmitting, onClose]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -138,115 +92,63 @@ export default function ChangePasswordModal({
       const result = await changePasswordRequest(form);
       setSuccess(result.message);
       setForm(initialForm);
-      setVisible({
-        currentPassword: false,
-        newPassword: false,
-        confirmPassword: false,
-      });
     } catch (requestError) {
-      setError(getApiErrorMessage(requestError, "Unable to change your password."));
+      setError(
+        getApiErrorMessage(requestError, "Unable to change your password."),
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 px-4 py-6">
-      <section
-        className="max-h-full w-full max-w-[480px] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="change-password-dialog-title"
-        aria-describedby="change-password-dialog-description"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-blue-100 text-blue-700">
-              <KeyRound size={22} />
-            </div>
-            <h2
-              id="change-password-dialog-title"
-              className="text-xl font-bold text-slate-900"
-            >
-              Change Password
-            </h2>
-            <p
-              id="change-password-dialog-description"
-              className="mt-1 text-sm text-slate-500"
-            >
-              Enter your current password and choose a new password.
-            </p>
-          </div>
-          <button
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
-            type="button"
-            onClick={closeModal}
-            disabled={isSubmitting}
-            aria-label="Close change password dialog"
+    <Modal
+      isOpen={isOpen}
+      onClose={closeModal}
+      title="Change password"
+      description="Enter your current password and choose a new password."
+      icon={<KeyRound size={22} />}
+      size="md"
+      // Escape must not abandon a request that is already in flight.
+      isDismissDisabled={isSubmitting}
+      initialFocusRef={currentPasswordRef}
+    >
+      <form className="space-y-5" onSubmit={handleSubmit}>
+        {passwordFields.map(({ field, label, autoComplete }) => (
+          <FormField key={field} id={field} label={label} required>
+            <PasswordInput
+              id={field}
+              ref={field === "currentPassword" ? currentPasswordRef : undefined}
+              autoComplete={autoComplete}
+              value={form[field]}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  [field]: event.target.value,
+                }))
+              }
+              required
+            />
+          </FormField>
+        ))}
+
+        {error && <Alert tone="danger">{error}</Alert>}
+        {success && <Alert tone="success">{success}</Alert>}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <SecondaryButton onClick={closeModal} disabled={isSubmitting}>
+            Cancel
+          </SecondaryButton>
+
+          <PrimaryButton
+            type="submit"
+            isLoading={isSubmitting}
+            loadingLabel="Updating..."
           >
-            <X size={20} />
-          </button>
+            Update password
+          </PrimaryButton>
         </div>
-
-        <form className="mt-6" onSubmit={handleSubmit}>
-          <div className="space-y-5">
-            {([
-              ["Current Password", "currentPassword"],
-              ["New Password", "newPassword"],
-              ["Confirm New Password", "confirmPassword"],
-            ] as const).map(([label, field]) => (
-              <PasswordInput
-                key={field}
-                label={label}
-                field={field}
-                value={form[field]}
-                visible={visible[field]}
-                inputRef={field === "currentPassword" ? currentPasswordRef : undefined}
-                onChange={(changedField, value) =>
-                  setForm((current) => ({ ...current, [changedField]: value }))
-                }
-                onToggle={(changedField) =>
-                  setVisible((current) => ({
-                    ...current,
-                    [changedField]: !current[changedField],
-                  }))
-                }
-              />
-            ))}
-          </div>
-
-          {error && (
-            <p className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-              {error}
-            </p>
-          )}
-          {success && (
-            <p className="mt-5 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700" role="status">
-              {success}
-            </p>
-          )}
-
-          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-              type="button"
-              onClick={closeModal}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-              type="submit"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Updating..." : "Update Password"}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+      </form>
+    </Modal>
   );
 }
