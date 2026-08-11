@@ -1,9 +1,20 @@
+import { Pencil } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import type {
   AttendanceRecord,
   AttendanceStatus,
   UpdateAttendanceInput,
 } from "../../types/attendance";
+import { formatDate } from "../../utils/datetime";
+import { attendanceStatusMeta } from "../../utils/status";
+import Alert from "../ui/Alert";
+import FormField from "../ui/FormField";
+import Modal from "../ui/Modal";
+import PrimaryButton from "../ui/PrimaryButton";
+import SecondaryButton from "../ui/SecondaryButton";
+import SelectInput from "../ui/SelectInput";
+import TextArea from "../ui/TextArea";
+import TextInput from "../ui/TextInput";
 
 type EditAttendanceFormProps = {
   record: AttendanceRecord;
@@ -14,6 +25,13 @@ type EditAttendanceFormProps = {
   ) => Promise<void>;
   onCancel: () => void;
 };
+
+const statusOptions: AttendanceStatus[] = [
+  "present",
+  "late",
+  "absent",
+  "on_leave",
+];
 
 function EditAttendanceForm({
   record,
@@ -49,96 +67,85 @@ function EditAttendanceForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-      <form
-        onSubmit={handleSubmit}
-        className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
-      >
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">
-            Correct Attendance
-          </h2>
+    // Mounted per record by the parent, so the initial values above are read
+    // fresh for each correction rather than going stale between rows.
+    <Modal
+      isOpen
+      onClose={onCancel}
+      title="Correct attendance"
+      description={`Employee ID ${record.employeeId} on ${formatDate(record.attendanceDate)}`}
+      icon={<Pencil size={20} />}
+      size="lg"
+      isDismissDisabled={submitting}
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {formError && <Alert tone="danger">{formError}</Alert>}
 
-          <p className="mt-1 text-sm text-slate-500">
-            Employee ID {record.employeeId} on {record.attendanceDate}
-          </p>
-        </div>
-
-        {formError && (
-          <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-            {formError}
-          </div>
-        )}
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-slate-700">
-            Check-in time
-            <input
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField id="edit-check-in" label="Check-in time">
+            <TextInput
+              id="edit-check-in"
               type="time"
               value={checkInTime}
               onChange={(event) => setCheckInTime(event.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
             />
-          </label>
+          </FormField>
 
-          <label className="text-sm font-medium text-slate-700">
-            Check-out time
-            <input
+          <FormField id="edit-check-out" label="Check-out time">
+            <TextInput
+              id="edit-check-out"
               type="time"
               value={checkOutTime}
               onChange={(event) => setCheckOutTime(event.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
             />
-          </label>
+          </FormField>
 
-          <label className="text-sm font-medium text-slate-700">
-            Status
-            <select
+          <FormField id="edit-status" label="Status">
+            <SelectInput
+              id="edit-status"
               value={status}
               onChange={(event) =>
                 setStatus(event.target.value as AttendanceStatus)
               }
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
             >
-              <option value="present">Present</option>
-              <option value="late">Late</option>
-              <option value="absent">Absent</option>
-              <option value="on_leave">On leave</option>
-            </select>
-          </label>
+              {statusOptions.map((option) => (
+                <option key={option} value={option}>
+                  {attendanceStatusMeta(option).label}
+                </option>
+              ))}
+            </SelectInput>
+          </FormField>
 
-          <label className="text-sm font-medium text-slate-700 sm:col-span-2">
-            Admin note
-            <textarea
+          <FormField
+            id="edit-note"
+            label="Admin note"
+            className="sm:col-span-2"
+          >
+            <TextArea
+              id="edit-note"
+              rows={3}
               value={adminNote}
               onChange={(event) => setAdminNote(event.target.value)}
-              rows={3}
-              className="mt-1.5 w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
               placeholder="Reason for correcting this record"
             />
-          </label>
+          </FormField>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={submitting}
-            className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 disabled:opacity-50"
-          >
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <SecondaryButton onClick={onCancel} disabled={submitting}>
             Cancel
-          </button>
+          </SecondaryButton>
 
-          <button
+          <PrimaryButton
             type="submit"
-            disabled={submitting}
-            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            isLoading={submitting}
+            loadingLabel="Saving..."
           >
-            {submitting ? "Saving..." : "Save correction"}
-          </button>
+            Save correction
+          </PrimaryButton>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }
 

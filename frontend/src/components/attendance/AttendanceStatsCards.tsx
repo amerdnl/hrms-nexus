@@ -1,4 +1,3 @@
-import type { AttendanceStatistics } from "../../types/attendance";
 import {
   CalendarCheck,
   CalendarOff,
@@ -6,82 +5,89 @@ import {
   UserCheck,
   UserMinus,
 } from "lucide-react";
+import StatCard from "../ui/StatCard";
+import type { AttendanceStatistics } from "../../types/attendance";
+import type { StatusTone } from "../../utils/status";
 
 type AttendanceStatsCardsProps = {
   statistics: AttendanceStatistics;
   loading: boolean;
 };
 
+/**
+ * Share of the day's records, derived from the existing statistics payload -
+ * no new backend metric. Guards total <= 0 so an empty day renders a sentence
+ * rather than NaN%.
+ */
+function share(value: number, total: number): string {
+  if (total <= 0) return "No records for this date";
+
+  return `${Math.round((value / total) * 100)}% of ${total}`;
+}
+
 function AttendanceStatsCards({
   statistics,
   loading,
 }: AttendanceStatsCardsProps) {
-  const cards = [
+  const { total } = statistics;
+
+  const cards: Array<{
+    label: string;
+    value: number;
+    icon: typeof CalendarCheck;
+    tone: StatusTone;
+    hint: string;
+  }> = [
     {
       label: "Total records",
-      value: statistics.total,
+      value: total,
       icon: CalendarCheck,
-      color: "text-slate-700",
-      background: "bg-slate-100",
+      tone: "neutral",
+      hint: total > 0 ? "For the selected date" : "No records for this date",
     },
     {
       label: "Present",
       value: statistics.present,
       icon: UserCheck,
-      color: "text-green-700",
-      background: "bg-green-100",
+      tone: "success",
+      hint: share(statistics.present, total),
     },
     {
       label: "Late",
       value: statistics.late,
       icon: Clock3,
-      color: "text-amber-700",
-      background: "bg-amber-100",
+      tone: "warning",
+      hint: share(statistics.late, total),
     },
     {
       label: "Absent",
       value: statistics.absent,
       icon: UserMinus,
-      color: "text-red-700",
-      background: "bg-red-100",
+      tone: "danger",
+      hint: share(statistics.absent, total),
     },
     {
       label: "On leave",
       value: statistics.onLeave,
       icon: CalendarOff,
-      color: "text-blue-700",
-      background: "bg-blue-100",
+      tone: "info",
+      hint: share(statistics.onLeave, total),
     },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-      {cards.map((card) => {
-        const Icon = card.icon;
-
-        return (
-          <div
-            key={card.label}
-            className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">{card.label}</p>
-
-                <p className="mt-2 text-2xl font-bold text-slate-900">
-                  {loading ? "—" : card.value}
-                </p>
-              </div>
-
-              <div
-                className={`rounded-lg p-3 ${card.background} ${card.color}`}
-              >
-                <Icon size={21} />
-              </div>
-            </div>
-          </div>
-        );
-      })}
+    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
+      {cards.map((card) => (
+        <StatCard
+          key={card.label}
+          label={card.label}
+          value={card.value}
+          icon={card.icon}
+          tone={card.tone}
+          hint={card.hint}
+          isLoading={loading}
+        />
+      ))}
     </div>
   );
 }
