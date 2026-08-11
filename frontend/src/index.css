@@ -66,7 +66,7 @@
   /* Text */
   --fg: #0f172a;            /* primary */
   --fg-muted: #475569;      /* secondary */
-  --fg-subtle: #94a3b8;     /* placeholders, meta */
+  --fg-subtle: #64748b;     /* placeholders, meta - 4.76:1 on --surface */
 
   /* Lines */
   --line: #e2e8f0;          /* default border */
@@ -94,6 +94,12 @@
   --info-soft: #dbeafe;
   --info-fg: #1d4ed8;
 
+  /* Destructive fills need their own ramp: --danger is tuned for text on the
+     page background, and is too light to carry white text as a solid button. */
+  --danger-solid: #dc2626;
+  --danger-solid-hover: #b91c1c;
+  --danger-solid-fg: #ffffff;
+
   /* Sidebar - deliberately dark even in light mode (matches bg-slate-950). */
   --sidebar: #020617;
   --sidebar-fg: #cbd5e1;
@@ -118,7 +124,7 @@
 
   --fg: #e8eef8;
   --fg-muted: #a2b0c4;
-  --fg-subtle: #6b7c93;
+  --fg-subtle: #7d8ea6;     /* 5.32:1 on --surface */
 
   --line: #24304a;
   --line-strong: #33415c;
@@ -142,6 +148,12 @@
   --info: #60a5fa;
   --info-soft: #12233d;
   --info-fg: #93c5fd;
+
+  /* Hover LIGHTENS here, unlike light mode, so the affordance reads on a
+     dark ground. Both values carry white text above 4.5:1. */
+  --danger-solid: #b91c1c;
+  --danger-solid-hover: #dc2626;
+  --danger-solid-fg: #ffffff;
 
   --sidebar: #070d1a;
   --sidebar-fg: #a2b0c4;
@@ -186,6 +198,9 @@
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-danger-fg: var(--danger-fg);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-solid-hover: var(--danger-solid-hover);
+  --color-danger-solid-fg: var(--danger-solid-fg);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
   --color-info-fg: var(--info-fg);
