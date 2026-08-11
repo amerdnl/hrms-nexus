@@ -1,5 +1,5 @@
 import { LoaderCircle, type LucideIcon } from "lucide-react";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import {
   buttonClass,
   type ButtonSize,
@@ -16,6 +16,8 @@ export interface ButtonProps
   isLoading?: boolean;
   /** Replaces the label while loading, e.g. "Saving...". */
   loadingLabel?: string;
+  /** React 19 accepts ref as a plain prop; used to focus Cancel on dialog open. */
+  ref?: Ref<HTMLButtonElement>;
   children?: ReactNode;
 }
 
