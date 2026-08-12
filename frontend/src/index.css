@@ -257,4 +257,17 @@
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+
+  /* Edge (and legacy IE) inject their own reveal eye and clear cross inside a
+     password field. Next to PasswordInput's own toggle that renders as two
+     eyes, one of them unlabelled and outside our focus/ARIA handling.
+     Chrome and Firefox render no reveal control, so this is a no-op there.
+     Password-manager affordances (WebKit's credentials/strong-password
+     buttons) are deliberately NOT suppressed - those are a different feature.
+     Matched on a class rather than [type="password"] so the rule survives
+     PasswordInput toggling the input to type="text". */
+  .pw-field::-ms-reveal,
+  .pw-field::-ms-clear {
+    display: none;
+  }
 }

@@ -25,8 +25,9 @@ export default function PasswordInput({
         ref={ref}
         type={isVisible ? "text" : "password"}
         // pr-11 reserves the toggle's footprint so long values never slide
-        // underneath it.
-        className={fieldClass(invalid, `pr-11 ${className ?? ""}`.trim())}
+        // underneath it. `pw-field` is the hook index.css uses to suppress
+        // Edge's duplicate native reveal/clear controls.
+        className={fieldClass(invalid, `pw-field pr-11 ${className ?? ""}`.trim())}
         aria-invalid={invalid || undefined}
         {...rest}
       />

@@ -12,6 +12,12 @@ import type { StatusTone } from "../../utils/status";
 type AttendanceStatsCardsProps = {
   statistics: AttendanceStatistics;
   loading: boolean;
+  /**
+   * Formatted statistics date. The endpoint counts a single day
+   * (`WHERE attendance_date = $1`), so the date is named on the card rather
+   * than leaving "Total records" to read like an all-time figure.
+   */
+  dateLabel?: string;
 };
 
 /**
@@ -22,14 +28,16 @@ type AttendanceStatsCardsProps = {
 function share(value: number, total: number): string {
   if (total <= 0) return "No records for this date";
 
-  return `${Math.round((value / total) * 100)}% of ${total}`;
+  return `${Math.round((value / total) * 100)}% of ${total} that day`;
 }
 
 function AttendanceStatsCards({
   statistics,
   loading,
+  dateLabel,
 }: AttendanceStatsCardsProps) {
   const { total } = statistics;
+  const onDate = dateLabel ? `on ${dateLabel}` : "for the selected date";
 
   const cards: Array<{
     label: string;
@@ -43,7 +51,7 @@ function AttendanceStatsCards({
       value: total,
       icon: CalendarCheck,
       tone: "neutral",
-      hint: total > 0 ? "For the selected date" : "No records for this date",
+      hint: total > 0 ? `Recorded ${onDate}` : "No records for this date",
     },
     {
       label: "Present",

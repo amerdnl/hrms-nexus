@@ -296,8 +296,12 @@ export default function ProfilePage() {
         </SectionCard>
 
         <div className="space-y-6">
+          {/* Title names both groups because this card holds personal fields
+              (date of birth, gender) as well as employment ones, and all of
+              them are read-only here: the profile API only accepts the four
+              contact fields edited in the card below. */}
           <SectionCard
-            title="Employment information"
+            title="Employment and personal details"
             description="Read-only. Contact HR if a correction is needed."
             icon={IdCard}
           >
@@ -319,6 +323,7 @@ export default function ProfilePage() {
               description="The only details on this page you can change yourself."
               icon={Phone}
             >
+
               <div className="grid gap-5 sm:grid-cols-2">
                 {contactFields.map(([label, field]) => (
                   <FormField key={field} id={field} label={label}>

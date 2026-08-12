@@ -353,7 +353,7 @@ function AdminAttendancePage() {
       <FormField
         id="statistics-date"
         label="Statistics date"
-        hint="Drives the summary cards and chart below. Applies immediately."
+        hint="Drives the summary cards and breakdown below, for this single date. Applies immediately."
         className="max-w-xs"
       >
         <TextInput
@@ -365,11 +365,18 @@ function AdminAttendancePage() {
         />
       </FormField>
 
-      <AttendanceStatsCards statistics={statistics} loading={loading} />
+      <AttendanceStatsCards
+        statistics={statistics}
+        loading={loading}
+        dateLabel={formatDate(statisticsDate)}
+      />
 
       <SectionCard
-        title="Status breakdown"
-        description={`Attendance recorded on ${formatDate(statisticsDate)}.`}
+        title={`Attendance breakdown — ${formatDate(statisticsDate)}`}
+        // Stated explicitly because the endpoint is single-date
+        // (`WHERE attendance_date = $1`), while the table below runs on its
+        // own independent date range.
+        description="Counts for this one date only. The records table below uses its own filters."
         icon={ChartPie}
       >
         <DonutChart

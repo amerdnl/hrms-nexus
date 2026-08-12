@@ -4,6 +4,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
 import Alert from "../../components/ui/Alert";
 import FormField from "../../components/ui/FormField";
+import ThemeToggle from "../../components/ui/ThemeToggle";
 import PasswordInput from "../../components/ui/PasswordInput";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import TextInput from "../../components/ui/TextInput";
@@ -84,7 +85,14 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="grid min-h-screen bg-canvas lg:grid-cols-2">
+    <main className="relative grid min-h-screen bg-canvas lg:grid-cols-2">
+      {/* Top-right in both layouts: below lg the form column is the whole
+          page, and from lg it is the right-hand column, so this corner sits
+          over --canvas either way rather than over the dark brand panel. */}
+      <div className="absolute right-4 top-4 z-10">
+        <ThemeToggle compact />
+      </div>
+
       {/* Brand panel. Built on --sidebar so it reads as the same chrome as the
           app shell and stays intentional in both themes without a dark: pair
           on every child. Decoration is two flat layers - a low-opacity brand

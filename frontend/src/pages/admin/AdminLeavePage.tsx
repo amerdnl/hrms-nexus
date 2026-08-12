@@ -402,37 +402,17 @@ export default function AdminLeavePage() {
               </td>
 
               <td className="px-5 py-4">
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={Eye}
-                    onClick={() => setDetailsLeave(leave)}
-                  >
-                    View
-                  </Button>
-
-                  {leave.status === "pending" && (
-                    <>
-                      <Button
-                        size="sm"
-                        icon={CircleCheck}
-                        onClick={() => openDecision(leave, "approved")}
-                      >
-                        Approve
-                      </Button>
-
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={CircleX}
-                        onClick={() => openDecision(leave, "rejected")}
-                      >
-                        Reject
-                      </Button>
-                    </>
-                  )}
-                </div>
+                {/* One action per row. Approve and Reject live inside the
+                    details modal, so a decision is always made with the reason
+                    and dates on screen rather than from a truncated row. */}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={Eye}
+                  onClick={() => setDetailsLeave(leave)}
+                >
+                  View
+                </Button>
               </td>
             </tr>
           ))}

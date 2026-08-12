@@ -121,7 +121,9 @@ export default function EmployeeDashboardPage() {
         description={`${employee.jobTitle ?? "Employee"} · ${employee.departmentName ?? "No department"}`}
       />
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      {/* lg rather than xl: at xl the three cards spent the whole 1024-1279
+          range as a 2 + 1 orphan beside the sidebar. No content change. */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Today's attendance"
           value={todayMeta.label}
