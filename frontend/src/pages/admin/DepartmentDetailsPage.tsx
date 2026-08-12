@@ -1,14 +1,23 @@
+import { Building2, Pencil, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { getApiErrorMessage } from "../../api/axios";
 import {
   getDepartmentById,
   getDepartmentEmployees,
 } from "../../api/departmentApi";
-import { getApiErrorMessage } from "../../api/axios";
-import type {
-  Department,
-  DepartmentEmployee,
-} from "../../types/department";
+import Alert from "../../components/ui/Alert";
+import DataTable from "../../components/ui/DataTable";
+import EmptyState from "../../components/ui/EmptyState";
+import LinkButton from "../../components/ui/LinkButton";
+import PageHeader from "../../components/ui/PageHeader";
+import SectionCard from "../../components/ui/SectionCard";
+import StatusBadge from "../../components/ui/StatusBadge";
+import type { Department, DepartmentEmployee } from "../../types/department";
+import { formatDateTime } from "../../utils/datetime";
+import { employmentStatusMeta } from "../../utils/status";
+
+const tableHeaders = ["Employee", "Job title", "Status"];
 
 export default function DepartmentDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -39,12 +48,9 @@ export default function DepartmentDetailsPage() {
 
         setDepartment(departmentData);
         setEmployees(employeeData);
-      } catch (error) {
+      } catch (requestError) {
         setError(
-          getApiErrorMessage(
-            error,
-            "Unable to load department details.",
-          ),
+          getApiErrorMessage(requestError, "Unable to load department details."),
         );
       } finally {
         setIsLoading(false);
@@ -55,28 +61,17 @@ export default function DepartmentDetailsPage() {
   }, [id]);
 
   if (isLoading) {
-    return (
-      <section>
-        <p className="text-sm text-slate-500">
-          Loading department...
-        </p>
-      </section>
-    );
+    return <p className="text-sm text-fg-muted">Loading department...</p>;
   }
 
   if (error) {
     return (
-      <section>
-        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
+      <section className="space-y-4">
+        <Alert tone="danger">{error}</Alert>
 
-        <Link
-          to="/admin/departments"
-          className="mt-4 inline-block text-sm font-medium text-blue-600 hover:text-blue-700"
-        >
-          ← Back to Departments
-        </Link>
+        <LinkButton to="/admin/departments" variant="secondary">
+          Back to departments
+        </LinkButton>
       </section>
     );
   }
@@ -86,126 +81,94 @@ export default function DepartmentDetailsPage() {
   }
 
   return (
-    <section>
-      <div>
-        <Link
-          to="/admin/departments"
-          className="text-sm font-medium text-blue-600 hover:text-blue-700"
-        >
-          ← Back to Departments
-        </Link>
-
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-900">
-              {department.name}
-            </h1>
-
-            <p className="mt-1 text-sm text-slate-600">
-              {department.description || "No description provided."}
-            </p>
-          </div>
-
-          <Link
+    <section className="mx-auto max-w-5xl space-y-6">
+      <PageHeader
+        title={department.name}
+        description={department.description || "No description provided."}
+        backTo="/admin/departments"
+        backLabel="Back to departments"
+        actions={
+          <LinkButton
             to={`/admin/departments/${department.id}/edit`}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-blue-700"
+            icon={Pencil}
           >
-            Edit Department
-          </Link>
-        </div>
-      </div>
+            Edit department
+          </LinkButton>
+        }
+      />
 
-      <div className="mt-6 rounded-xl bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Department Information
-        </h2>
-
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <SectionCard title="Department information" icon={Building2}>
+        <dl className="grid gap-5 sm:grid-cols-2">
           <div>
-            <p className="text-xs font-medium uppercase text-slate-500">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
               Department ID
-            </p>
-            <p className="mt-1 text-sm text-slate-900">
+            </dt>
+            <dd className="mt-1 text-sm font-medium text-fg">
               {department.id}
-            </p>
+            </dd>
           </div>
 
           <div>
-            <p className="text-xs font-medium uppercase text-slate-500">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
               Created
-            </p>
-            <p className="mt-1 text-sm text-slate-900">
-              {new Date(department.created_at).toLocaleDateString()}
-            </p>
+            </dt>
+            <dd className="mt-1 text-sm font-medium text-fg">
+              {formatDateTime(department.created_at)}
+            </dd>
           </div>
-        </div>
-      </div>
+        </dl>
+      </SectionCard>
 
-      <div className="mt-6 overflow-hidden rounded-xl bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-5">
-          <h2 className="text-lg font-semibold text-slate-900">
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-fg">
+            <Users size={18} className="text-primary" aria-hidden="true" />
             Employees
           </h2>
 
-          <p className="mt-1 text-sm text-slate-500">
-            {employees.length} employee
-            {employees.length === 1 ? "" : "s"} in this department.
+          {/* Every employee assigned to this department, active or not - which
+              is why the departments list labels its column "Active employees"
+              rather than reusing this figure. */}
+          <p className="text-sm text-fg-muted">
+            {employees.length} employee{employees.length === 1 ? "" : "s"} in
+            this department.
           </p>
         </div>
 
-        {employees.length === 0 ? (
-          <div className="p-5 text-sm text-slate-500">
-            No employees are assigned to this department.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50">
-                <tr>
-                  <th className="px-5 py-3 font-medium text-slate-600">
-                    Employee
-                  </th>
-                  <th className="px-5 py-3 font-medium text-slate-600">
-                    Job Title
-                  </th>
-                  <th className="px-5 py-3 font-medium text-slate-600">
-                    Status
-                  </th>
-                </tr>
-              </thead>
+        <DataTable
+          headers={tableHeaders}
+          caption={`Employees assigned to ${department.name}`}
+          isEmpty={employees.length === 0}
+          emptyState={
+            <EmptyState
+              icon={Users}
+              title="No employees assigned"
+              description="No employees are assigned to this department."
+            />
+          }
+        >
+          {employees.map((employee) => (
+            <tr key={employee.id}>
+              <td className="px-5 py-4">
+                <p className="font-medium text-fg">{employee.full_name}</p>
+                <p className="mt-0.5 text-xs text-fg-subtle">
+                  {employee.employee_number}
+                </p>
+              </td>
 
-              <tbody>
-                {employees.map((employee) => (
-                  <tr
-                    key={employee.id}
-                    className="border-b border-slate-100 last:border-b-0"
-                  >
-                    <td className="px-5 py-4">
-                      <p className="font-medium text-slate-900">
-                        {employee.full_name}
-                      </p>
+              <td className="px-5 py-4 text-fg-muted">
+                {employee.job_title || "—"}
+              </td>
 
-                      <p className="mt-1 text-xs text-slate-500">
-                        {employee.employee_number}
-                      </p>
-                    </td>
-
-                    <td className="px-5 py-4 text-slate-700">
-                      {employee.job_title || "-"}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium capitalize text-slate-600">
-                        {employee.employment_status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              <td className="px-5 py-4">
+                <StatusBadge
+                  {...employmentStatusMeta(employee.employment_status)}
+                />
+              </td>
+            </tr>
+          ))}
+        </DataTable>
+      </section>
     </section>
   );
 }

@@ -1,1 +1,273 @@
 @import "tailwindcss";
+
+/* ============================================================================
+   HR NEXUS DESIGN SYSTEM
+   ----------------------------------------------------------------------------
+   Tailwind v4 is configured entirely from this file (there is no
+   tailwind.config.js and no postcss.config.js in this project).
+
+   Structure:
+     1. dark variant     - class-based dark mode declaration
+     2. @theme           - STATIC tokens, identical in both themes
+     3. :root / .dark    - RUNTIME tokens, the only place the themes differ
+     4. @theme inline    - maps runtime tokens to Tailwind colour utilities
+     5. @layer base      - minimal global defaults
+
+   Why runtime tokens instead of `dark:` variant pairs: writing every colour
+   twice across 16 pages fails silently when one is missed. Here each colour
+   decision is written once and the light/dark mapping lives in one reviewable
+   block. The `dark` variant below is still declared for genuine one-offs
+   (gradient overlays, `dark:shadow-none`).
+========================================================================== */
+
+/* --- 1. Dark mode variant --------------------------------------------------
+   `:where()` holds specificity at 0 so this never out-ranks a plain utility. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* --- 2. Static tokens ------------------------------------------------------
+   Values that do not change between themes. A plain @theme block emits these
+   into :root and generates utilities (bg-brand-600, rounded-card, shadow-card). */
+@theme {
+  /* Brand ramp - blue. brand-600 is the primary action colour. */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+
+  /* Indigo accent - supporting brand hue, used sparingly. */
+  --color-accent-400: #818cf8;
+  --color-accent-500: #6366f1;
+  --color-accent-600: #4f46e5;
+  --color-accent-700: #4338ca;
+
+  /* Shape */
+  --radius-card: 0.875rem;
+
+  /* Elevation - tuned for a slate-blue ground rather than pure black. */
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.06), 0 1px 3px 0 rgb(15 23 42 / 0.1);
+  --shadow-raised: 0 4px 12px -2px rgb(15 23 42 / 0.12), 0 2px 6px -2px rgb(15 23 42 / 0.08);
+  --shadow-panel: 0 10px 30px -12px rgb(15 23 42 / 0.25);
+}
+
+/* --- 3a. Runtime tokens: LIGHT --------------------------------------------- */
+:root {
+  /* Surfaces */
+  --canvas: #f1f5f9;        /* app background (matches today's bg-slate-100) */
+  --surface: #ffffff;       /* cards */
+  --surface-muted: #f8fafc; /* table headers, inset tiles */
+  --elevated: #ffffff;      /* modals, popovers */
+
+  /* Text */
+  --fg: #0f172a;            /* primary */
+  --fg-muted: #475569;      /* secondary */
+  --fg-subtle: #64748b;     /* placeholders, meta - 4.76:1 on --surface */
+
+  /* Lines */
+  --line: #e2e8f0;          /* default border */
+  --line-strong: #cbd5e1;   /* input borders, dividers needing weight */
+
+  /* Interactive */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-fg: #ffffff;
+  --primary-soft: #eff6ff;  /* tinted background for primary chips */
+  --accent: #4f46e5;
+  /* Focus ring. Matches --primary rather than a pale tint: at #93c5fd the
+     ring measured 1.80:1 on --surface and 1.65:1 on --canvas, well under the
+     3:1 WCAG needs for a non-text indicator. This reads 5.17:1 / 4.72:1, and
+     3.90:1 on the sidebar. */
+  --ring: #2563eb;
+
+  /* Status - `soft` is the badge background, `fg` the badge text. */
+  --success: #16a34a;
+  --success-soft: #dcfce7;
+  --success-fg: #15803d;
+  --warning: #d97706;
+  --warning-soft: #fef3c7;
+  --warning-fg: #b45309;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --danger-fg: #b91c1c;
+  --info: #2563eb;
+  --info-soft: #dbeafe;
+  --info-fg: #1d4ed8;
+
+  /* Destructive fills need their own ramp: --danger is tuned for text on the
+     page background, and is too light to carry white text as a solid button. */
+  --danger-solid: #dc2626;
+  --danger-solid-hover: #b91c1c;
+  --danger-solid-fg: #ffffff;
+
+  /* Sidebar - deliberately dark even in light mode (matches bg-slate-950). */
+  --sidebar: #020617;
+  --sidebar-fg: #cbd5e1;
+  --sidebar-fg-strong: #ffffff;
+  --sidebar-hover: #1e293b;
+  --sidebar-line: #1e293b;
+
+  /* Overlay */
+  --backdrop: rgb(2 6 23 / 0.5);
+}
+
+/* --- 3b. Runtime tokens: DARK ----------------------------------------------
+   An intentionally designed cool near-navy palette, NOT an inversion of the
+   light ramp. Two decisions worth noting:
+     - The sidebar goes DARKER than the canvas so chrome still reads as chrome.
+     - Primary lifts to brand-500; #2563EB fails contrast on a #111827 card. */
+.dark {
+  --canvas: #0b1120;
+  --surface: #111827;
+  --surface-muted: #1a2333;
+  --elevated: #172033;      /* modals sit above surface, not level with it */
+
+  --fg: #e8eef8;
+  --fg-muted: #a2b0c4;
+  --fg-subtle: #7d8ea6;     /* 5.32:1 on --surface */
+
+  --line: #24304a;
+  --line-strong: #33415c;
+
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-fg: #0b1120;    /* dark text on a lighter blue reads better here */
+  --primary-soft: #16233d;
+  --accent: #818cf8;
+  /* Same reasoning as light: #1d4ed8 was 2.65:1 on --surface. This is 4.82:1. */
+  --ring: #3b82f6;
+
+  --success: #4ade80;
+  --success-soft: #0f2e1e;
+  --success-fg: #86efac;
+  --warning: #fbbf24;
+  --warning-soft: #2e2410;
+  --warning-fg: #fcd34d;
+  --danger: #f87171;
+  --danger-soft: #331717;
+  --danger-fg: #fca5a5;
+  --info: #60a5fa;
+  --info-soft: #12233d;
+  --info-fg: #93c5fd;
+
+  /* Hover LIGHTENS here, unlike light mode, so the affordance reads on a
+     dark ground. Both values carry white text above 4.5:1. */
+  --danger-solid: #b91c1c;
+  --danger-solid-hover: #dc2626;
+  --danger-solid-fg: #ffffff;
+
+  --sidebar: #070d1a;
+  --sidebar-fg: #a2b0c4;
+  --sidebar-fg-strong: #ffffff;
+  --sidebar-hover: #172033;
+  --sidebar-line: #1c2740;
+
+  --backdrop: rgb(2 6 23 / 0.72);
+}
+
+/* --- 4. Expose runtime tokens as utilities ---------------------------------
+   `inline` is required here. Without it the generated utility would resolve
+   through a second layer of indirection pinned at :root, which breaks any
+   nested themed region. With `inline`, the utility emits `var(--surface)`
+   directly so the cascade resolves at the element. */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-elevated: var(--elevated);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-ring: var(--ring);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-fg: var(--success-fg);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-fg: var(--warning-fg);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-solid-hover: var(--danger-solid-hover);
+  --color-danger-solid-fg: var(--danger-solid-fg);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-fg: var(--info-fg);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-fg: var(--sidebar-fg);
+  --color-sidebar-fg-strong: var(--sidebar-fg-strong);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-line: var(--sidebar-line);
+
+  --color-backdrop: var(--backdrop);
+}
+
+/* --- 5. Base --------------------------------------------------------------- */
+@layer base {
+  /* color-scheme is load-bearing, not cosmetic: it is what makes native
+     date/time pickers, select dropdowns and scrollbars render correctly.
+     Declaring `light` explicitly matches today's rendering exactly. */
+  html {
+    color-scheme: light;
+    background-color: var(--canvas);
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Tailwind v4 defaults an un-suffixed `border` to currentColor, which turns
+     a forgotten border colour into a text-coloured box. Every border in this
+     codebase is currently paired with an explicit colour class, so today this
+     is a no-op; it exists to keep the new primitives safe. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--line);
+  }
+
+  /* Baseline focus indicator for everything not built on the button/field
+     primitives - sidebar navigation, the drawer controls, the theme toggle.
+     Specificity is (0,1,0), so a primitive's own
+     `focus-visible:outline-*` utility (0,2,0) still wins where one exists. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Edge (and legacy IE) inject their own reveal eye and clear cross inside a
+     password field. Next to PasswordInput's own toggle that renders as two
+     eyes, one of them unlabelled and outside our focus/ARIA handling.
+     Chrome and Firefox render no reveal control, so this is a no-op there.
+     Password-manager affordances (WebKit's credentials/strong-password
+     buttons) are deliberately NOT suppressed - those are a different feature.
+     Matched on a class rather than [type="password"] so the rule survives
+     PasswordInput toggling the input to type="text". */
+  .pw-field::-ms-reveal,
+  .pw-field::-ms-clear {
+    display: none;
+  }
+}

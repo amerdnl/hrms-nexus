@@ -1,15 +1,34 @@
-import axios from "axios";
-import { CalendarDays, Pencil, Plus, Search, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { CalendarDays, ChartPie, Pencil, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createManualAttendance,
   getAllAttendance,
   getAttendanceStatistics,
   updateAttendance,
 } from "../../api/attendanceApi";
+import { getApiErrorMessage } from "../../api/axios";
+import { getDepartments, type Department } from "../../api/departmentApi";
+import { getEmployees } from "../../api/employeeApi";
 import AttendanceStatsCards from "../../components/attendance/AttendanceStatsCards";
 import EditAttendanceForm from "../../components/attendance/EditAttendanceForm";
 import ManualAttendanceForm from "../../components/attendance/ManualAttendanceForm";
+import Alert from "../../components/ui/Alert";
+import Button from "../../components/ui/Button";
+import DataTable from "../../components/ui/DataTable";
+import DonutChart, {
+  type DonutSegment,
+} from "../../components/ui/DonutChart";
+import EmptyState from "../../components/ui/EmptyState";
+import FilterPanel from "../../components/ui/FilterPanel";
+import FormField from "../../components/ui/FormField";
+import { fieldDescribedBy } from "../../components/ui/fieldStyles";
+import PageHeader from "../../components/ui/PageHeader";
+import Pagination from "../../components/ui/Pagination";
+import PrimaryButton from "../../components/ui/PrimaryButton";
+import SectionCard from "../../components/ui/SectionCard";
+import SelectInput from "../../components/ui/SelectInput";
+import StatusBadge from "../../components/ui/StatusBadge";
+import TextInput from "../../components/ui/TextInput";
 import type {
   AttendanceFilters,
   AttendanceRecord,
@@ -18,6 +37,9 @@ import type {
   ManualAttendanceInput,
   UpdateAttendanceInput,
 } from "../../types/attendance";
+import type { Employee } from "../../types/employee";
+import { formatDate, formatTime, getMalaysiaDate } from "../../utils/datetime";
+import { attendanceStatusMeta } from "../../utils/status";
 
 const emptyStatistics: AttendanceStatistics = {
   total: 0,
@@ -27,66 +49,79 @@ const emptyStatistics: AttendanceStatistics = {
   onLeave: 0,
 };
 
-const statusStyles: Record<AttendanceStatus, string> = {
-  present: "bg-green-100 text-green-700",
-  late: "bg-amber-100 text-amber-700",
-  absent: "bg-red-100 text-red-700",
-  on_leave: "bg-blue-100 text-blue-700",
-};
+const statusOptions: AttendanceStatus[] = [
+  "present",
+  "late",
+  "absent",
+  "on_leave",
+];
 
-function getMalaysiaDate(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kuala_Lumpur",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+const PAGE_SIZE = 25;
+
+const tableHeaders = [
+  "Employee",
+  "Date",
+  "Check-in",
+  "Check-out",
+  "Status",
+  "Source",
+  "Note",
+  "Action",
+];
+
+/**
+ * First and last day of the current Malaysia month, as "YYYY-MM-DD".
+ *
+ * `/attendance` has no pagination, so an unscoped first load would pull every
+ * record ever written. Defaulting to this month keeps the initial request
+ * bounded; the admin can still clear the dates to see everything.
+ */
+function currentMonthRange(): { startDate: string; endDate: string } {
+  const today = getMalaysiaDate();
+  const month = today.slice(0, 7);
+  const [year, monthNumber] = today.split("-").map(Number);
+
+  // Day 0 of the *next* month is the last day of this one, computed in UTC so
+  // no local DST boundary can shift it.
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+
+  return {
+    startDate: `${month}-01`,
+    endDate: `${month}-${String(lastDay).padStart(2, "0")}`,
+  };
 }
 
 function getErrorMessage(error: unknown): string {
-  if (axios.isAxiosError<{ message?: string }>(error)) {
-    return error.response?.data?.message ?? "Unable to complete the request";
-  }
-
-  return "An unexpected error occurred";
-}
-
-function formatTime(time: string | null): string {
-  return time ? time.slice(0, 5) : "—";
-}
-
-function formatDate(value: string): string {
-  const text = String(value);
-  const match = text.match(/(\d{4})-(\d{2})-(\d{2})/);
-
-  if (!match) {
-    return text || "—";
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-
-  const displayDate = new Date(year, month - 1, day);
-
-  return new Intl.DateTimeFormat("en-MY", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  }).format(displayDate);
+  return getApiErrorMessage(error, "Unable to complete the request");
 }
 
 function AdminAttendancePage() {
+  const [defaultRange] = useState(currentMonthRange);
+
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [statistics, setStatistics] =
     useState<AttendanceStatistics>(emptyStatistics);
 
   const [employeeId, setEmployeeId] = useState("");
   const [status, setStatus] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [department, setDepartment] = useState("");
+  const [startDate, setStartDate] = useState(defaultRange.startDate);
+  const [endDate, setEndDate] = useState(defaultRange.endDate);
   const [statisticsDate, setStatisticsDate] = useState(getMalaysiaDate());
-  const [activeFilters, setActiveFilters] = useState<AttendanceFilters>({});
+
+  // Committed filters. `activeFilters` is what reaches the API; the department
+  // is applied client-side because /attendance has no department parameter.
+  const [activeFilters, setActiveFilters] = useState<AttendanceFilters>({
+    startDate: defaultRange.startDate,
+    endDate: defaultRange.endDate,
+  });
+  const [activeDepartment, setActiveDepartment] = useState("");
+
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [directoryFailed, setDirectoryFailed] = useState(false);
+
+  const [page, setPage] = useState(1);
 
   const [showManualForm, setShowManualForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(
@@ -121,6 +156,74 @@ function AdminAttendancePage() {
     void loadData();
   }, [loadData]);
 
+  /**
+   * The employee and department directory, fetched once. Isolated from
+   * loadData: if it fails, names fall back to #id and the department filter
+   * disables itself, but the attendance table still works.
+   */
+  useEffect(() => {
+    async function loadDirectory() {
+      try {
+        const [employeeList, departmentList] = await Promise.all([
+          getEmployees(),
+          getDepartments(),
+        ]);
+
+        setEmployees(employeeList);
+        setDepartments(departmentList);
+      } catch {
+        setDirectoryFailed(true);
+      }
+    }
+
+    void loadDirectory();
+  }, []);
+
+  // A Map, built once per employee list, so row rendering is a single O(1)
+  // lookup rather than a .find() scan per row.
+  const employeeMap = useMemo(
+    () => new Map(employees.map((employee) => [employee.id, employee])),
+    [employees],
+  );
+
+  const visibleRecords = useMemo(() => {
+    if (!activeDepartment) return records;
+
+    const wantedDepartmentId = Number(activeDepartment);
+
+    return records.filter(
+      (record) =>
+        employeeMap.get(record.employeeId)?.departmentId === wantedDepartmentId,
+    );
+  }, [records, activeDepartment, employeeMap]);
+
+  /**
+   * Records whose employee is missing from the directory. A department filter
+   * cannot place them, so they are dropped - counted here so the page can say
+   * so out loud instead of losing rows silently.
+   */
+  const unknownEmployeeCount = useMemo(() => {
+    if (!activeDepartment) return 0;
+
+    return records.filter((record) => !employeeMap.has(record.employeeId))
+      .length;
+  }, [records, activeDepartment, employeeMap]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeFilters, activeDepartment]);
+
+  // Clamped during render rather than in an effect, so a shrinking result set
+  // can never leave the table showing an empty page for one frame.
+  const pageCount = Math.max(1, Math.ceil(visibleRecords.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+
+  const pageRecords = useMemo(
+    () =>
+      visibleRecords.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [visibleRecords, safePage],
+  );
+
   function applyFilters() {
     const filters: AttendanceFilters = {};
 
@@ -154,14 +257,17 @@ function AdminAttendancePage() {
 
     setError("");
     setActiveFilters(filters);
+    setActiveDepartment(department);
   }
 
   function clearFilters() {
     setEmployeeId("");
     setStatus("");
+    setDepartment("");
     setStartDate("");
     setEndDate("");
     setActiveFilters({});
+    setActiveDepartment("");
   }
 
   async function handleManualSubmit(input: ManualAttendanceInput) {
@@ -201,224 +307,281 @@ function AdminAttendancePage() {
     }
   }
 
+  const activeFilterCount = [
+    activeFilters.employeeId,
+    activeFilters.status,
+    activeFilters.startDate,
+    activeFilters.endDate,
+    activeDepartment,
+  ].filter(Boolean).length;
+
+  // Same ordering as the admin dashboard: green and red never adjacent.
+  const donutSegments: DonutSegment[] = [
+    {
+      key: "present",
+      value: statistics.present,
+      ...attendanceStatusMeta("present"),
+    },
+    { key: "late", value: statistics.late, ...attendanceStatusMeta("late") },
+    {
+      key: "on_leave",
+      value: statistics.onLeave,
+      ...attendanceStatusMeta("on_leave"),
+    },
+    {
+      key: "absent",
+      value: statistics.absent,
+      ...attendanceStatusMeta("absent"),
+    },
+  ];
+
   return (
-    <section className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Attendance Management
-          </h1>
+    <section className="mx-auto max-w-7xl space-y-6">
+      <PageHeader
+        title="Attendance management"
+        description="Monitor, create and correct employee attendance."
+        actions={
+          <PrimaryButton icon={Plus} onClick={() => setShowManualForm(true)}>
+            Add manual attendance
+          </PrimaryButton>
+        }
+      />
 
-          <p className="mt-1 text-sm text-slate-600">
-            Monitor, create and correct employee attendance.
-          </p>
-        </div>
+      {message && <Alert tone="success">{message}</Alert>}
+      {error && <Alert tone="danger">{error}</Alert>}
 
-        <button
-          type="button"
-          onClick={() => setShowManualForm(true)}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          <Plus size={18} />
-          Add manual attendance
-        </button>
-      </div>
-
-      {message && (
-        <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
-          {message}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      <div>
-        <label className="mb-2 block text-sm font-medium text-slate-700">
-          Statistics date
-        </label>
-
-        <input
+      <FormField
+        id="statistics-date"
+        label="Statistics date"
+        hint="Drives the summary cards and breakdown below, for this single date. Applies immediately."
+        className="max-w-xs"
+      >
+        <TextInput
+          id="statistics-date"
+          aria-describedby={fieldDescribedBy("statistics-date", { hint: true })}
           type="date"
           value={statisticsDate}
           onChange={(event) => setStatisticsDate(event.target.value)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
         />
-      </div>
+      </FormField>
 
-      <AttendanceStatsCards statistics={statistics} loading={loading} />
+      <AttendanceStatsCards
+        statistics={statistics}
+        loading={loading}
+        dateLabel={formatDate(statisticsDate)}
+      />
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-2">
-          <Search size={19} className="text-blue-600" />
-          <h2 className="font-semibold text-slate-900">Filter records</h2>
-        </div>
+      <SectionCard
+        title={`Attendance breakdown — ${formatDate(statisticsDate)}`}
+        // Stated explicitly because the endpoint is single-date
+        // (`WHERE attendance_date = $1`), while the table below runs on its
+        // own independent date range.
+        description="Counts for this one date only. The records table below uses its own filters."
+        icon={ChartPie}
+      >
+        <DonutChart
+          title={`Attendance by status on ${formatDate(statisticsDate)}`}
+          centerCaption="records"
+          segments={donutSegments}
+        />
+      </SectionCard>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <label className="text-sm text-slate-600">
-            Employee ID
-            <input
-              type="number"
-              min="1"
-              value={employeeId}
-              onChange={(event) => setEmployeeId(event.target.value)}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
-              placeholder="Example: 15"
-            />
-          </label>
+      <FilterPanel
+        columns={3}
+        activeCount={activeFilterCount}
+        isBusy={loading}
+        onApply={applyFilters}
+        onClear={clearFilters}
+      >
+        <FormField id="filter-employee-id" label="Employee ID">
+          <TextInput
+            id="filter-employee-id"
+            type="number"
+            min="1"
+            value={employeeId}
+            onChange={(event) => setEmployeeId(event.target.value)}
+            placeholder="Example: 15"
+          />
+        </FormField>
 
-          <label className="text-sm text-slate-600">
-            Status
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
-            >
-              <option value="">All statuses</option>
-              <option value="present">Present</option>
-              <option value="late">Late</option>
-              <option value="absent">Absent</option>
-              <option value="on_leave">On leave</option>
-            </select>
-          </label>
-
-          <label className="text-sm text-slate-600">
-            Start date
-            <input
-              type="date"
-              value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
-            />
-          </label>
-
-          <label className="text-sm text-slate-600">
-            End date
-            <input
-              type="date"
-              value={endDate}
-              onChange={(event) => setEndDate(event.target.value)}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
-            />
-          </label>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={applyFilters}
-            className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white"
+        <FormField id="filter-status" label="Status">
+          <SelectInput
+            id="filter-status"
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
           >
-            <Search size={17} />
-            Apply filters
-          </button>
+            <option value="">All statuses</option>
+            {statusOptions.map((option) => (
+              <option key={option} value={option}>
+                {attendanceStatusMeta(option).label}
+              </option>
+            ))}
+          </SelectInput>
+        </FormField>
 
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700"
+        <FormField
+          id="filter-department"
+          label="Department"
+          hint={
+            directoryFailed
+              ? "Unavailable - the employee directory did not load."
+              : undefined
+          }
+        >
+          <SelectInput
+            id="filter-department"
+            aria-describedby={fieldDescribedBy("filter-department", { hint: directoryFailed })}
+            value={department}
+            onChange={(event) => setDepartment(event.target.value)}
+            disabled={directoryFailed}
           >
-            <X size={17} />
-            Clear
-          </button>
-        </div>
-      </div>
+            <option value="">All departments</option>
+            {departments.map((item) => (
+              <option key={item.id} value={String(item.id)}>
+                {item.name}
+              </option>
+            ))}
+          </SelectInput>
+        </FormField>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center gap-2 border-b border-slate-200 p-5">
-          <CalendarDays size={20} className="text-blue-600" />
-          <h2 className="font-semibold text-slate-900">Attendance records</h2>
+        <FormField id="filter-start-date" label="Start date">
+          <TextInput
+            id="filter-start-date"
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+          />
+        </FormField>
+
+        <FormField
+          id="filter-end-date"
+          label="End date"
+          hint="Clear both dates to load every record."
+        >
+          <TextInput
+            id="filter-end-date"
+            aria-describedby={fieldDescribedBy("filter-end-date", { hint: true })}
+            type="date"
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+          />
+        </FormField>
+      </FilterPanel>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-fg">
+            <CalendarDays size={18} className="text-primary" aria-hidden="true" />
+            Attendance records
+          </h2>
+
+          {!loading && (
+            <p className="text-sm text-fg-muted">
+              {activeDepartment
+                ? `${visibleRecords.length} of ${records.length} records`
+                : `${records.length} records`}
+            </p>
+          )}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-225 text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600">
-              <tr>
-                <th className="px-5 py-3">Employee ID</th>
-                <th className="px-5 py-3">Date</th>
-                <th className="px-5 py-3">Check-in</th>
-                <th className="px-5 py-3">Check-out</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3">Source</th>
-                <th className="px-5 py-3">Note</th>
-                <th className="px-5 py-3">Action</th>
+        {directoryFailed && (
+          <Alert tone="warning">
+            The employee directory could not be loaded, so records show an ID
+            instead of a name and the department filter is unavailable.
+            Attendance data itself is unaffected.
+          </Alert>
+        )}
+
+        {unknownEmployeeCount > 0 && (
+          <Alert tone="warning">
+            {unknownEmployeeCount} record
+            {unknownEmployeeCount === 1 ? " is" : "s are"} hidden by the
+            department filter because the matching employee is not in the
+            directory. Clear the department filter to see them.
+          </Alert>
+        )}
+
+        <DataTable
+          headers={tableHeaders}
+          caption="Attendance records for the applied filters"
+          minWidthClass="min-w-250"
+          isLoading={loading}
+          loadingLabel="Loading attendance records..."
+          isEmpty={pageRecords.length === 0}
+          emptyState={
+            <EmptyState
+              icon={CalendarDays}
+              title="No attendance records found"
+              description="Adjust the filters and apply them again, or clear the dates to load every record."
+            />
+          }
+        >
+          {pageRecords.map((record) => {
+            const employee = employeeMap.get(record.employeeId);
+
+            return (
+              <tr key={record.id}>
+                <td className="px-5 py-4">
+                  <p className="font-medium text-fg">
+                    {employee?.fullName ?? `#${record.employeeId}`}
+                  </p>
+
+                  <p className="mt-0.5 text-xs text-fg-subtle">
+                    {employee
+                      ? `${employee.employeeNumber}${employee.departmentName ? ` · ${employee.departmentName}` : ""}`
+                      : "Not in the employee directory"}
+                  </p>
+                </td>
+
+                <td className="px-5 py-4 text-fg-muted">
+                  {formatDate(record.attendanceDate)}
+                </td>
+
+                <td className="px-5 py-4 text-fg-muted">
+                  {formatTime(record.checkInTime)}
+                </td>
+
+                <td className="px-5 py-4 text-fg-muted">
+                  {formatTime(record.checkOutTime)}
+                </td>
+
+                <td className="px-5 py-4">
+                  <StatusBadge {...attendanceStatusMeta(record.status)} />
+                </td>
+
+                <td className="px-5 py-4 text-fg-muted">
+                  {record.isManual ? "Manual" : "Employee"}
+                </td>
+
+                <td className="max-w-60 truncate px-5 py-4 text-fg-muted">
+                  {record.adminNote ?? "—"}
+                </td>
+
+                <td className="px-5 py-4">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={Pencil}
+                    onClick={() => setEditingRecord(record)}
+                  >
+                    Correct
+                  </Button>
+                </td>
               </tr>
-            </thead>
+            );
+          })}
+        </DataTable>
 
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-5 py-10 text-center text-slate-500"
-                  >
-                    Loading attendance records...
-                  </td>
-                </tr>
-              ) : records.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-5 py-10 text-center text-slate-500"
-                  >
-                    No attendance records found.
-                  </td>
-                </tr>
-              ) : (
-                records.map((record) => (
-                  <tr key={record.id}>
-                    <td className="px-5 py-4 font-medium text-slate-900">
-                      {record.employeeId}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      {formatDate(record.attendanceDate)}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      {formatTime(record.checkInTime)}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      {formatTime(record.checkOutTime)}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${statusStyles[record.status]}`}
-                      >
-                        {record.status.replace("_", " ")}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      {record.isManual ? "Manual" : "Employee"}
-                    </td>
-
-                    <td className="max-w-60 truncate px-5 py-4 text-slate-600">
-                      {record.adminNote ?? "—"}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <button
-                        type="button"
-                        onClick={() => setEditingRecord(record)}
-                        className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        <Pencil size={15} />
-                        Correct
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <Pagination
+          page={safePage}
+          pageSize={PAGE_SIZE}
+          totalItems={visibleRecords.length}
+          onPageChange={setPage}
+          // Pagination's own base sets only `border-t`; adding the full
+          // outline here makes the strip read as its own card under the table.
+          className="mt-3 rounded-card border border-line bg-surface shadow-card"
+        />
+      </section>
 
       {showManualForm && (
         <ManualAttendanceForm

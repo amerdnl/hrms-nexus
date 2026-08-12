@@ -1,14 +1,31 @@
+import { CalendarPlus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import type {
   AttendanceStatus,
   ManualAttendanceInput,
 } from "../../types/attendance";
+import { attendanceStatusMeta } from "../../utils/status";
+import Alert from "../ui/Alert";
+import FormField from "../ui/FormField";
+import Modal from "../ui/Modal";
+import PrimaryButton from "../ui/PrimaryButton";
+import SecondaryButton from "../ui/SecondaryButton";
+import SelectInput from "../ui/SelectInput";
+import TextArea from "../ui/TextArea";
+import TextInput from "../ui/TextInput";
 
 type ManualAttendanceFormProps = {
   submitting: boolean;
   onSubmit: (input: ManualAttendanceInput) => Promise<void>;
   onCancel: () => void;
 };
+
+const statusOptions: AttendanceStatus[] = [
+  "present",
+  "late",
+  "absent",
+  "on_leave",
+];
 
 function ManualAttendanceForm({
   submitting,
@@ -55,119 +72,106 @@ function ManualAttendanceForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-      <form
-        onSubmit={handleSubmit}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
-      >
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">
-            Add Manual Attendance
-          </h2>
+    // The parent mounts this only while open, which is what keeps the fields
+    // fresh on every open without a reset effect.
+    <Modal
+      isOpen
+      onClose={onCancel}
+      title="Add manual attendance"
+      description="Create a record when an employee cannot record attendance."
+      icon={<CalendarPlus size={22} />}
+      size="lg"
+      isDismissDisabled={submitting}
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {formError && <Alert tone="danger">{formError}</Alert>}
 
-          <p className="mt-1 text-sm text-slate-500">
-            Create a record when an employee cannot record attendance.
-          </p>
-        </div>
-
-        {formError && (
-          <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-            {formError}
-          </div>
-        )}
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-slate-700">
-            Employee ID
-            <input
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField id="manual-employee-id" label="Employee ID" required>
+            <TextInput
+              id="manual-employee-id"
               type="number"
               min="1"
               value={employeeId}
               onChange={(event) => setEmployeeId(event.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
               required
             />
-          </label>
+          </FormField>
 
-          <label className="text-sm font-medium text-slate-700">
-            Attendance date
-            <input
+          <FormField id="manual-date" label="Attendance date" required>
+            <TextInput
+              id="manual-date"
               type="date"
               value={attendanceDate}
               onChange={(event) => setAttendanceDate(event.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
               required
             />
-          </label>
+          </FormField>
 
-          <label className="text-sm font-medium text-slate-700">
-            Check-in time
-            <input
+          <FormField id="manual-check-in" label="Check-in time">
+            <TextInput
+              id="manual-check-in"
               type="time"
               value={checkInTime}
               onChange={(event) => setCheckInTime(event.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
             />
-          </label>
+          </FormField>
 
-          <label className="text-sm font-medium text-slate-700">
-            Check-out time
-            <input
+          <FormField id="manual-check-out" label="Check-out time">
+            <TextInput
+              id="manual-check-out"
               type="time"
               value={checkOutTime}
               onChange={(event) => setCheckOutTime(event.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
             />
-          </label>
+          </FormField>
 
-          <label className="text-sm font-medium text-slate-700">
-            Status
-            <select
+          <FormField id="manual-status" label="Status">
+            <SelectInput
+              id="manual-status"
               value={status}
               onChange={(event) =>
                 setStatus(event.target.value as AttendanceStatus)
               }
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
             >
-              <option value="present">Present</option>
-              <option value="late">Late</option>
-              <option value="absent">Absent</option>
-              <option value="on_leave">On leave</option>
-            </select>
-          </label>
+              {statusOptions.map((option) => (
+                <option key={option} value={option}>
+                  {attendanceStatusMeta(option).label}
+                </option>
+              ))}
+            </SelectInput>
+          </FormField>
 
-          <label className="text-sm font-medium text-slate-700 sm:col-span-2">
-            Admin note
-            <textarea
+          <FormField
+            id="manual-note"
+            label="Admin note"
+            className="sm:col-span-2"
+          >
+            <TextArea
+              id="manual-note"
+              rows={3}
               value={adminNote}
               onChange={(event) => setAdminNote(event.target.value)}
-              rows={3}
-              className="mt-1.5 w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
               placeholder="Explain why this record was entered manually"
             />
-          </label>
+          </FormField>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={submitting}
-            className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 disabled:opacity-50"
-          >
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <SecondaryButton onClick={onCancel} disabled={submitting}>
             Cancel
-          </button>
+          </SecondaryButton>
 
-          <button
+          <PrimaryButton
             type="submit"
-            disabled={submitting}
-            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            isLoading={submitting}
+            loadingLabel="Saving..."
           >
-            {submitting ? "Saving..." : "Save attendance"}
-          </button>
+            Save attendance
+          </PrimaryButton>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }
 

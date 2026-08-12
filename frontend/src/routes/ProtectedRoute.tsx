@@ -13,8 +13,10 @@ export default function ProtectedRoute({
 
   if (isLoading) {
     return (
-      <div className="grid min-h-screen place-items-center bg-slate-100">
-        <p className="text-sm font-medium text-slate-600">Restoring your session…</p>
+      <div className="grid min-h-screen place-items-center bg-canvas">
+        <p className="text-sm font-medium text-fg-muted">
+          Restoring your session…
+        </p>
       </div>
     );
   }

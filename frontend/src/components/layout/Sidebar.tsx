@@ -14,7 +14,9 @@ import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { resolveProfileImageUrl } from "../../api/axios";
 import { useAuth } from "../../context/useAuth";
+import { cn } from "../../utils/cn";
 import LogoutConfirmationModal from "../common/LogoutConfirmationModal";
+import ThemeToggle from "../ui/ThemeToggle";
 
 interface NavigationItem {
   label: string;
@@ -36,6 +38,30 @@ const employeeNavigation: NavigationItem[] = [
   { label: "Attendance", to: "/employee/attendance", icon: Clock3 },
   { label: "Leave", to: "/employee/leave", icon: CalendarDays },
 ];
+
+const navigationItemBase =
+  "relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition";
+
+/* The sidebar is a permanently dark surface in BOTH themes, so it uses the
+   dedicated --sidebar* tokens plus the static brand ramp. Theme-flipping
+   tokens are deliberately avoided for text here: --danger, for example, is
+   tuned for the page background and only reaches 4.06:1 on the light-theme
+   sidebar, so the logout hover keeps a fixed light red instead. */
+/**
+ * `visibility` is doing accessibility work here, not decoration.
+ *
+ * A drawer that is merely translated off-screen keeps its links in the tab
+ * order, so a keyboard user below `md` tabs through five invisible
+ * destinations. `visibility: hidden` removes them from both the tab order and
+ * the accessibility tree, and `md:visible` re-exposes them at the breakpoint
+ * where the sidebar is permanently on screen - so desktop is untouched.
+ *
+ * visibility is included in the transition because it interpolates discretely:
+ * on open it flips to visible immediately, on close it waits for the slide-out
+ * to finish instead of making the panel vanish.
+ */
+const sidebarPanel =
+  "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-sidebar text-sidebar-fg transition-[transform,visibility] md:sticky md:top-0 md:h-screen md:translate-x-0 md:visible";
 
 function getInitials(name: string) {
   return name
@@ -62,6 +88,7 @@ export default function Sidebar() {
 
   const name = user.employee?.fullName ?? (user.role === "admin" ? "Administrator" : "Employee");
   const navigation = user.role === "admin" ? adminNavigation : employeeNavigation;
+  const portalLabel = user.role === "admin" ? "Admin portal" : "Employee portal";
   const profileImageUrl = resolveProfileImageUrl(user.employee?.profileImage ?? null);
 
   const handleLogout = async () => {
@@ -78,30 +105,61 @@ export default function Sidebar() {
   return (
     <>
       <button
-        className="fixed left-4 top-4 z-40 grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-white shadow-lg md:hidden"
+        className="fixed left-4 top-4 z-40 grid h-10 w-10 place-items-center rounded-lg bg-sidebar text-sidebar-fg-strong shadow-raised md:hidden"
         type="button"
         onClick={() => setIsOpen(true)}
         aria-label="Open navigation"
+        aria-expanded={isOpen}
+        aria-controls="app-sidebar"
       >
         <Menu size={21} />
       </button>
 
       {isOpen && (
         <button
-          className="fixed inset-0 z-40 bg-slate-950/50 md:hidden"
+          className="fixed inset-0 z-40 bg-backdrop md:hidden"
           type="button"
           onClick={() => setIsOpen(false)}
           aria-label="Close navigation overlay"
         />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-slate-950 text-slate-200 transition-transform md:sticky md:top-0 md:h-screen md:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="flex h-20 items-center justify-between border-b border-slate-800 px-6">
-          <div>
-            <p className="text-lg font-bold tracking-wide text-white">HR NEXUS</p>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-blue-400">People workspace</p>
+      <aside
+        id="app-sidebar"
+        aria-label="Sidebar"
+        className={cn(
+          sidebarPanel,
+          isOpen ? "visible translate-x-0" : "invisible -translate-x-full",
+        )}
+      >
+        <div className="flex h-20 items-center justify-between gap-3 border-b border-sidebar-line px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            {/* Light variant, not the blue one: the sidebar is dark chrome in
+                BOTH themes, so this never sits on a light surface.
+                alt="" on purpose - the "HR NEXUS" wordmark sits right beside
+                it, so naming the image would read the brand out twice. */}
+            <img
+              src="/branding/hr-nexus-icon-light.png"
+              alt=""
+              className="h-9 w-9 shrink-0 object-contain"
+            />
+
+            <div className="min-w-0">
+              <p className="truncate text-base font-bold tracking-wide text-sidebar-fg-strong">
+                HR NEXUS
+              </p>
+              <span className="mt-0.5 inline-flex items-center rounded-full bg-brand-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-brand-300">
+                {portalLabel}
+              </span>
+            </div>
           </div>
-          <button className="text-slate-400 hover:text-white md:hidden" type="button" onClick={() => setIsOpen(false)} aria-label="Close navigation">
+
+          <button
+            className="shrink-0 rounded-lg p-1 text-sidebar-fg transition hover:text-sidebar-fg-strong md:hidden"
+            type="button"
+            onClick={() => setIsOpen(false)}
+            aria-label="Close navigation"
+          >
             <X size={22} />
           </button>
         </div>
@@ -113,21 +171,35 @@ export default function Sidebar() {
               to={to}
               onClick={() => setIsOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${
+                cn(
+                  navigationItemBase,
                   isActive
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                }`
+                    ? "bg-primary text-primary-fg"
+                    : "hover:bg-sidebar-hover hover:text-sidebar-fg-strong",
+                )
               }
             >
-              <Icon size={19} />
-              {label}
+              {({ isActive }) => (
+                <>
+                  {/* Shape, not just hue: the active item also carries a rail
+                      flush with the sidebar edge. NavLink sets aria-current
+                      itself, so assistive tech is covered separately. */}
+                  {isActive && (
+                    <span
+                      className="absolute -left-4 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <Icon size={19} aria-hidden="true" />
+                  {label}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
 
-        <div className="border-t border-slate-800 p-4">
-          <div className="mb-3 flex items-center gap-3 rounded-lg bg-slate-900 p-3">
+        <div className="border-t border-sidebar-line p-4">
+          <div className="mb-3 flex items-center gap-3 rounded-lg bg-sidebar-hover p-3">
             {profileImageUrl && !profileImageFailed ? (
               <img
                 className="h-10 w-10 shrink-0 rounded-full object-cover"
@@ -136,18 +208,25 @@ export default function Sidebar() {
                 onError={() => setProfileImageFailed(true)}
               />
             ) : (
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-600 text-sm font-bold text-white">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold text-primary-fg">
                 {getInitials(name)}
               </div>
             )}
+
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">{name}</p>
-              <p className="truncate text-xs text-slate-400">{user.email}</p>
-              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">{user.role}</p>
+              <p className="truncate text-sm font-semibold text-sidebar-fg-strong">{name}</p>
+              <p className="truncate text-xs text-sidebar-fg">{user.email}</p>
             </div>
           </div>
-          <button className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-red-500/10 hover:text-red-300" type="button" onClick={() => setIsLogoutModalOpen(true)}>
-            <LogOut size={18} /> Logout
+
+          <ThemeToggle className="text-sidebar-fg hover:bg-sidebar-hover hover:text-sidebar-fg-strong" />
+
+          <button
+            className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-sidebar-fg transition hover:bg-red-500/10 hover:text-red-300"
+            type="button"
+            onClick={() => setIsLogoutModalOpen(true)}
+          >
+            <LogOut size={18} aria-hidden="true" /> Logout
           </button>
         </div>
       </aside>

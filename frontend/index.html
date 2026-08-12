@@ -2,9 +2,33 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/branding/hr-nexus-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>HR Nexus</title>
+    <!--
+      Applies the saved theme before first paint, so a dark-mode user never
+      sees a white flash. Must stay synchronous and inline: a deferred or
+      external script would run after the browser has already painted.
+
+      The storage key is duplicated from src/context/ThemeContext.ts
+      (THEME_STORAGE_KEY) because this runs before any module loads.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("hr_nexus_theme");
+          var isDark =
+            stored === "dark" ||
+            (stored !== "light" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          var root = document.documentElement;
+          root.classList.toggle("dark", isDark);
+          root.style.colorScheme = isDark ? "dark" : "light";
+        } catch (error) {
+          // Storage blocked (Safari private mode) - fall back to light.
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,8 +1,40 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { getEmployeeDashboard } from "../../api/dashboardApi";
+import {
+  CalendarDays,
+  CalendarOff,
+  CalendarPlus,
+  Clock3,
+  UserRound,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
+import { getEmployeeDashboard } from "../../api/dashboardApi";
+import { getMyLeaveRequests } from "../../api/leaveApi";
+import Alert from "../../components/ui/Alert";
+import EmptyState from "../../components/ui/EmptyState";
+import LinkButton from "../../components/ui/LinkButton";
+import PageHeader from "../../components/ui/PageHeader";
+import SectionCard from "../../components/ui/SectionCard";
+import StatCard from "../../components/ui/StatCard";
+import StatusBadge from "../../components/ui/StatusBadge";
 import type { EmployeeDashboardData } from "../../types/dashboard";
+import type { LeaveRequest } from "../../types/leave";
+import { formatDate, formatTime, getMalaysiaDate } from "../../utils/datetime";
+import { formatLeaveDaysBetween, findUpcomingLeave } from "../../utils/leave";
+import {
+  attendanceStatusMeta,
+  leaveStatusMeta,
+  leaveTypeMeta,
+  type StatusMeta,
+} from "../../utils/status";
+
+/** Tracked separately from the dashboard request so one cannot mask the other. */
+type UpcomingState = "loading" | "ready" | "failed";
+
+const notRecordedMeta: StatusMeta = {
+  label: "Not recorded",
+  tone: "neutral",
+  icon: Clock3,
+};
 
 export default function EmployeeDashboardPage() {
   const [dashboard, setDashboard] = useState<EmployeeDashboardData | null>(
@@ -11,14 +43,17 @@ export default function EmployeeDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [upcomingLeave, setUpcomingLeave] = useState<LeaveRequest | null>(null);
+  const [upcomingState, setUpcomingState] = useState<UpcomingState>("loading");
+
   useEffect(() => {
     async function loadDashboard() {
       try {
         const data = await getEmployeeDashboard();
         setDashboard(data);
-      } catch (error) {
+      } catch (requestError) {
         setError(
-          getApiErrorMessage(error, "Unable to load employee dashboard."),
+          getApiErrorMessage(requestError, "Unable to load employee dashboard."),
         );
       } finally {
         setIsLoading(false);
@@ -28,168 +63,242 @@ export default function EmployeeDashboardPage() {
     void loadDashboard();
   }, []);
 
+  /**
+   * Upcoming Leave is a second, independent request against the existing
+   * /leaves/me endpoint. It deliberately owns its own state and never writes
+   * to `error` or `isLoading`, so a failure here degrades exactly one card
+   * instead of blanking a dashboard whose primary payload arrived fine.
+   */
+  const loadUpcomingLeave = useCallback(async () => {
+    setUpcomingState("loading");
+
+    try {
+      const leaves = await getMyLeaveRequests();
+
+      // Malaysia's date, not the browser's: this must agree with how
+      // attendance stamps "today" for a user travelling or on a laptop set
+      // to another zone.
+      setUpcomingLeave(findUpcomingLeave(leaves, getMalaysiaDate()));
+      setUpcomingState("ready");
+    } catch {
+      setUpcomingState("failed");
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadUpcomingLeave();
+  }, [loadUpcomingLeave]);
+
   if (isLoading) {
-    return <p className="text-sm text-slate-500">Loading dashboard...</p>;
+    return <p className="text-sm text-fg-muted">Loading dashboard...</p>;
   }
 
   if (error) {
-    return (
-      <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-        {error}
-      </div>
-    );
+    return <Alert tone="danger">{error}</Alert>;
   }
 
   if (!dashboard) {
     return null;
   }
 
+  const { employee, todayAttendance, recentAttendance, recentLeaves } =
+    dashboard;
+
+  const todayMeta = todayAttendance
+    ? attendanceStatusMeta(todayAttendance.status)
+    : notRecordedMeta;
+
+  const todayHint = todayAttendance
+    ? `In ${formatTime(todayAttendance.checkInTime)} · Out ${formatTime(todayAttendance.checkOutTime)}`
+    : "No check-in recorded yet";
+
+  const upcomingCard = buildUpcomingCard(upcomingState, upcomingLeave);
+
   return (
-    <section className="mx-auto max-w-7xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900">
-          Welcome, {dashboard.employee.fullName}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          {dashboard.employee.jobTitle ?? "Employee"} ·{" "}
-          {dashboard.employee.departmentName ?? "No department"}
-        </p>
+    <section className="mx-auto max-w-7xl space-y-6">
+      <PageHeader
+        title={`Welcome, ${employee.fullName}`}
+        description={`${employee.jobTitle ?? "Employee"} · ${employee.departmentName ?? "No department"}`}
+      />
+
+      {/* lg rather than xl: at xl the three cards spent the whole 1024-1279
+          range as a 2 + 1 orphan beside the sidebar. No content change. */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          label="Today's attendance"
+          value={todayMeta.label}
+          icon={todayMeta.icon}
+          tone={todayMeta.tone}
+          hint={todayHint}
+          to="/employee/attendance"
+        />
+
+        <StatCard
+          label="Pending leave requests"
+          value={dashboard.pendingLeaves}
+          icon={Clock3}
+          tone={dashboard.pendingLeaves > 0 ? "warning" : "neutral"}
+          hint={
+            dashboard.pendingLeaves > 0
+              ? "Awaiting a decision"
+              : "Nothing awaiting a decision"
+          }
+          to="/employee/leave"
+        />
+
+        <StatCard
+          label="Upcoming leave"
+          value={upcomingCard.value}
+          icon={upcomingCard.icon}
+          tone={upcomingCard.tone}
+          hint={upcomingCard.hint}
+          isLoading={upcomingState === "loading"}
+          to="/employee/leave"
+        />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Today's Attendance</p>
+      <SectionCard title="Quick links">
+        <div className="flex flex-wrap gap-3">
+          <LinkButton to="/employee/attendance" variant="secondary" icon={Clock3}>
+            Attendance
+          </LinkButton>
 
-          <p className="mt-2 text-xl font-semibold capitalize text-slate-900">
-            {dashboard.todayAttendance?.status ?? "Not recorded"}
-          </p>
+          <LinkButton to="/employee/leave" variant="secondary" icon={CalendarPlus}>
+            Apply leave
+          </LinkButton>
 
-          <div className="mt-3 text-sm text-slate-600">
-            <p>Check in: {dashboard.todayAttendance?.checkInTime ?? "-"}</p>
-
-            <p>Check out: {dashboard.todayAttendance?.checkOutTime ?? "-"}</p>
-          </div>
+          <LinkButton to="/employee/profile" variant="secondary" icon={UserRound}>
+            My profile
+          </LinkButton>
         </div>
+      </SectionCard>
 
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Pending Leave Requests</p>
-
-          <p className="mt-2 text-3xl font-semibold text-slate-900">
-            {dashboard.pendingLeaves}
-          </p>
-
-          <Link
-            to="/employee/leave"
-            className="mt-4 inline-block text-sm font-medium text-blue-600 hover:text-blue-700"
-          >
-            View leave
-          </Link>
-        </div>
-
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Quick Links</p>
-
-          <div className="mt-3 flex flex-col gap-2 text-sm">
-            <Link
-              to="/employee/attendance"
-              className="font-medium text-blue-600 hover:text-blue-700"
-            >
-              Attendance
-            </Link>
-
-            <Link
-              to="/employee/leave"
-              className="font-medium text-blue-600 hover:text-blue-700"
-            >
-              Apply Leave
-            </Link>
-
-            <Link
-              to="/employee/profile"
-              className="font-medium text-blue-600 hover:text-blue-700"
-            >
-              My Profile
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">
-            Recent Attendance
-          </h2>
-
-          {dashboard.recentAttendance.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-500">
-              No attendance records found.
-            </p>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <SectionCard
+          title="Recent attendance"
+          icon={Clock3}
+          padded={recentAttendance.length > 0}
+        >
+          {recentAttendance.length === 0 ? (
+            <EmptyState
+              icon={Clock3}
+              title="No attendance records found"
+              description="Your check-ins will appear here once you start recording them."
+            />
           ) : (
-            <div className="mt-4 space-y-3">
-              {dashboard.recentAttendance.map((attendance) => (
-                <div
+            <ul className="space-y-3">
+              {recentAttendance.map((attendance) => (
+                <li
                   key={attendance.id}
-                  className="flex items-center justify-between border-b border-slate-100 pb-3"
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3 last:border-0 last:pb-0"
                 >
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">
-                      {attendance.attendanceDate.slice(0, 10)}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-fg">
+                      {formatDate(attendance.attendanceDate)}
                     </p>
 
-                    <p className="text-xs text-slate-500">
-                      {attendance.checkInTime ?? "-"} →{" "}
-                      {attendance.checkOutTime ?? "-"}
+                    <p className="mt-0.5 text-xs text-fg-subtle">
+                      {formatTime(attendance.checkInTime)} &rarr;{" "}
+                      {formatTime(attendance.checkOutTime)}
                     </p>
                   </div>
 
-                  <span className="text-sm capitalize text-slate-600">
-                    {attendance.status}
-                  </span>
-                </div>
+                  <StatusBadge {...attendanceStatusMeta(attendance.status)} />
+                </li>
               ))}
-            </div>
+            </ul>
           )}
-        </div>
+        </SectionCard>
 
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">
-            Recent Leave Requests
-          </h2>
-
-          {dashboard.recentLeaves.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-500">
-              No leave requests found.
-            </p>
+        <SectionCard
+          title="Recent leave requests"
+          icon={CalendarDays}
+          padded={recentLeaves.length > 0}
+        >
+          {recentLeaves.length === 0 ? (
+            <EmptyState
+              icon={CalendarOff}
+              title="No leave requests found"
+              description="Requests you submit will be listed here with their status."
+            />
           ) : (
-            <div className="mt-4 space-y-3">
-              {dashboard.recentLeaves.map((leave) => (
-                <div key={leave.id} className="border-b border-slate-100 pb-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium capitalize text-slate-900">
-                      {leave.leaveType}
+            <ul className="space-y-3">
+              {recentLeaves.map((leave) => (
+                <li
+                  key={leave.id}
+                  className="border-b border-line pb-3 last:border-0 last:pb-0"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-fg">
+                      {leaveTypeMeta(leave.leaveType).label} leave
                     </p>
 
-                    <span className="text-sm capitalize text-slate-600">
-                      {leave.status}
-                    </span>
+                    <StatusBadge {...leaveStatusMeta(leave.status)} />
                   </div>
 
-                  <p className="mt-1 text-xs text-slate-500">
-                    {leave.startDate.slice(0, 10)} →{" "}
-                    {leave.endDate.slice(0, 10)}
+                  <p className="mt-1 text-xs text-fg-subtle">
+                    {formatDate(leave.startDate)} &rarr;{" "}
+                    {formatDate(leave.endDate)}
                   </p>
 
                   {leave.adminComment && (
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-fg-muted">
                       Admin: {leave.adminComment}
                     </p>
                   )}
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
-        </div>
+        </SectionCard>
       </div>
     </section>
   );
+}
+
+interface UpcomingCard {
+  value: string;
+  hint: string;
+  tone: StatusMeta["tone"];
+  icon: StatusMeta["icon"];
+}
+
+/**
+ * The three non-success states are distinguished in text, never by colour or
+ * by an empty card: "unavailable" must not be mistaken for "you have no
+ * upcoming leave". The card still links to /employee/leave in every state, so
+ * a failed request leaves a route to the real data rather than a dead tile.
+ */
+function buildUpcomingCard(
+  state: UpcomingState,
+  leave: LeaveRequest | null,
+): UpcomingCard {
+  if (state === "failed") {
+    return {
+      value: "Unavailable",
+      hint: "Could not be loaded. Open Leave to check.",
+      tone: "neutral",
+      icon: CalendarOff,
+    };
+  }
+
+  if (!leave) {
+    return {
+      value: "None",
+      hint: "No approved leave scheduled",
+      tone: "neutral",
+      icon: CalendarOff,
+    };
+  }
+
+  const typeMeta = leaveTypeMeta(leave.leaveType);
+
+  return {
+    // Inclusive day count, shown for information only - this project has no
+    // leave balance, so nothing is deducted from anything.
+    value: formatLeaveDaysBetween(leave.startDate, leave.endDate),
+    hint: `${typeMeta.label} · ${formatDate(leave.startDate)} – ${formatDate(leave.endDate)}`,
+    tone: "info",
+    icon: CalendarDays,
+  };
 }

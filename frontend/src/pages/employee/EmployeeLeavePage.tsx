@@ -1,11 +1,32 @@
+import { CalendarOff, CalendarPlus, CalendarRange } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
+import { getApiErrorMessage } from "../../api/axios";
+import { createLeaveRequest, getMyLeaveRequests } from "../../api/leaveApi";
+import Alert from "../../components/ui/Alert";
+import Button from "../../components/ui/Button";
+import DataTable from "../../components/ui/DataTable";
+import EmptyState from "../../components/ui/EmptyState";
+import FormField from "../../components/ui/FormField";
+import PageHeader from "../../components/ui/PageHeader";
+import PrimaryButton from "../../components/ui/PrimaryButton";
+import SectionCard from "../../components/ui/SectionCard";
+import SelectInput from "../../components/ui/SelectInput";
+import StatusBadge from "../../components/ui/StatusBadge";
+import Tabs, { type TabItem } from "../../components/ui/Tabs";
+import TextArea from "../../components/ui/TextArea";
+import TextInput from "../../components/ui/TextInput";
 import type {
   CreateLeaveRequestInput,
   LeaveRequest,
   LeaveType,
 } from "../../types/leave";
-import { createLeaveRequest, getMyLeaveRequests } from "../../api/leaveApi";
-import { getApiErrorMessage } from "../../api/axios";
+import { formatDate, formatDateTime } from "../../utils/datetime";
+import {
+  calcLeaveDays,
+  formatLeaveDays,
+  formatLeaveDaysBetween,
+} from "../../utils/leave";
+import { leaveStatusMeta, leaveTypeMeta } from "../../utils/status";
 
 const initialForm: CreateLeaveRequestInput = {
   leaveType: "annual",
@@ -14,6 +35,23 @@ const initialForm: CreateLeaveRequestInput = {
   reason: "",
 };
 
+/** Dropdown order, preserved from the original markup. */
+const leaveTypes: LeaveType[] = ["annual", "medical", "emergency", "unpaid"];
+
+const APPLY_TAB = "apply";
+const HISTORY_TAB = "history";
+
+const tableHeaders = [
+  "Leave type",
+  "Start date",
+  "End date",
+  "Total days",
+  "Reason",
+  "Status",
+  "Admin comment",
+  "Applied on",
+];
+
 export default function EmployeeLeavePage() {
   const [form, setForm] = useState<CreateLeaveRequestInput>(initialForm);
   const [error, setError] = useState("");
@@ -21,14 +59,17 @@ export default function EmployeeLeavePage() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [isLoadingLeaves, setIsLoadingLeaves] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState(APPLY_TAB);
 
   useEffect(() => {
     async function loadLeaveHistory() {
       try {
         const data = await getMyLeaveRequests();
         setLeaves(data);
-      } catch (error) {
-        setError(getApiErrorMessage(error, "Unable to load leave history."));
+      } catch (requestError) {
+        setError(
+          getApiErrorMessage(requestError, "Unable to load leave history."),
+        );
       } finally {
         setIsLoadingLeaves(false);
       }
@@ -56,229 +97,212 @@ export default function EmployeeLeavePage() {
     try {
       setIsSubmitting(true);
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
       const newLeave = await createLeaveRequest(form);
 
       setLeaves((currentLeaves) => [newLeave, ...currentLeaves]);
       setSuccess("Leave request submitted successfully.");
       setForm(initialForm);
-    } catch (error) {
-      setError(getApiErrorMessage(error, "Unable to submit leave request."));
+      // The new row lands in the other panel, so move to it - otherwise the
+      // confirmation points at something the user cannot see.
+      setActiveTab(HISTORY_TAB);
+    } catch (requestError) {
+      setError(
+        getApiErrorMessage(requestError, "Unable to submit leave request."),
+      );
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  function getStatusClasses(status: LeaveRequest["status"]) {
-    if (status === "approved") {
-      return "bg-emerald-100 text-emerald-700";
-    }
+  // Informational only. This project has no leave balance: nothing is
+  // deducted, accrued, or checked against an entitlement, and this value
+  // never gates submission.
+  const requestedDays = calcLeaveDays(form.startDate, form.endDate);
 
-    if (status === "rejected") {
-      return "bg-red-100 text-red-700";
-    }
-
-    return "bg-amber-100 text-amber-700";
-  }
+  const tabs: TabItem[] = [
+    { id: APPLY_TAB, label: "Apply for leave" },
+    { id: HISTORY_TAB, label: "Leave history", count: leaves.length },
+  ];
 
   return (
-    <section className="mx-auto max-w-4xl">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">My Leave</h1>
+    <section className="mx-auto max-w-7xl space-y-6">
+      <PageHeader
+        title="My leave"
+        description="Submit a leave request and review your leave history."
+      />
 
-        <p className="mt-1 text-sm text-slate-600">
-          Submit a leave request and review your leave history.
-        </p>
-      </header>
+      {/* Above the tabs on purpose: a submission made on the Apply panel
+          switches to History, and the confirmation has to survive that. */}
+      {error && <Alert tone="danger">{error}</Alert>}
+      {success && <Alert tone="success">{success}</Alert>}
 
-      {/* Apply Leave Card */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Apply for Leave
-        </h2>
+      <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-        <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
-          <div>
-            <label
-              htmlFor="leaveType"
-              className="mb-1 block text-sm font-medium text-slate-700"
-            >
-              Leave type
-            </label>
-
-            <select
-              id="leaveType"
-              value={form.leaveType}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  leaveType: event.target.value as LeaveType,
-                })
-              }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
-            >
-              <option value="annual">Annual leave</option>
-              <option value="medical">Medical leave</option>
-              <option value="emergency">Emergency leave</option>
-              <option value="unpaid">Unpaid leave</option>
-            </select>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="startDate"
-                className="mb-1 block text-sm font-medium text-slate-700"
-              >
-                Start date
-              </label>
-
-              <input
-                id="startDate"
-                type="date"
-                value={form.startDate}
+      {/* Both panels stay mounted so every tab's aria-controls resolves to a
+          real element; `hidden` takes the inactive one out of the a11y tree. */}
+      <div
+        role="tabpanel"
+        id={`panel-${APPLY_TAB}`}
+        aria-labelledby={`tab-${APPLY_TAB}`}
+        hidden={activeTab !== APPLY_TAB}
+      >
+        <SectionCard title="Apply for leave" icon={CalendarPlus}>
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            <FormField id="leaveType" label="Leave type" required>
+              <SelectInput
+                id="leaveType"
+                value={form.leaveType}
                 onChange={(event) =>
                   setForm({
                     ...form,
-                    startDate: event.target.value,
+                    leaveType: event.target.value as LeaveType,
                   })
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="endDate"
-                className="mb-1 block text-sm font-medium text-slate-700"
               >
-                End date
-              </label>
+                {leaveTypes.map((leaveType) => (
+                  <option key={leaveType} value={leaveType}>
+                    {leaveTypeMeta(leaveType).label} leave
+                  </option>
+                ))}
+              </SelectInput>
+            </FormField>
 
-              <input
-                id="endDate"
-                type="date"
-                value={form.endDate}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    endDate: event.target.value,
-                  })
-                }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField id="startDate" label="Start date" required>
+                <TextInput
+                  id="startDate"
+                  type="date"
+                  value={form.startDate}
+                  onChange={(event) =>
+                    setForm({ ...form, startDate: event.target.value })
+                  }
+                />
+              </FormField>
+
+              <FormField id="endDate" label="End date" required>
+                <TextInput
+                  id="endDate"
+                  type="date"
+                  value={form.endDate}
+                  onChange={(event) =>
+                    setForm({ ...form, endDate: event.target.value })
+                  }
+                />
+              </FormField>
             </div>
-          </div>
 
-          <div>
-            <label
-              htmlFor="reason"
-              className="mb-1 block text-sm font-medium text-slate-700"
+            {requestedDays !== null && (
+              <p
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-surface-muted px-3 py-2.5 text-sm text-fg-muted"
+                // Announced when the dates change, without stealing focus.
+                role="status"
+              >
+                <CalendarRange
+                  size={15}
+                  className="text-primary"
+                  aria-hidden="true"
+                />
+                Total days:{" "}
+                <span className="font-semibold text-fg">
+                  {formatLeaveDays(requestedDays)}
+                </span>
+                <span className="text-xs text-fg-subtle">
+                  Every calendar day in the range, weekends and holidays
+                  included.
+                </span>
+              </p>
+            )}
+
+            <FormField id="reason" label="Reason" required>
+              <TextArea
+                id="reason"
+                rows={5}
+                value={form.reason}
+                onChange={(event) =>
+                  setForm({ ...form, reason: event.target.value })
+                }
+                placeholder="Explain the reason for your leave request"
+              />
+            </FormField>
+
+            <PrimaryButton
+              type="submit"
+              isLoading={isSubmitting}
+              loadingLabel="Submitting..."
             >
-              Reason
-            </label>
-
-            <textarea
-              id="reason"
-              rows={5}
-              value={form.reason}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  reason: event.target.value,
-                })
-              }
-              placeholder="Explain the reason for your leave request"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
-            />
-          </div>
-
-          {error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-
-          {success && (
-            <p className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
-              {success}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isSubmitting ? "Submitting..." : "Submit request"}
-          </button>
-        </form>
+              Submit request
+            </PrimaryButton>
+          </form>
+        </SectionCard>
       </div>
 
-      {/* Leave History Card */}
-      <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Leave History</h2>
+      <div
+        role="tabpanel"
+        id={`panel-${HISTORY_TAB}`}
+        aria-labelledby={`tab-${HISTORY_TAB}`}
+        hidden={activeTab !== HISTORY_TAB}
+      >
+        <DataTable
+          headers={tableHeaders}
+          caption="Your leave requests"
+          minWidthClass="min-w-250"
+          isLoading={isLoadingLeaves}
+          loadingLabel="Loading leave history..."
+          isEmpty={leaves.length === 0}
+          emptyState={
+            <EmptyState
+              icon={CalendarOff}
+              title="No leave requests found"
+              description="Requests you submit will be listed here with their status and any admin comment."
+              action={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={CalendarPlus}
+                  onClick={() => setActiveTab(APPLY_TAB)}
+                >
+                  Apply for leave
+                </Button>
+              }
+            />
+          }
+        >
+          {leaves.map((leave) => (
+            <tr key={leave.id}>
+              <td className="px-5 py-4">
+                <StatusBadge {...leaveTypeMeta(leave.leaveType)} />
+              </td>
 
-        {isLoadingLeaves ? (
-          <p className="mt-4 text-sm text-slate-500">
-            Loading leave history...
-          </p>
-        ) : leaves.length === 0 ? (
-          <p className="mt-4 text-sm text-slate-500">
-            No leave requests found.
-          </p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 text-slate-600">
-                <tr>
-                  <th className="px-3 py-3">Leave Type</th>
-                  <th className="px-3 py-3">Start Date</th>
-                  <th className="px-3 py-3">End Date</th>
-                  <th>Reason</th>
-                  <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3">Admin Comment</th>
-                  <th className="px-3 py-3">Submitted</th>
-                </tr>
-              </thead>
+              <td className="px-5 py-4 font-medium text-fg">
+                {formatDate(leave.startDate)}
+              </td>
 
-              <tbody>
-                {leaves.map((leave) => (
-                  <tr key={leave.id} className="border-b border-slate-100">
-                    <td className="px-3 py-3 capitalize">{leave.leaveType}</td>
+              <td className="px-5 py-4 font-medium text-fg">
+                {formatDate(leave.endDate)}
+              </td>
 
-                    <td className="px-3 py-3">
-                      {new Date(leave.startDate).toLocaleDateString()}
-                    </td>
+              <td className="px-5 py-4 text-fg-muted">
+                {formatLeaveDaysBetween(leave.startDate, leave.endDate)}
+              </td>
 
-                    <td className="px-3 py-3">
-                      {new Date(leave.endDate).toLocaleDateString()}
-                    </td>
+              <td className="max-w-56 px-5 py-4 text-fg-muted">
+                {leave.reason}
+              </td>
 
-                    <td>{leave.reason}</td>
+              <td className="px-5 py-4">
+                <StatusBadge {...leaveStatusMeta(leave.status)} />
+              </td>
 
-                    <td className="px-4 py-4 text-sm">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium capitalize ${getStatusClasses(
-                          leave.status,
-                        )}`}
-                      >
-                        {leave.status}
-                      </span>
-                    </td>
+              <td className="max-w-48 px-5 py-4 text-fg-muted">
+                {leave.adminComment ?? "—"}
+              </td>
 
-                    <td className="px-3 py-3">{leave.adminComment ?? "-"}</td>
-
-                    <td className="px-3 py-3">
-                      {new Date(leave.createdAt).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              <td className="px-5 py-4 text-fg-muted">
+                {formatDateTime(leave.createdAt)}
+              </td>
+            </tr>
+          ))}
+        </DataTable>
       </div>
     </section>
   );
