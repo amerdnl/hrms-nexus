@@ -134,12 +134,15 @@ export default function Sidebar() {
       >
         <div className="flex h-20 items-center justify-between gap-3 border-b border-sidebar-line px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-black tracking-tight text-primary-fg"
-              aria-hidden="true"
-            >
-              HN
-            </div>
+            {/* Light variant, not the blue one: the sidebar is dark chrome in
+                BOTH themes, so this never sits on a light surface.
+                alt="" on purpose - the "HR NEXUS" wordmark sits right beside
+                it, so naming the image would read the brand out twice. */}
+            <img
+              src="/branding/hr-nexus-icon-light.png"
+              alt=""
+              className="h-9 w-9 shrink-0 object-contain"
+            />
 
             <div className="min-w-0">
               <p className="truncate text-base font-bold tracking-wide text-sidebar-fg-strong">

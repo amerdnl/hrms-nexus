@@ -9,7 +9,18 @@ import PasswordInput from "../../components/ui/PasswordInput";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import TextInput from "../../components/ui/TextInput";
 import { useAuth } from "../../context/useAuth";
+import { useTheme } from "../../context/useTheme";
 import { roleDashboard } from "../../routes/roleDashboard";
+
+/**
+ * Two colourways of one mark, same silhouette and alpha.
+ *
+ * The brand panel is dark chrome in both themes so it always takes the light
+ * one. The compact header above the form sits on --canvas, which flips, so it
+ * picks by resolved theme rather than being pinned to either.
+ */
+const BRAND_ICON_BLUE = "/branding/hr-nexus-icon-transparent.png";
+const BRAND_ICON_LIGHT = "/branding/hr-nexus-icon-light.png";
 
 /**
  * "Remember me" stores the email address only, so returning users do not
@@ -50,6 +61,7 @@ const highlights = [
 
 export default function LoginPage() {
   const { isAuthenticated, isLoading, login, user } = useAuth();
+  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const [email, setEmail] = useState(readRememberedEmail);
   const [rememberMe, setRememberMe] = useState(() => readRememberedEmail() !== "");
@@ -108,12 +120,13 @@ export default function LoginPage() {
         />
 
         <div className="relative flex items-center gap-3">
-          <div
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-black tracking-tight text-primary-fg"
-            aria-hidden="true"
-          >
-            HN
-          </div>
+          {/* Always the light variant: this panel is bg-sidebar in both
+              themes. alt="" - the wordmark beside it announces the brand. */}
+          <img
+            src={BRAND_ICON_LIGHT}
+            alt=""
+            className="h-9 w-9 shrink-0 object-contain"
+          />
           <span className="text-lg font-bold tracking-wide text-sidebar-fg-strong">
             HR NEXUS
           </span>
@@ -155,12 +168,14 @@ export default function LoginPage() {
       <section className="flex items-center justify-center p-5 sm:p-10">
         <div className="w-full max-w-md rounded-card border border-line bg-surface p-6 shadow-panel sm:p-9">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary text-xs font-black tracking-tight text-primary-fg"
-              aria-hidden="true"
-            >
-              HN
-            </div>
+            {/* This header sits on --canvas, which is light in the light
+                theme and near-navy in the dark one, so the colourway follows
+                the resolved theme instead of being fixed. */}
+            <img
+              src={resolvedTheme === "dark" ? BRAND_ICON_LIGHT : BRAND_ICON_BLUE}
+              alt=""
+              className="h-8 w-8 shrink-0 object-contain"
+            />
             <span className="text-base font-bold tracking-wide text-fg">HR NEXUS</span>
           </div>
 
