@@ -10,7 +10,9 @@ Working branch created: `feat/hr-nexus-v2`. Initially untracked: master brief an
 Permanent deletion is retired in `dd13abe`. Migration 0001 and its browser gate are
 complete and explicitly accepted by the user. Company Settings is implemented and
 0002 is applied after a verified current backup and isolated rehearsal; 98 tests pass.
-The new settings browser smoke is pending because the browser connection is unavailable.
+Company Settings authenticated browser smoke passed on 8 September 2026, including
+invalid fields, mobile layout, synthetic lab persistence/concurrency and employee route
+denial. Source settings remain neutral; Employee/Department Stability is now active.
 See `HR_NEXUS_V2_COMPANY_SETTINGS.md` for defaults, validation and exact evidence.
 Original audit findings below are historical, not the current migration status.
 

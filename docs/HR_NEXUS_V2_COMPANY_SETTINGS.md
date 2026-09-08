@@ -121,18 +121,54 @@ verification output matched again afterward, and both migrations remain applied.
 The settings SPA route returned HTTP 200, anonymous `/api/settings` returned 401,
 and database health returned 200. SPA delivery is not proof of authenticated UI behavior.
 
-**Company Settings browser smoke is blocked, not passed.** The supported in-app browser
-connection returned `Browser is not available: iab`; discovery returned `[]`.
-The user accepted the preceding migration/browser gate, which remains complete.
-That acceptance is not treated as acceptance of this new settings UI.
+## Authenticated browser completion — 8 September 2026
 
-Pending browser checks: open Settings as admin; confirm neutral setup/default guidance;
-check field errors for blank company name, invalid timezone, empty days, equal times,
-excessive grace and incomplete coordinates; save approved company values and reload;
-verify persistence and success feedback; exercise the stale-edit/reload confirmation;
-check narrow-screen layout and employee-route denial. Use a separately configured lab
-for valid-save testing if no source company values have been approved; do not invent
-production company details or modify the five protected attendance rows.
+**Company Settings is complete.** The supported in-app browser used the existing
+signed-in admin tab on `http://localhost:5173`. Previously passed checks were retained
+when the task resumed. No application code changes were needed for this gate.
+
+| Browser check | Result / observed evidence |
+| --- | --- |
+| Admin navigation | Settings link opens `/admin/settings` |
+| Neutral/default guidance | Blank company/contact/location; setup message explains UTC and Monday–Friday defaults; 09:00–17:00, zero grace and 100-metre radius; unconfigured office message |
+| Blank company name | Save rejected; field error: “Enter 1–200 characters without control characters.”; focus moves to invalid field |
+| Invalid timezone | `Mars/Olympus` rejected with valid IANA timezone guidance |
+| Empty working days | All weekdays unchecked; server error requires at least one unique working day |
+| Equal start/end | 09:00–09:00 rejected: “Work start and end times must differ.” |
+| Excessive grace | 1440 rejected by the period limit and, with equal times, by the 0–1439 integer range |
+| Incomplete coordinates | Latitude 0 with blank longitude rejected; both fields explain that coordinates must be supplied together |
+| Reload/discard | Dirty form opens “Reload settings?”; Cancel retains edits; confirmation restores saved defaults |
+| Narrow screen | 375×812 viewport: fields stack, weekdays wrap, footer actions fit, mobile navigation exposes Settings; document scroll width equals viewport width (375); override reset afterward |
+| Valid lab save/reload | Success feedback appears; full reload retains synthetic company, registration, address, timezone, grace and coordinate/radius values |
+| Stale edit | Two real lab editor tabs loaded the same revision; competing save succeeds; stale save shows conflict, retains draft and disables Save; reload Cancel preserves draft, confirmation loads winning revision |
+| Employee route denial | Synthetic employee sees employee navigation without Settings; direct `/admin/settings` navigation redirects to `/employee/dashboard` without rendering settings |
+
+Valid writes and role-switch tests used only the fresh database
+`hr_nexus_browser_smoke_20260908` on the existing isolated
+`hr-nexus-v2-migration-lab` server. It was initialized from the schema and unchanged
+migrations without source data or seeds, then given one synthetic employee and two
+synthetic accounts. The dedicated frontend at `http://127.0.0.1:5186` used only the
+lab API at `http://127.0.0.1:5006/api`. No source credentials were reused.
+
+Synthetic saved fields: company `Synthetic Browser Lab`, registration `LAB-ONLY`,
+address explicitly marked synthetic, timezone `Asia/Kuala_Lumpur`, 15-minute grace,
+coordinates 0/0 and radius 250. The competing save changed the lab company name to
+`Synthetic Lab — current saved revision`. Independent read-only PostgreSQL evidence
+confirmed revision 2 and these values; lab attendance remains empty.
+
+Source invalid submissions retained a blank company name and were rejected. The
+original source tab was restored, still signed in as admin. A read-only source check
+confirmed company name NULL, revision 0, UTC, both coordinates NULL, all five protected
+attendance exceptions still present, and both exact migration ledger checksums
+matching the immutable files. No source business writes, migration edits, dependency
+upgrades, seed replay, orphan changes or production company setup occurred.
+
+The first lab frontend attempt failed because Vite's cache mount was read-only;
+port 5174 also belonged to a pre-existing local process. Testing moved to dedicated
+explicit loopback ports and a separate Vite cache, with unchanged dependencies.
+Native time inputs required keyboard entry because automation `fill` did not retain
+the React draft on blur; the equal-time check passed using the actual keyboard flow.
+These were test harness issues, not application failures.
 
 ## Changed files
 
@@ -145,6 +181,6 @@ production company details or modify the five protected attendance rows.
   `api/companySettingsApi.ts` and `pages/admin/CompanySettingsPage.tsx`.
 - Documentation: this document plus the V2 plan, audit, architecture, database and demo notes.
 
-Next P0 milestone after settings acceptance: employee/department stability, then
+Active P0 milestone: employee/department stability, then
 company import. The minor leave filtered-empty-state copy issue remains in the polish
 backlog. The qs/nanoid security release findings are retained with no dependency upgrades.

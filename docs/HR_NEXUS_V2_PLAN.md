@@ -12,8 +12,8 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | --- | --- | --- |
 | 1 | Focused repository audit and immediate API authorization | Complete; clean Docker rebuild passed and user accepted authenticated browser smoke |
 | 2 | Migration strategy and employee history retention | Complete; migration receipt and browser gate explicitly accepted by user |
-| 3 | Company settings | Implemented; 0002 applied and 98 tests passed; Company Settings browser smoke blocked on connection |
-| 4 | Employee/department stability | Not started; lifecycle consistency, robust validation, email uniqueness, server pagination |
+| 3 | Company settings | Complete; 0002 applied, 98 tests passed, authenticated browser smoke passed on 8 September 2026 |
+| 4 | Employee/department stability | In progress; focused review of lifecycle consistency, robust validation, email uniqueness and server pagination |
 | 5 | Company import | Not started; CSV/XLSX → mapping → validation → preview → explicit update confirmation → transaction → history |
 | 6 | Attendance verification | Not started; expiring backend QR + radius + official time + verification metadata |
 | 7 | Leave balances/validation | Not started; working days, overlap/balance checks, atomic approval and no double deduction |
@@ -96,9 +96,12 @@ Implemented within the existing stack and shared UI components, with no dependen
   existing backend lint warning. Docker rebuild/start passed with the existing volume.
 
 See [Company Settings design and evidence](HR_NEXUS_V2_COMPANY_SETTINGS.md).
-The implementation is ready for browser verification, but the Company Settings
-browser attempt returned `Browser is not available: iab`, with no discoverable browser.
-Do not describe the new settings browser workflow as tested or accepted yet.
+The authenticated Company Settings browser gate passed on 8 September 2026. Admin
+navigation, neutral guidance, all requested invalid-field cases, reload/discard,
+375-pixel layout and employee route denial passed. Valid save/reload and a real
+two-editor stale revision conflict passed only against a fresh synthetic lab database.
+Source settings remain neutral at revision 0. See the linked browser evidence.
+Company Settings is complete; Employee/Department Stability is now the active P0.
 
 ## Remaining blockers / release gates
 
@@ -110,10 +113,9 @@ Do not describe the new settings browser workflow as tested or accepted yet.
   Fresh npm audit reports qs (moderate) and nanoid (high); record and resolve before release.
   Before any dependency upgrade, identify the affected dependency paths, compatible
   fixed versions and regression risk. No dependency upgrade is currently underway.
-- Company Settings authenticated browser smoke remains open because no browser is
-  connected. Its real API tests do not replace that UI check. The prior migration
-  browser gate remains closed by user acceptance.
-- Next P0 after settings acceptance: employee/department stability, then company import.
+- Company Settings authenticated browser smoke is complete. Its source settings were
+  not configured during testing. Both accepted migration gates remain closed.
+- Active P0: employee/department stability; company import follows.
 
 ## Regression / polish backlog
 

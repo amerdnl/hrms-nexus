@@ -6,9 +6,10 @@ Target story: admin login → company settings → spreadsheet import → employ
 → employee login → QR/location attendance → leave submission → approval → payroll
 → published payslip → reports/export → audit trail.
 
-Company Settings now has a persistent admin API/UI at /admin/settings; its browser
-smoke remains pending. Review the neutral setup defaults and enter approved fictional
-company details before the demo. Imports, verified attendance, balances, payroll,
+Company Settings is complete: its admin API/UI at /admin/settings passed authenticated
+browser validation, mobile, persistence, stale-edit and employee-denial checks. Valid
+writes used a fresh synthetic-only lab database; source settings remain neutral.
+Review defaults and enter approved fictional company details only in the demo environment. Imports, verified attendance, balances, payroll,
 payslips, exports and audit are not ready. Do not present them as complete.
 The live database currently has one active employee and five orphan attendance
 records; this is not suitable final demo data.
