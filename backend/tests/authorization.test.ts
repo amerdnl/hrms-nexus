@@ -111,6 +111,20 @@ test("active admin can list employees and departments", async () => {
   }
 });
 
+test("permanent deletion returns 409 to admins without touching employee history", async () => {
+  for (const id of ["10", "999", "invalid"]) {
+    queries = [];
+    const response = await call("DELETE", `/employees/${id}/permanent`, token(1));
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), {
+      success: false,
+      message: "Permanent employee deletion is retired. Deactivate the employee instead to preserve their history.",
+    });
+    // Authentication is the only database query; pool.connect fails if invoked.
+    assert.equal(queries.length, 1);
+  }
+});
+
 test("employee cannot access admin attendance, leave approval, or dashboard", async () => {
   for (const [method, path] of [
     ["GET", "/attendance"], ["GET", "/attendance/statistics"],

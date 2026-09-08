@@ -105,10 +105,6 @@ export async function deleteEmployee(id: number): Promise<void> {
   await apiClient.delete(`/employees/${id}`);
 }
 
-export async function permanentlyDeleteEmployee(id: number): Promise<void> {
-  await apiClient.delete(`/employees/${id}/permanent`);
-}
-
 export async function reactivateEmployee(id: number) {
   const response = await apiClient.patch<ApiResponse>(
     `/employees/${id}/reactivate`,

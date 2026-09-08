@@ -558,67 +558,15 @@ export const deleteEmployee = async (request: Request, response: Response) => {
   }
 };
 
-export const permanentlyDeleteEmployee = async (
-  request: Request,
+export const permanentlyDeleteEmployee = (
+  _request: Request,
   response: Response,
 ) => {
-  const client = await pool.connect();
-
-  try {
-    const { id } = request.params;
-
-    await client.query("BEGIN");
-
-    // Check employee exists
-    const employeeCheck = await client.query(
-      `
-      SELECT id, full_name
-      FROM employees
-      WHERE id = $1
-      `,
-      [id],
-    );
-
-    if (employeeCheck.rows.length === 0) {
-      await client.query("ROLLBACK");
-
-      response.status(404).json({
-        success: false,
-        message: "Employee not found",
-      });
-
-      return;
-    }
-
-    // Delete employee.
-    // Related users, attendance and leave records
-    // are removed automatically because of ON DELETE CASCADE.
-    await client.query(
-      `
-      DELETE FROM employees
-      WHERE id = $1
-      `,
-      [id],
-    );
-
-    await client.query("COMMIT");
-
-    response.status(200).json({
-      success: true,
-      message: "Employee permanently deleted",
-    });
-  } catch (error) {
-    await client.query("ROLLBACK");
-
-    console.error(error);
-
-    response.status(500).json({
-      success: false,
-      message: "Failed to permanently delete employee",
-    });
-  } finally {
-    client.release();
-  }
+  response.status(409).json({
+    success: false,
+    message:
+      "Permanent employee deletion is retired. Deactivate the employee instead to preserve their history.",
+  });
 };
 
 export const reactivateEmployee = async (

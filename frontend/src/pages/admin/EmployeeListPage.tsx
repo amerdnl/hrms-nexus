@@ -1,11 +1,10 @@
-import { Plus, Trash2, UserCheck, UserMinus, Users } from "lucide-react";
+import { Plus, UserCheck, UserMinus, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { getDepartments, type Department } from "../../api/departmentApi";
 import {
   deleteEmployee,
   getEmployees,
-  permanentlyDeleteEmployee,
   reactivateEmployee,
 } from "../../api/employeeApi";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
@@ -37,7 +36,7 @@ const tableHeaders = [
   "Actions",
 ];
 
-type PendingActionType = "deactivate" | "reactivate" | "delete";
+type PendingActionType = "deactivate" | "reactivate";
 
 interface PendingAction {
   type: PendingActionType;
@@ -71,15 +70,6 @@ const actionCopy: Record<
     processingLabel: "Reactivating...",
     icon: <UserCheck size={21} />,
     describe: (name) => `Are you sure you want to reactivate ${name}?`,
-  },
-  delete: {
-    title: "Permanently delete employee?",
-    confirmLabel: "Delete permanently",
-    processingLabel: "Deleting...",
-    tone: "danger",
-    icon: <Trash2 size={21} />,
-    describe: (name) =>
-      `This will permanently delete ${name} and all associated records. This action cannot be undone.`,
   },
 };
 
@@ -208,22 +198,6 @@ export default function EmployeeListPage() {
     }
   }
 
-  async function handlePermanentDelete(id: number) {
-    try {
-      setError("");
-
-      await permanentlyDeleteEmployee(id);
-      await loadEmployees();
-    } catch (requestError) {
-      setError(
-        getApiErrorMessage(
-          requestError,
-          "Unable to permanently delete employee.",
-        ),
-      );
-    }
-  }
-
   async function handleReactivate(id: number) {
     try {
       setError("");
@@ -252,8 +226,6 @@ export default function EmployeeListPage() {
         await handleDeactivate(employee.id);
       } else if (type === "reactivate") {
         await handleReactivate(employee.id);
-      } else {
-        await handlePermanentDelete(employee.id);
       }
     } finally {
       setIsProcessingAction(false);
@@ -454,16 +426,6 @@ export default function EmployeeListPage() {
                       }
                     >
                       {isActive ? "Deactivate" : "Reactivate"}
-                    </Button>
-
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() =>
-                        setPendingAction({ type: "delete", employee })
-                      }
-                    >
-                      Delete
                     </Button>
                   </div>
                 </td>

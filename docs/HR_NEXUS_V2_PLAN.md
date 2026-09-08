@@ -51,9 +51,9 @@ from the fresh initialization scripts and contains historical orphan records.
    apply/status commands. No automatic volume reset, seed replay, or destructive down.
 2. Preserve existing INTEGER IDs; do not rewrite them merely to match BIGINT in the
    fresh schema. New references must be compatible with both supported shapes.
-3. Approval required: replace permanent employee deletion with a 409 response telling
-   admins to deactivate, and remove its UI action. Keep deactivate/reactivate intact.
-   This changes existing functionality, so the user must approve it first.
+3. User approved retirement of permanent deletion. Implemented: admin requests
+   receive 409 directing deactivation; UI action and unused client method removed.
+   Deactivation/reactivation and history preservation passed isolated API tests.
 4. Preserve all five orphan attendance rows and their existing employee IDs. Do not
    fabricate replacement employees, delete history, or silently remap ownership.
    Proposed approach: enforce a new non-cascading attendance FK for future writes
@@ -68,8 +68,8 @@ from the fresh initialization scripts and contains historical orphan records.
 
 - Fresh Docker build: node:24-alpine metadata lookup timed out. Existing stack runs
   from cached images. Do not change Docker credential settings without permission.
-- Retiring permanent deletion needs explicit approval under the user's repository
-  rules. Do not execute permanent deletion to test it.
+- Permanent deletion retirement is approved and implemented. All persistent changes
+  to the existing database still require a separate review and approval.
 - Migration reconciliation warrants Extra High; no destructive cleanup authorized.
 - Full authenticated browser smoke needs an authorized test account/session; do not
   read saved credentials or use seeded passwords without permission.
