@@ -11,7 +11,7 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | Order | P0 milestone | Status / acceptance |
 | --- | --- | --- |
 | 1 | Focused repository audit and immediate API authorization | Implemented and tested; clean Docker rebuild passed; browser auth smoke blocked on browser connection |
-| 2 | Migration strategy and employee history retention | 0001 applied with approved checksum; preservation/behavior checks and clean rebuild passed; browser gate remains open |
+| 2 | Migration strategy and employee history retention | 0001 complete and receipt accepted; milestone closure awaits authenticated browser smoke |
 | 3 | Company settings | Not started; validated admin API/UI, timezone/work hours/location/radius |
 | 4 | Employee/department stability | Not started; lifecycle consistency, robust validation, email uniqueness, server pagination |
 | 5 | Company import | Not started; CSV/XLSX → mapping → validation → preview → explicit update confirmation → transaction → history |
@@ -72,6 +72,13 @@ Source SQLSTATE/correction checks and authenticated API lifecycle checks on a fr
 post-application copy passed. No orphan ownership/data changed and no other migration
 ran on the source. See [application receipt](HR_NEXUS_V2_MIGRATION_APPLICATION.md).
 
+The user reviewed and accepted the receipt and considers migration 0001 complete.
+Do not change its SQL, checksum, backup or the five unresolved attendance rows.
+The remaining milestone gate is an authenticated browser smoke test against the
+existing application after the user is signed in as admin. Once it passes, close
+this milestone and proceed to Company Settings. Browser availability was checked
+again after acceptance; the runtime still reported no available browser.
+
 Clean no-cache Docker build, volume-preserving down/up, 64 tests on the new image,
 source/test typechecks, builds and lint passed (one existing backend lint warning).
 The authenticated browser gate remains blocked: runtime discovery returned no
@@ -85,6 +92,8 @@ Settings must wait for that gate; no settings implementation or migration has be
   reassignment, record deletion, seed replay, volume reset or destructive cleanup.
 - Clean Docker rebuild/restart passed after retry; no Docker credential settings changed.
   Fresh npm audit reports qs (moderate) and nanoid (high); record and resolve before release.
+  Before any dependency upgrade, identify the affected dependency paths, compatible
+  fixed versions and regression risk. No dependency upgrade is currently underway.
 - Full authenticated browser smoke remains open because no browser is connected;
   isolated API lifecycle verification does not replace it. No saved/seeded credentials used.
 - Company settings remains the next P0 milestone after authenticated browser verification.
