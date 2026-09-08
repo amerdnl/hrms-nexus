@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import {
   findSafeUserById,
+  findSessionUserById,
   findUserRecordByEmail,
 } from "../utils/userQueries.js";
 
@@ -52,7 +53,7 @@ export async function login(
     return;
   }
 
-  if (!userRecord.is_active) {
+  if (!userRecord.is_active || !(await findSessionUserById(Number(userRecord.id)))) {
     response.status(403).json({
       success: false,
       message: "This account is inactive",

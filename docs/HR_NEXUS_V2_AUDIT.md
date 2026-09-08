@@ -1,0 +1,119 @@
+# HR Nexus V2 repository audit
+
+Audited 8 September 2026 against the complete `HR_NEXUS_V2_MASTER.md`.
+Starting branch: `docs/readme-update`; commit: `55a1641` (merge PR #13).
+Working branch created: `feat/hr-nexus-v2`. Initially untracked: master brief and
+`docs/schema.dbml`; both preserved. No AGENTS.md applies to this repository.
+
+## Architecture and versions
+
+React SPA → Axios Bearer requests → Express routes/controllers → parameterized
+`pg` queries → PostgreSQL. Attendance has a service layer; other modules largely
+query from controllers. No ORM, migration runner, backend linter, formatter, or
+automated test suite existed at baseline. Existing frontend Oxlint is available.
+
+Versions below are resolved from committed lockfiles, not only package ranges:
+
+| Layer | Versions |
+| --- | --- |
+| Frontend | React/React DOM 19.2.8, React Router 7.18.2, Axios 1.19.0, Lucide 1.28.0 |
+| Build/style | Vite 8.2.0, Tailwind/@tailwindcss/vite 4.3.3, plugin-react 6.0.5, TypeScript 6.0.3, Oxlint 1.77.0 |
+| Backend | Express 5.2.1, pg 8.22.0, bcrypt 6.0.0, jsonwebtoken 9.0.3, Multer 2.2.0, cors 2.8.6, dotenv 17.4.2 |
+| Backend tooling | TypeScript 7.0.2, tsx 4.23.8, nodemon 3.1.14 |
+| Runtime | Host Node 24.18.0/npm 11.16.0; Dockerfiles use node:24-alpine |
+| Database | Compose postgres:17-alpine; running server PostgreSQL 17.10 |
+
+Docker Compose services: postgres (5433:5432), backend (5001:5000), frontend
+(5173:5173). Database persists in `hr-nexus_postgres_data`. Source is bind-mounted;
+container node_modules use anonymous volumes. Existing orphan Redis container/volume
+is unrelated to the declared stack and was not removed or incorporated.
+
+## Existing functionality and route map
+
+| UI | API | Baseline |
+| --- | --- | --- |
+| /login | /api/auth/login, /me, /logout | JWT login, session restore, client logout |
+| /admin/employees, /new, /:id, /:id/edit | /api/employees | Create/edit/detail, deactivate/reactivate, permanent delete |
+| /admin/departments, /new, /:id, /:id/edit | /api/departments | CRUD, employee membership |
+| /admin/attendance; /employee/attendance | /api/attendance | Server time, history, manual admin corrections |
+| /admin/leave; /employee/leave | /api/leaves | Apply, own history/detail, admin approval/rejection |
+| /admin/dashboard; /employee/dashboard | /api/dashboard | Database-backed counts/recent records |
+| /employee/profile | /api/profile | Restricted contact fields, image upload/removal, password change |
+
+`/employee/profile/password` redirects to profile, where password change is a modal.
+AppLayout/Sidebar, shared form/table/modal primitives, light/dark/system theme,
+loading/error/empty states and responsive classes already exist. Preserve them.
+Employee list pagination and some joins/filtering are client-side; the API returns
+full record sets. Search does not cover email. Browser/mobile regression remains due.
+
+## Security findings and first implementation
+
+| Finding | Severity | Status |
+| --- | --- | --- |
+| All employee/department operations were publicly accessible, including permanent deletion | Critical | Fixed: router-wide authentication plus admin authorization |
+| Issued JWT trusted stale role/employee linkage and inactive accounts | High | Fixed: current account/link/status lookup on every protected request; mismatches return 401 |
+| JWT algorithm not explicitly pinned and expiry not required | High | Fixed: HS256 only, expiry and safe positive identifiers required |
+| Inactive employment could still log in if users.is_active remained true | High | Fixed: login checks the same current eligibility query |
+| Docker exclusions covered .env but omitted .env.* variants and uploaded photos | High | Expanded existing build-context exclusions; fresh build verification blocked on Docker metadata lookup |
+| Permanent employee deletion destroys users/leave and can orphan live attendance | High | Admin-restricted now; retention policy change requires approval (see database plan) |
+| localStorage JWT; logout/password change do not revoke a copied token | Security consideration | Existing architecture preserved; separate session-revocation work remains |
+| No login throttling; raw internal error logging | Follow-up | Review before demo; do not log credentials or sensitive SQL error details |
+| Profile photos public via static URLs | Follow-up | Existing photo behavior preserved; never reuse for private HR documents |
+
+Leave detail uses `id AND employee_id`; list/create resolve the current user's
+employee ID. Attendance self-service uses authenticated employeeId, never a request
+employee ID. Profile updates whitelist contact columns and reject restricted fields.
+Uploads already limit size, allow JPG/PNG/WebP, check signatures, randomize names,
+and constrain managed deletion paths. SQL values are parameterized; dynamic columns
+come from code allowlists. No general mass assignment was found in reviewed writes.
+No payroll/payslip endpoints exist yet, so their authorization is not implemented.
+
+Auth uses bcrypt (12 rounds on new/changed passwords), JWT Bearer, default 8-hour
+expiry, frontend 401 session clearing, and admin/employee roles. The new account
+lookup selects only ID, employee linkage, and role; it never selects password hashes.
+Current eligibility permits active/probation linked employees, plus active standalone
+admin accounts. Database failures fail closed. JWT validation options were checked
+against [upstream jsonwebtoken documentation](https://github.com/auth0/node-jsonwebtoken#jwtverifytoken-secretorpublickey-options-callback).
+
+Only .env.example files are tracked. Actual .env files and stored credentials were
+not opened, changed, or printed. Historical secrets/seed credentials have not been
+fully audited; do not interpret this as a complete secrets clearance.
+
+## Database and integrity findings
+
+See `HR_NEXUS_V2_DATABASE.md` for exact drift and the proposed migration path.
+Five orphan attendance records exist. No business data was altered or deleted.
+Fresh schema cascades attendance/users/leave on employee deletion; actual attendance
+has no employee FK. Live IDs are mostly INTEGER, while fresh schema uses BIGINT.
+Department deletion guards assigned employees and has a database FK backstop.
+Users.email uniqueness is case-sensitive although login compares LOWER(email).
+Employment status lacks a database CHECK. Leave lacks balances, overlaps, working-day
+validation and controlled repeat decisions. Attendance has unique employee/date and
+conditional checkout updates, but settings/QR/location verification are absent.
+Dashboard CURRENT_DATE and attendance's hardcoded Malaysia time need alignment.
+
+## P0 gaps
+
+No migration mechanism, company settings, import workflow, compensation/payroll,
+payslips, leave balances, reporting/export, or audit log module exists. Dashboard
+already uses real SQL; extend it instead of replacing mock data that is not present.
+Demo data is insufficient (one active employee found in the live aggregate).
+No automated coverage existed at baseline. Added targeted authorization tests rather
+than a new testing framework. Remaining workflow coverage follows the master plan.
+
+## Validation evidence
+
+- Baseline frontend lint/typecheck/build passed.
+- Baseline backend typecheck/build failed because local node_modules lacked Multer.
+  Restored exact lockfile dependencies with npm ci (no new dependency/version change).
+- Backend typecheck/build now pass. Tests are also typechecked.
+- 35 HTTP authorization/ownership tests pass; one PostgreSQL temporary-table test
+  passes inside Docker (36 total with HR_NEXUS_DB_TESTS=1).
+- Existing frontend Oxlint applied to backend: no errors, one pre-existing
+  no-useless-empty-export warning in src/types/auth.ts. Frontend lint/build pass.
+- Compose config validates; existing services start with cached images and volume.
+- Live API health/database health: 200. Anonymous employee/department lists: 401.
+  Frontend /login: 200. Full authenticated browser/password-change smoke remains due.
+- Fresh docker compose up -d --build failed resolving node:24-alpine metadata with
+  DeadlineExceeded. Cached-image startup is not proof of a successful fresh build.
+- No migrations applied. PostgreSQL test uses temporary tables and ROLLBACK.

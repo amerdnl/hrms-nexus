@@ -1,11 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import type { AuthenticatedUser, UserRole } from "../types/auth.js";
+import { findSessionUserById } from "../utils/userQueries.js";
 
 interface TokenPayload extends jwt.JwtPayload {
   sub: string;
   role: UserRole;
-  employeeId: number | null;
+  employeeId: number | string | null;
 }
 
 function getJwtSecret(): string {
@@ -18,11 +19,11 @@ function getJwtSecret(): string {
   return secret;
 }
 
-export function authenticateToken(
+export async function authenticateToken(
   request: Request,
   response: Response,
   next: NextFunction,
-): void {
+): Promise<void> {
   const authorization = request.headers.authorization;
 
   if (!authorization?.startsWith("Bearer ")) {
@@ -44,7 +45,13 @@ export function authenticateToken(
   }
 
   try {
-    const decoded = jwt.verify(token, getJwtSecret()) as TokenPayload;
+    const decoded = jwt.verify(token, getJwtSecret(), {
+      algorithms: ["HS256"],
+    }) as TokenPayload;
+
+    if (typeof decoded !== "object" || decoded === null) {
+      throw new jwt.JsonWebTokenError("Invalid token payload");
+    }
 
     const userId = Number(decoded.sub);
 
@@ -54,10 +61,22 @@ export function authenticateToken(
         : Number(decoded.employeeId);
 
     const hasValidEmployeeId =
-      employeeId === null || (Number.isInteger(employeeId) && employeeId > 0);
+      employeeId === null ||
+      (
+        (typeof decoded.employeeId === "number" ||
+          (typeof decoded.employeeId === "string" &&
+            /^[1-9]\d*$/.test(decoded.employeeId))) &&
+        Number.isSafeInteger(employeeId) &&
+        employeeId > 0
+      );
 
     if (
-      !Number.isInteger(userId) ||
+      typeof decoded.sub !== "string" ||
+      !/^[1-9]\d*$/.test(decoded.sub) ||
+      !Number.isSafeInteger(userId) ||
+      userId <= 0 ||
+      typeof decoded.exp !== "number" ||
+      !Number.isFinite(decoded.exp) ||
       !["admin", "employee"].includes(decoded.role) ||
       !hasValidEmployeeId ||
       (decoded.role === "employee" && employeeId === null)
@@ -71,7 +90,20 @@ export function authenticateToken(
       role: decoded.role,
     };
 
-    request.user = authenticatedUser;
+    const currentUser = await findSessionUserById(userId);
+    if (
+      !currentUser ||
+      currentUser.role !== authenticatedUser.role ||
+      currentUser.employeeId !== authenticatedUser.employeeId
+    ) {
+      response.status(401).json({
+        success: false,
+        message: "Your session is no longer valid. Please sign in again.",
+      });
+      return;
+    }
+
+    request.user = currentUser;
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {

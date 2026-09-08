@@ -1,5 +1,42 @@
 import pool from "../config/db.js";
-import type { UserRole } from "../types/auth.js";
+import type { AuthenticatedUser, UserRole } from "../types/auth.js";
+
+// Check live account state without selecting credentials or personal profile data.
+export async function findSessionUserById(
+  userId: number,
+): Promise<AuthenticatedUser | null> {
+  const result = await pool.query<{
+    id: string;
+    employee_id: string | null;
+    role: UserRole;
+  }>(
+    `SELECT u.id, u.employee_id, u.role
+     FROM users u
+     LEFT JOIN employees e ON e.id = u.employee_id
+     WHERE u.id = $1 AND u.is_active = TRUE
+       AND (
+         (u.role = 'admin' AND u.employee_id IS NULL)
+         OR e.employment_status IN ('active', 'probation')
+       )`,
+    [userId],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+
+  const id = Number(row.id);
+  const employeeId = row.employee_id === null ? null : Number(row.employee_id);
+  if (
+    !Number.isSafeInteger(id) ||
+    id <= 0 ||
+    !["admin", "employee"].includes(row.role) ||
+    (employeeId !== null && (!Number.isSafeInteger(employeeId) || employeeId <= 0)) ||
+    (row.role === "employee" && employeeId === null)
+  ) {
+    return null;
+  }
+
+  return { id, employeeId, role: row.role };
+}
 
 export interface UserRecord {
   id: number;

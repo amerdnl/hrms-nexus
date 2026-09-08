@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { authenticateToken } from "../middleware/authMiddleware.js";
+import { authorizeRoles } from "../middleware/roleMiddleware.js";
 
 import {
   getDepartments,
@@ -10,6 +12,8 @@ import {
 } from "../controllers/departmentController.js";
 
 const router = Router();
+
+router.use(authenticateToken, authorizeRoles("admin"));
 
 router.get("/", getDepartments);
 

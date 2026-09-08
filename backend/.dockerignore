@@ -1,5 +1,11 @@
 node_modules
-dist
-.env
 .git
+dist
+coverage
 *.log
+.env
+.env.*
+!.env.example
+uploads/profile-images/*
+!uploads/profile-images/.gitkeep
+.DS_Store
