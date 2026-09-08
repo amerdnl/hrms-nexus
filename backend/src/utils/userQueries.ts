@@ -152,10 +152,12 @@ function toSafeUser(row: SafeUserRow): SafeUser {
 export async function findUserRecordByEmail(
   email: string,
 ): Promise<UserRecord | null> {
+  // Matches the users_email_normalized_key expression exactly, so sign-in resolves
+  // an account by the same identity the database enforces as unique.
   const result = await pool.query<UserRecord>(
     `SELECT id, employee_id, email, password_hash, role, is_active
      FROM users
-     WHERE LOWER(email) = LOWER($1)
+     WHERE lower(btrim(email)) = lower(btrim($1))
      LIMIT 1`,
     [email],
   );

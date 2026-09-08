@@ -4,6 +4,8 @@ import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import {
   getEmployees,
   getEmployeeById,
+  getEmployeeJobTitles,
+  getEmployeeLookup,
   createEmployee,
   updateEmployee,
   deleteEmployee,
@@ -16,6 +18,9 @@ const router = Router();
 router.use(authenticateToken, authorizeRoles("admin"));
 
 router.get("/", getEmployees);
+// Registered before "/:id" so these names are not captured as identifiers.
+router.get("/lookup", getEmployeeLookup);
+router.get("/job-titles", getEmployeeJobTitles);
 router.get("/:id", getEmployeeById);
 router.post("/", createEmployee);
 router.put("/:id", updateEmployee);
