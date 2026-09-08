@@ -15,7 +15,11 @@ import SelectInput from "../../components/ui/SelectInput";
 import TextArea from "../../components/ui/TextArea";
 import TextInput from "../../components/ui/TextInput";
 import type { Department } from "../../types/department";
-import type { Employee } from "../../types/employee";
+import {
+  employmentStatusLabels,
+  employmentStatuses,
+  type Employee,
+} from "../../types/employee";
 
 export default function EmployeeEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +40,9 @@ export default function EmployeeEditPage() {
   const [employmentStatus, setEmploymentStatus] = useState("active");
   const [emergencyContactName, setEmergencyContactName] = useState("");
   const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [gender, setGender] = useState("");
+  const [employmentDate, setEmploymentDate] = useState("");
 
   useEffect(() => {
     async function loadData() {
@@ -55,6 +62,7 @@ export default function EmployeeEditPage() {
         setDepartments(departmentData);
 
         setFullName(employeeData.fullName);
+        setEmail(employeeData.email ?? "");
         setPhone(employeeData.phone ?? "");
         setAddress(employeeData.address ?? "");
         setJobTitle(employeeData.jobTitle ?? "");
@@ -64,6 +72,10 @@ export default function EmployeeEditPage() {
         setEmploymentStatus(employeeData.employmentStatus);
         setEmergencyContactName(employeeData.emergencyContactName ?? "");
         setEmergencyContactPhone(employeeData.emergencyContactPhone ?? "");
+        // Date inputs need a bare YYYY-MM-DD value.
+        setDateOfBirth(employeeData.dateOfBirth?.slice(0, 10) ?? "");
+        setGender(employeeData.gender ?? "");
+        setEmploymentDate(employeeData.employmentDate?.slice(0, 10) ?? "");
       } catch (requestError) {
         setError(getApiErrorMessage(requestError, "Unable to load employee."));
       } finally {
@@ -87,19 +99,29 @@ export default function EmployeeEditPage() {
       return;
     }
 
+    if (!departmentId) {
+      setError("Select a department.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setError("");
 
+      // Cleared fields are sent as null so the server clears them explicitly,
+      // rather than being omitted and silently left at their previous value.
       await updateEmployee(Number(id), {
         full_name: fullName.trim(),
-        phone: phone.trim() || undefined,
-        address: address.trim() || undefined,
-        job_title: jobTitle.trim() || undefined,
-        department_id: departmentId ? Number(departmentId) : undefined,
+        phone: phone.trim() || null,
+        address: address.trim() || null,
+        job_title: jobTitle.trim() || null,
+        department_id: Number(departmentId),
         employment_status: employmentStatus,
-        emergency_contact_name: emergencyContactName.trim() || undefined,
-        emergency_contact_phone: emergencyContactPhone.trim() || undefined,
+        emergency_contact_name: emergencyContactName.trim() || null,
+        emergency_contact_phone: emergencyContactPhone.trim() || null,
+        date_of_birth: dateOfBirth || null,
+        gender: gender.trim() || null,
+        employment_date: employmentDate || null,
         ...(email.trim() ? { email: email.trim() } : {}),
       });
 
@@ -164,7 +186,7 @@ export default function EmployeeEditPage() {
             <FormField
               id="email"
               label="Email"
-              hint="Leave blank if you do not want to change the email."
+              hint="The employee signs in with this address."
             >
               <TextInput
                 id="email"
@@ -197,14 +219,14 @@ export default function EmployeeEditPage() {
               />
             </FormField>
 
-            <FormField id="department" label="Department">
+            <FormField id="department" label="Department" required>
               <SelectInput
                 id="department"
                 value={departmentId}
                 onChange={(event) => setDepartmentId(event.target.value)}
                 disabled={isSubmitting}
               >
-                <option value="">No department</option>
+                <option value="">Select department</option>
 
                 {departments.map((department) => (
                   <option key={department.id} value={department.id}>
@@ -214,16 +236,55 @@ export default function EmployeeEditPage() {
               </SelectInput>
             </FormField>
 
-            <FormField id="employment-status" label="Employment status">
+            <FormField
+              id="employment-status"
+              label="Employment status"
+              hint="Only active and probation employees can sign in."
+            >
               <SelectInput
                 id="employment-status"
+                aria-describedby={fieldDescribedBy("employment-status", { hint: true })}
                 value={employmentStatus}
                 onChange={(event) => setEmploymentStatus(event.target.value)}
                 disabled={isSubmitting}
               >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                {employmentStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {employmentStatusLabels[status]}
+                  </option>
+                ))}
               </SelectInput>
+            </FormField>
+
+            <FormField id="employment-date" label="Employment date">
+              <TextInput
+                id="employment-date"
+                type="date"
+                value={employmentDate}
+                onChange={(event) => setEmploymentDate(event.target.value)}
+                disabled={isSubmitting}
+              />
+            </FormField>
+
+            <FormField id="date-of-birth" label="Date of birth">
+              <TextInput
+                id="date-of-birth"
+                type="date"
+                value={dateOfBirth}
+                onChange={(event) => setDateOfBirth(event.target.value)}
+                disabled={isSubmitting}
+              />
+            </FormField>
+
+            <FormField id="gender" label="Gender">
+              <TextInput
+                id="gender"
+                type="text"
+                value={gender}
+                onChange={(event) => setGender(event.target.value)}
+                placeholder="e.g. Male"
+                disabled={isSubmitting}
+              />
             </FormField>
 
             <FormField

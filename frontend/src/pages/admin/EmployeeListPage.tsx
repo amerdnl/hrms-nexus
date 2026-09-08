@@ -1,9 +1,10 @@
 import { Plus, UserCheck, UserMinus, Users } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { getDepartments, type Department } from "../../api/departmentApi";
 import {
   deleteEmployee,
+  getEmployeeJobTitles,
   getEmployees,
   reactivateEmployee,
 } from "../../api/employeeApi";
@@ -22,7 +23,11 @@ import SelectInput from "../../components/ui/SelectInput";
 import StatusBadge from "../../components/ui/StatusBadge";
 import TextInput from "../../components/ui/TextInput";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
-import type { Employee } from "../../types/employee";
+import {
+  employmentStatusLabels,
+  employmentStatuses,
+  type Employee,
+} from "../../types/employee";
 import { employmentStatusMeta } from "../../utils/status";
 
 const SEARCH_DEBOUNCE_MS = 350;
@@ -60,7 +65,8 @@ const actionCopy: Record<
     processingLabel: "Deactivating...",
     tone: "danger",
     icon: <UserMinus size={21} />,
-    describe: (name) => `Are you sure you want to deactivate ${name}?`,
+    describe: (name) =>
+      `Are you sure you want to deactivate ${name}? Their attendance and leave history is kept, and their sign-in is disabled.`,
   },
   reactivate: {
     title: "Reactivate employee?",
@@ -69,26 +75,27 @@ const actionCopy: Record<
     tone: "primary",
     processingLabel: "Reactivating...",
     icon: <UserCheck size={21} />,
-    describe: (name) => `Are you sure you want to reactivate ${name}?`,
+    describe: (name) =>
+      `Are you sure you want to reactivate ${name}? Their sign-in is enabled again.`,
   },
 };
 
 export default function EmployeeListPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [total, setTotal] = useState(0);
+  const [pageCount, setPageCount] = useState(1);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [departmentsFailed, setDepartmentsFailed] = useState(false);
+  const [jobTitleOptions, setJobTitleOptions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Server-side filters, all supported by GET /employees.
+  // Every filter below is applied by the server, so the browser only ever holds
+  // the current page rather than the whole employee table.
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState("");
-
-  // Client-side: the API has no job_title parameter, and the values come from
-  // the rows already loaded.
   const [jobTitle, setJobTitle] = useState("");
-
   const [page, setPage] = useState(1);
 
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(
@@ -100,27 +107,43 @@ export default function EmployeeListPage() {
   // selects commit a single value per interaction.
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
+  // Identifies the newest request so a slow earlier response - a half-typed
+  // search, say - cannot overwrite the results the admin is actually looking at.
+  const requestId = useRef(0);
+
   const loadEmployees = useCallback(async () => {
+    const currentRequest = ++requestId.current;
+
     try {
       setIsLoading(true);
       setError("");
 
-      const data = await getEmployees({
+      const result = await getEmployees({
         search: debouncedSearch || undefined,
         department: departmentFilter || undefined,
         employment_status: employmentStatus || undefined,
+        job_title: jobTitle || undefined,
+        page,
+        page_size: PAGE_SIZE,
       });
 
-      setEmployees(data);
+      if (currentRequest !== requestId.current) return;
+
+      setEmployees(result.employees);
+      setTotal(result.total);
+      setPageCount(result.pageCount);
+
+      // A deactivation or a narrowed filter can leave the current page beyond the
+      // end of the result set; step back rather than showing an empty table.
+      if (page > result.pageCount) setPage(result.pageCount);
     } catch (requestError) {
+      if (currentRequest !== requestId.current) return;
       setError(getApiErrorMessage(requestError, "Unable to load employees."));
     } finally {
-      setIsLoading(false);
+      if (currentRequest === requestId.current) setIsLoading(false);
     }
-  }, [debouncedSearch, departmentFilter, employmentStatus]);
+  }, [debouncedSearch, departmentFilter, employmentStatus, jobTitle, page]);
 
-  // loadEmployees is a useCallback now, so it can be listed honestly here and
-  // still be reused by the confirmation handlers below.
   useEffect(() => {
     void loadEmployees();
   }, [loadEmployees]);
@@ -137,41 +160,25 @@ export default function EmployeeListPage() {
     void loadDepartments();
   }, []);
 
-  // Options come from the server result, so they stay usable while the client
-  // filter narrows the rows. The current selection is always kept present so a
-  // filter cannot become unselectable after a refetch.
-  const jobTitleOptions = useMemo(() => {
-    const titles = new Set<string>();
-
-    for (const employee of employees) {
-      if (employee.jobTitle) titles.add(employee.jobTitle);
+  // Job titles come from their own endpoint, so the options cover every employee
+  // rather than only the rows on the current page.
+  const loadJobTitles = useCallback(async () => {
+    try {
+      setJobTitleOptions(await getEmployeeJobTitles());
+    } catch {
+      setJobTitleOptions([]);
     }
-
-    if (jobTitle) titles.add(jobTitle);
-
-    return [...titles].sort((a, b) => a.localeCompare(b));
-  }, [employees, jobTitle]);
-
-  const visibleEmployees = useMemo(
-    () =>
-      jobTitle
-        ? employees.filter((employee) => employee.jobTitle === jobTitle)
-        : employees,
-    [employees, jobTitle],
-  );
+  }, []);
 
   useEffect(() => {
+    void loadJobTitles();
+  }, [loadJobTitles]);
+
+  /** Any filter change restarts at page 1, atomically with the filter itself. */
+  function changeFilter(apply: () => void) {
+    apply();
     setPage(1);
-  }, [debouncedSearch, departmentFilter, employmentStatus, jobTitle]);
-
-  const pageCount = Math.max(1, Math.ceil(visibleEmployees.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount);
-
-  const pageEmployees = useMemo(
-    () =>
-      visibleEmployees.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [visibleEmployees, safePage],
-  );
+  }
 
   const activeFilterCount = [
     search,
@@ -181,10 +188,12 @@ export default function EmployeeListPage() {
   ].filter(Boolean).length;
 
   function clearFilters() {
-    setSearch("");
-    setDepartmentFilter("");
-    setEmploymentStatus("");
-    setJobTitle("");
+    changeFilter(() => {
+      setSearch("");
+      setDepartmentFilter("");
+      setEmploymentStatus("");
+      setJobTitle("");
+    });
   }
 
   async function handleDeactivate(id: number) {
@@ -254,14 +263,20 @@ export default function EmployeeListPage() {
         activeCount={activeFilterCount}
         onClear={clearFilters}
       >
-        <FormField id="employee-search" label="Search" hint="Searches as you type.">
+        <FormField
+          id="employee-search"
+          label="Search"
+          hint="Searches name, employee number and email as you type."
+        >
           <TextInput
             id="employee-search"
             aria-describedby={fieldDescribedBy("employee-search", { hint: true })}
             type="search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Name or employee number"
+            onChange={(event) =>
+              changeFilter(() => setSearch(event.target.value))
+            }
+            placeholder="Name, employee number or email"
           />
         </FormField>
 
@@ -276,7 +291,9 @@ export default function EmployeeListPage() {
             id="department-filter"
             aria-describedby={fieldDescribedBy("department-filter", { hint: departmentsFailed })}
             value={departmentFilter}
-            onChange={(event) => setDepartmentFilter(event.target.value)}
+            onChange={(event) =>
+              changeFilter(() => setDepartmentFilter(event.target.value))
+            }
             disabled={departmentsFailed}
           >
             <option value="">All departments</option>
@@ -292,11 +309,16 @@ export default function EmployeeListPage() {
           <SelectInput
             id="status-filter"
             value={employmentStatus}
-            onChange={(event) => setEmploymentStatus(event.target.value)}
+            onChange={(event) =>
+              changeFilter(() => setEmploymentStatus(event.target.value))
+            }
           >
             <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            {employmentStatuses.map((status) => (
+              <option key={status} value={status}>
+                {employmentStatusLabels[status]}
+              </option>
+            ))}
           </SelectInput>
         </FormField>
 
@@ -304,10 +326,17 @@ export default function EmployeeListPage() {
           <SelectInput
             id="job-title-filter"
             value={jobTitle}
-            onChange={(event) => setJobTitle(event.target.value)}
+            onChange={(event) =>
+              changeFilter(() => setJobTitle(event.target.value))
+            }
           >
             <option value="">All job titles</option>
-            {jobTitleOptions.map((title) => (
+            {/* Keep the current selection listed even if it is not in the
+                loaded options, so a filter cannot become unselectable. */}
+            {(jobTitleOptions.includes(jobTitle) || !jobTitle
+              ? jobTitleOptions
+              : [...jobTitleOptions, jobTitle].sort((a, b) => a.localeCompare(b))
+            ).map((title) => (
               <option key={title} value={title}>
                 {title}
               </option>
@@ -325,10 +354,8 @@ export default function EmployeeListPage() {
 
           {!isLoading && (
             <p className="text-sm text-fg-muted">
-              <span className="font-semibold text-fg">
-                {visibleEmployees.length}
-              </span>{" "}
-              {visibleEmployees.length === 1 ? "employee" : "employees"}
+              <span className="font-semibold text-fg">{total}</span>{" "}
+              {total === 1 ? "employee" : "employees"}
             </p>
           )}
         </div>
@@ -339,7 +366,7 @@ export default function EmployeeListPage() {
           minWidthClass="min-w-250"
           isLoading={isLoading}
           loadingLabel="Loading employees..."
-          isEmpty={pageEmployees.length === 0}
+          isEmpty={employees.length === 0}
           emptyState={
             activeFilterCount > 0 ? (
               <EmptyState
@@ -371,8 +398,10 @@ export default function EmployeeListPage() {
             )
           }
         >
-          {pageEmployees.map((employee) => {
-            const isActive = employee.employmentStatus === "active";
+          {employees.map((employee) => {
+            const isActive =
+              employee.employmentStatus === "active" ||
+              employee.employmentStatus === "probation";
 
             return (
               <tr key={employee.id}>
@@ -435,9 +464,9 @@ export default function EmployeeListPage() {
         </DataTable>
 
         <Pagination
-          page={safePage}
+          page={Math.min(page, pageCount)}
           pageSize={PAGE_SIZE}
-          totalItems={visibleEmployees.length}
+          totalItems={total}
           onPageChange={setPage}
           className="mt-3 rounded-card border border-line bg-surface shadow-card"
         />

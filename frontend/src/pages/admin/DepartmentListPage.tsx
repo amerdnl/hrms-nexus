@@ -2,7 +2,6 @@ import { Building2, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { deleteDepartment, getDepartments } from "../../api/departmentApi";
-import { getEmployees } from "../../api/employeeApi";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import Alert from "../../components/ui/Alert";
 import Button from "../../components/ui/Button";
@@ -13,7 +12,6 @@ import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
 import TextInput from "../../components/ui/TextInput";
 import type { Department } from "../../types/department";
-import type { Employee } from "../../types/employee";
 
 const tableHeaders = [
   "Department",
@@ -24,8 +22,6 @@ const tableHeaders = [
 
 export default function DepartmentListPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [employeesFailed, setEmployeesFailed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -54,47 +50,6 @@ export default function DepartmentListPage() {
     void loadDepartments();
   }, [loadDepartments]);
 
-  /**
-   * Head-count source. Isolated from loadDepartments: if it fails the table
-   * still lists departments and the count column reads "—".
-   */
-  const loadEmployees = useCallback(async () => {
-    try {
-      setEmployees(await getEmployees());
-      setEmployeesFailed(false);
-    } catch {
-      setEmployeesFailed(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadEmployees();
-  }, [loadEmployees]);
-
-  /**
-   * ACTIVE employees per department, counted client-side from the existing
-   * /employees payload - no new endpoint.
-   *
-   * Counting active only is why the column is labelled "Active employees":
-   * this number is deliberately not the same as the total the department
-   * details page lists, which includes inactive staff.
-   */
-  const activeCountByDepartment = useMemo(() => {
-    const counts = new Map<number, number>();
-
-    for (const employee of employees) {
-      if (employee.employmentStatus !== "active") continue;
-      if (employee.departmentId === null) continue;
-
-      counts.set(
-        employee.departmentId,
-        (counts.get(employee.departmentId) ?? 0) + 1,
-      );
-    }
-
-    return counts;
-  }, [employees]);
-
   const visibleDepartments = useMemo(() => {
     const term = search.trim().toLowerCase();
 
@@ -116,8 +71,6 @@ export default function DepartmentListPage() {
       setError("");
       await deleteDepartment(pendingDelete.id);
       await loadDepartments();
-      // Head counts change when a department goes away.
-      await loadEmployees();
     } catch (requestError) {
       // Includes the backend's 409 when employees are still assigned; the
       // message is surfaced verbatim rather than replaced.
@@ -141,13 +94,6 @@ export default function DepartmentListPage() {
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
-
-      {employeesFailed && (
-        <Alert tone="warning">
-          Employee data could not be loaded, so active employee counts are
-          unavailable. Departments themselves are unaffected.
-        </Alert>
-      )}
 
       <div className="rounded-card border border-line bg-surface p-5 shadow-card">
         <FormField
@@ -237,10 +183,11 @@ export default function DepartmentListPage() {
                 {department.description || "—"}
               </td>
 
+              {/* Aggregated by the server. Active counts employees whose status
+                  still grants a sign-in, so it is deliberately smaller than the
+                  full membership the details page lists. */}
               <td className="px-5 py-4 text-fg-muted">
-                {employeesFailed
-                  ? "—"
-                  : (activeCountByDepartment.get(department.id) ?? 0)}
+                {department.active_employee_count ?? "—"}
               </td>
 
               <td className="px-5 py-4">

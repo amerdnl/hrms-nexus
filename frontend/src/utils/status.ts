@@ -53,7 +53,10 @@ const leaveTypeMap: Record<LeaveType, StatusMeta> = {
 
 const employmentStatusMap: Record<string, StatusMeta> = {
   active: { label: "Active", tone: "success", icon: CircleCheck },
+  probation: { label: "Probation", tone: "info", icon: Clock3 },
   inactive: { label: "Inactive", tone: "neutral", icon: CircleMinus },
+  resigned: { label: "Resigned", tone: "warning", icon: CircleMinus },
+  terminated: { label: "Terminated", tone: "danger", icon: CircleX },
 };
 
 /** Turns an unknown backend value into something displayable, e.g. "on_leave" -> "On leave". */

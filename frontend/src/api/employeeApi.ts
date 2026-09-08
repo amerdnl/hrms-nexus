@@ -3,6 +3,8 @@ import apiClient from "./axios";
 import type {
   Employee,
   EmployeeFilters,
+  EmployeeLookupEntry,
+  EmployeePage,
   CreateEmployeeInput,
   UpdateEmployeeInput,
 } from "../types/employee";
@@ -13,6 +15,13 @@ interface EmployeeApiResponse<T> {
   success: boolean;
   message?: string;
   data: T;
+}
+
+interface PaginationMeta {
+  page: number;
+  page_size: number;
+  total: number;
+  page_count: number;
 }
 
 interface EmployeeApiData {
@@ -31,8 +40,19 @@ interface EmployeeApiData {
   employment_date: string | null;
   employment_status: string;
   profile_image: string | null;
+  email?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface EmployeeLookupApiData {
+  id: string;
+  employee_number: string;
+  full_name: string;
+  job_title: string | null;
+  department_id: string | null;
+  department_name: string | null;
+  employment_status: string;
 }
 
 function mapEmployee(data: EmployeeApiData): Employee {
@@ -52,22 +72,59 @@ function mapEmployee(data: EmployeeApiData): Employee {
     employmentDate: data.employment_date,
     employmentStatus: data.employment_status,
     profileImage: data.profile_image,
+    email: data.email ?? null,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };
 }
 
+/**
+ * Server-paginated employee list. The server also owns filtering and the row
+ * total, so the browser never holds more than one page.
+ */
 export async function getEmployees(
   filters?: EmployeeFilters,
-): Promise<Employee[]> {
-  const response = await apiClient.get<EmployeeApiResponse<EmployeeApiData[]>>(
-    "/employees",
-    {
-      params: filters,
-    },
-  );
+): Promise<EmployeePage> {
+  const response = await apiClient.get<
+    EmployeeApiResponse<EmployeeApiData[]> & { pagination?: PaginationMeta }
+  >("/employees", { params: filters });
 
-  return response.data.data.map(mapEmployee);
+  const pagination = response.data.pagination;
+  const employees = response.data.data.map(mapEmployee);
+
+  return {
+    employees,
+    page: pagination?.page ?? 1,
+    pageSize: pagination?.page_size ?? employees.length,
+    total: pagination?.total ?? employees.length,
+    pageCount: pagination?.page_count ?? 1,
+  };
+}
+
+/** Complete lightweight directory; never paginated. */
+export async function getEmployeeLookup(): Promise<EmployeeLookupEntry[]> {
+  const response =
+    await apiClient.get<EmployeeApiResponse<EmployeeLookupApiData[]>>(
+      "/employees/lookup",
+    );
+
+  return response.data.data.map((entry) => ({
+    id: Number(entry.id),
+    employeeNumber: entry.employee_number,
+    fullName: entry.full_name,
+    jobTitle: entry.job_title,
+    departmentId: entry.department_id ? Number(entry.department_id) : null,
+    departmentName: entry.department_name,
+    employmentStatus: entry.employment_status,
+  }));
+}
+
+/** Every distinct job title, so the filter is not limited to the current page. */
+export async function getEmployeeJobTitles(): Promise<string[]> {
+  const response =
+    await apiClient.get<EmployeeApiResponse<string[]>>("/employees/job-titles");
+
+  return response.data.data;
 }
 
 export async function getEmployeeById(id: number): Promise<Employee> {

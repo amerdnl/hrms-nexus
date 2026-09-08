@@ -8,7 +8,7 @@ import {
 } from "../../api/attendanceApi";
 import { getApiErrorMessage } from "../../api/axios";
 import { getDepartments, type Department } from "../../api/departmentApi";
-import { getEmployees } from "../../api/employeeApi";
+import { getEmployeeLookup } from "../../api/employeeApi";
 import AttendanceStatsCards from "../../components/attendance/AttendanceStatsCards";
 import EditAttendanceForm from "../../components/attendance/EditAttendanceForm";
 import ManualAttendanceForm from "../../components/attendance/ManualAttendanceForm";
@@ -37,7 +37,7 @@ import type {
   ManualAttendanceInput,
   UpdateAttendanceInput,
 } from "../../types/attendance";
-import type { Employee } from "../../types/employee";
+import type { EmployeeLookupEntry } from "../../types/employee";
 import { formatDate, formatTime, getMalaysiaDate } from "../../utils/datetime";
 import { attendanceStatusMeta } from "../../utils/status";
 
@@ -117,7 +117,7 @@ function AdminAttendancePage() {
   });
   const [activeDepartment, setActiveDepartment] = useState("");
 
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<EmployeeLookupEntry[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [directoryFailed, setDirectoryFailed] = useState(false);
 
@@ -165,7 +165,7 @@ function AdminAttendancePage() {
     async function loadDirectory() {
       try {
         const [employeeList, departmentList] = await Promise.all([
-          getEmployees(),
+          getEmployeeLookup(),
           getDepartments(),
         ]);
 

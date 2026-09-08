@@ -7,6 +7,7 @@ import { getDepartments } from "../../api/departmentApi";
 import { createEmployee } from "../../api/employeeApi";
 import Alert from "../../components/ui/Alert";
 import FormField from "../../components/ui/FormField";
+import { fieldDescribedBy } from "../../components/ui/fieldStyles";
 import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
 import PasswordInput from "../../components/ui/PasswordInput";
@@ -16,6 +17,10 @@ import SelectInput from "../../components/ui/SelectInput";
 import TextArea from "../../components/ui/TextArea";
 import TextInput from "../../components/ui/TextInput";
 import type { Department } from "../../types/department";
+import {
+  employmentStatusLabels,
+  employmentStatuses,
+} from "../../types/employee";
 
 export default function EmployeeFormPage() {
   const navigate = useNavigate();
@@ -72,24 +77,33 @@ export default function EmployeeFormPage() {
       return;
     }
 
+    // The server requires a department too; checking here keeps the message next
+    // to the form rather than arriving as a validation error response.
+    if (!departmentId) {
+      setError("Select a department.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setError("");
 
+      // null is the explicit "no value" the server accepts; it never leaves a
+      // supplied-but-empty field ambiguous.
       await createEmployee({
         employee_number: employeeNumber.trim(),
         full_name: fullName.trim(),
         email: email.trim(),
         temporary_password: temporaryPassword,
-        phone: phone.trim() || undefined,
-        address: address.trim() || undefined,
-        date_of_birth: dateOfBirth || undefined,
-        gender: gender.trim() || undefined,
-        emergency_contact_name: emergencyContactName.trim() || undefined,
-        emergency_contact_phone: emergencyContactPhone.trim() || undefined,
-        job_title: jobTitle.trim() || undefined,
-        department_id: departmentId ? Number(departmentId) : undefined,
-        employment_date: employmentDate || undefined,
+        phone: phone.trim() || null,
+        address: address.trim() || null,
+        date_of_birth: dateOfBirth || null,
+        gender: gender.trim() || null,
+        emergency_contact_name: emergencyContactName.trim() || null,
+        emergency_contact_phone: emergencyContactPhone.trim() || null,
+        job_title: jobTitle.trim() || null,
+        department_id: Number(departmentId),
+        employment_date: employmentDate || null,
         employment_status: employmentStatus,
       });
 
@@ -181,7 +195,7 @@ export default function EmployeeFormPage() {
               />
             </FormField>
 
-            <FormField id="department" label="Department">
+            <FormField id="department" label="Department" required>
               <SelectInput
                 id="department"
                 value={departmentId}
@@ -198,15 +212,23 @@ export default function EmployeeFormPage() {
               </SelectInput>
             </FormField>
 
-            <FormField id="employment-status" label="Employment status">
+            <FormField
+              id="employment-status"
+              label="Employment status"
+              hint="Only active and probation employees can sign in."
+            >
               <SelectInput
                 id="employment-status"
+                aria-describedby={fieldDescribedBy("employment-status", { hint: true })}
                 value={employmentStatus}
                 onChange={(event) => setEmploymentStatus(event.target.value)}
                 disabled={isSubmitting}
               >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                {employmentStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {employmentStatusLabels[status]}
+                  </option>
+                ))}
               </SelectInput>
             </FormField>
 

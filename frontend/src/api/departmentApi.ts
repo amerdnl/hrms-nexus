@@ -6,6 +6,9 @@ export interface Department {
   description: string | null;
   created_at: string;
   updated_at: string;
+  /** Aggregated server-side; absent on the update response. */
+  employee_count?: number;
+  active_employee_count?: number;
 }
 
 export interface DepartmentEmployee {
