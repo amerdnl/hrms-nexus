@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Settings,
   UserRound,
   Users,
   X,
@@ -30,6 +31,7 @@ const adminNavigation: NavigationItem[] = [
   { label: "Departments", to: "/admin/departments", icon: Building2 },
   { label: "Attendance", to: "/admin/attendance", icon: Clock3 },
   { label: "Leave", to: "/admin/leave", icon: CalendarDays },
+  { label: "Settings", to: "/admin/settings", icon: Settings },
 ];
 
 const employeeNavigation: NavigationItem[] = [

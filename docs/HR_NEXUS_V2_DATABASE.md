@@ -1,7 +1,10 @@
 # HR Nexus V2 database status
 
-Migration **0001 is applied** to existing `hr_nexus` with the explicitly approved
-SHA-256. No other migration or unrelated schema change was applied.
+Migrations **0001 and 0002 are applied** to existing `hr_nexus` through the reviewed
+runner. The original retention migration is unchanged; the only added persistent
+configuration is the Company Settings table and its neutral singleton row.
+
+- [Company Settings migration, API/UI and verification](HR_NEXUS_V2_COMPANY_SETTINGS.md)
 
 - [Application receipt, backup and release checks](HR_NEXUS_V2_MIGRATION_APPLICATION.md)
 - [Reviewed design, SQL checksum, impact and rollback](HR_NEXUS_V2_MIGRATION_DESIGN.md)
@@ -41,7 +44,7 @@ npm run migrate:apply -- --database exact_database_name
 Status has no persistent writes. Apply requires the connected database name to match
 and uses checksums, an advisory lock and one transaction per migration. Migrations
 are never run automatically at application startup. New files belong in
-`backend/migrations/0002_description.sql` and successive versions. Never edit an
+`backend/migrations/0003_description.sql` and successive versions. Never edit an
 applied migration, reset a volume, or use seed.sql as an upgrade script.
 
 The original pre-application rehearsal command is shown below. It expects an
@@ -57,3 +60,29 @@ It requires running source postgres/backend services and their cached images. It
 creates a separate internal lab, copies the source logically without printing data,
 initializes fresh test schemas without seeds, and leaves the lab for inspection.
 It never runs migration apply against the source. Details and limits are in the design.
+
+## Settings test laboratory
+
+The Company Settings suite uses `HR_NEXUS_SETTINGS_LAB=1` and the fixed internal
+host `hr-nexus-v2-migration-lab`. It clones the retained database
+`hr_nexus_v2_settings_baseline`, captured with 0001 applied and 0002 pending, into
+randomly named isolated databases. The original retention tests use the separate
+unmigrated `hr_nexus_v2_upgrade` baseline and copy only immutable 0001 into a test
+migration directory. Do not reset the source or edit applied files to prepare tests.
+
+The full verified command (using the retained lab network) is:
+
+```sh
+docker run --rm --volumes-from hr-nexus-backend:ro \
+  --network hr-nexus-v2-migration-lab \
+  -e HR_NEXUS_MIGRATION_LAB=1 -e HR_NEXUS_SETTINGS_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
+  -e DATABASE_URL=postgresql://postgres@hr-nexus-v2-migration-lab/postgres \
+  --mount "type=bind,src=$PWD/database,dst=/database,readonly" \
+  --mount "type=bind,src=$PWD/docs,dst=/docs,readonly" \
+  hr-nexus-backend sh -c 'node --import tsx --test tests/*.test.ts'
+```
+
+The lab is isolated, has no published host port and uses no source credentials.
+Normal `npm test` runs non-DB tests; the optional database suites are explicitly skipped
+unless enabled. The existing initialization and seeds remain unchanged. Fresh empty
+schema plus the complete migration chain is tested without seeds.

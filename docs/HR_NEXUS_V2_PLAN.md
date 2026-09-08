@@ -10,9 +10,9 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 
 | Order | P0 milestone | Status / acceptance |
 | --- | --- | --- |
-| 1 | Focused repository audit and immediate API authorization | Implemented and tested; clean Docker rebuild passed; browser auth smoke blocked on browser connection |
-| 2 | Migration strategy and employee history retention | 0001 complete and receipt accepted; milestone closure awaits authenticated browser smoke |
-| 3 | Company settings | Not started; validated admin API/UI, timezone/work hours/location/radius |
+| 1 | Focused repository audit and immediate API authorization | Complete; clean Docker rebuild passed and user accepted authenticated browser smoke |
+| 2 | Migration strategy and employee history retention | Complete; migration receipt and browser gate explicitly accepted by user |
+| 3 | Company settings | Implemented; 0002 applied and 98 tests passed; Company Settings browser smoke blocked on connection |
 | 4 | Employee/department stability | Not started; lifecycle consistency, robust validation, email uniqueness, server pagination |
 | 5 | Company import | Not started; CSV/XLSX → mapping → validation → preview → explicit update confirmation → transaction → history |
 | 6 | Attendance verification | Not started; expiring backend QR + radius + official time + verification metadata |
@@ -38,8 +38,8 @@ Validation is recorded in the audit. Security increment committed locally as
 All 36 tests passed in Docker; backend/test typechecking, both application builds,
 and frontend lint passed. Backend lint has one pre-existing warning. No schema/data
 migration belongs to this increment. Master brief and pre-existing docs/schema.dbml
-remain untouched and untracked. Fresh Docker rebuild and full browser auth smoke
-remain outstanding; the cached-image application is running.
+remain untouched and untracked. The later clean Docker rebuild passed and the user
+explicitly accepted the authenticated migration/browser gate.
 
 ## Migration and history-retention increment
 
@@ -74,29 +74,53 @@ ran on the source. See [application receipt](HR_NEXUS_V2_MIGRATION_APPLICATION.m
 
 The user reviewed and accepted the receipt and considers migration 0001 complete.
 Do not change its SQL, checksum, backup or the five unresolved attendance rows.
-The remaining milestone gate is an authenticated browser smoke test against the
-existing application after the user is signed in as admin. Once it passes, close
-this milestone and proceed to Company Settings. Browser availability was checked
-again after acceptance; the runtime still reported no available browser.
+The user subsequently accepted the authenticated browser smoke and explicitly closed
+this migration/browser gate. That acceptance is the recorded completion evidence;
+agent browser attempts had reported no connection. The migration milestone is closed.
 
-Clean no-cache Docker build, volume-preserving down/up, 64 tests on the new image,
-source/test typechecks, builds and lint passed (one existing backend lint warning).
-The authenticated browser gate remains blocked: runtime discovery returned no
-available browser. The user was asked to enable the browser and sign in. **Company
-Settings must wait for that gate; no settings implementation or migration has begun.**
+## Company Settings increment
+
+Implemented within the existing stack and shared UI components, with no dependencies:
+- Admin-only GET/PUT `/api/settings`, current-account authorization, field allowlist,
+  server-side validation and safe JSON/body-size/database error responses.
+- `/admin/settings` and sidebar navigation; all 13 master fields, accessible errors,
+  setup/default guidance, loading/retry/save states and reload-discard confirmation.
+- Atomic revision checks reject concurrent stale saves with 409 and preserve drafts.
+- Additive `0002_company_settings.sql` creates one neutral configuration record.
+  Applied through the reviewed runner at 2026-09-08 06:55:44 UTC after a separate
+  current backup was restored and verified. No existing data, IDs, sequences, history
+  constraints, 0001 SQL/ledger/backup or orphan attendance rows changed.
+- 98 tests pass: original security/retention coverage plus settings validation,
+  persistence, authorization, concurrency, DB constraints, fresh initialization,
+  repeat apply and failed 0002 rollback. Typechecks/builds/lint pass apart from one
+  existing backend lint warning. Docker rebuild/start passed with the existing volume.
+
+See [Company Settings design and evidence](HR_NEXUS_V2_COMPANY_SETTINGS.md).
+The implementation is ready for browser verification, but the Company Settings
+browser attempt returned `Browser is not available: iab`, with no discoverable browser.
+Do not describe the new settings browser workflow as tested or accepted yet.
 
 ## Remaining blockers / release gates
 
-- Migration 0001 source application and verification are complete; approval covered no other migration.
+- Migration 0001 and its browser gate are complete and accepted. Migration 0002 was
+  separately authorized as a reviewed safe additive Company Settings migration and is applied.
 - Orphan ownership is unresolved by design. No fabricated employee, ownership
   reassignment, record deletion, seed replay, volume reset or destructive cleanup.
 - Clean Docker rebuild/restart passed after retry; no Docker credential settings changed.
   Fresh npm audit reports qs (moderate) and nanoid (high); record and resolve before release.
   Before any dependency upgrade, identify the affected dependency paths, compatible
   fixed versions and regression risk. No dependency upgrade is currently underway.
-- Full authenticated browser smoke remains open because no browser is connected;
-  isolated API lifecycle verification does not replace it. No saved/seeded credentials used.
-- Company settings remains the next P0 milestone after authenticated browser verification.
+- Company Settings authenticated browser smoke remains open because no browser is
+  connected. Its real API tests do not replace that UI check. The prior migration
+  browser gate remains closed by user acceptance.
+- Next P0 after settings acceptance: employee/department stability, then company import.
+
+## Regression / polish backlog
+
+- Minor, nonblocking: when the leave list is empty after filtering, its empty-state
+  message incorrectly implies requests exist. Show a filter-specific no-results
+  message; distinguish it from having no requests at all. Record for regression/polish,
+  without blocking Company Settings.
 
 ## Verification commands
 

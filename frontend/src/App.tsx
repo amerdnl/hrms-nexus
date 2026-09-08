@@ -19,6 +19,7 @@ import DepartmentEditPage from "./pages/admin/DepartmentEditPage";
 import EmployeeDetailsPage from "./pages/admin/EmployeeDetailsPage";
 import EmployeeEditPage from "./pages/admin/EmployeeEditPage";
 import EmployeeFormPage from "./pages/admin/EmployeeFormPage";
+import CompanySettingsPage from "./pages/admin/CompanySettingsPage";
 
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
@@ -68,6 +69,7 @@ export default function App() {
           />
           <Route path="/admin/attendance" element={<AdminAttendancePage />} />
           <Route path="/admin/leave" element={<AdminLeavePage />} />
+          <Route path="/admin/settings" element={<CompanySettingsPage />} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute allowedRoles={["employee"]} />}>

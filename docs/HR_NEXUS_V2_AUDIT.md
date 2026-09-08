@@ -7,10 +7,17 @@ Working branch created: `feat/hr-nexus-v2`. Initially untracked: master brief an
 
 ## Follow-up status
 
-Permanent deletion is retired in `dd13abe` (409 plus UI removal). Migration runner,
-retention SQL and 64-test isolated rehearsal are complete; application to the existing
-database awaits separate approval. See `HR_NEXUS_V2_MIGRATION_DESIGN.md` and
-`HR_NEXUS_V2_MIGRATION_EVIDENCE.md`. Findings below record the original audit baseline.
+Permanent deletion is retired in `dd13abe`. Migration 0001 and its browser gate are
+complete and explicitly accepted by the user. Company Settings is implemented and
+0002 is applied after a verified current backup and isolated rehearsal; 98 tests pass.
+The new settings browser smoke is pending because the browser connection is unavailable.
+See `HR_NEXUS_V2_COMPANY_SETTINGS.md` for defaults, validation and exact evidence.
+Original audit findings below are historical, not the current migration status.
+
+Security release items remain recorded: transitive qs (moderate) and nanoid (high).
+No dependencies were upgraded. Before doing so, identify affected paths, compatible
+fixed versions and regression risk. The leave filtered-empty-message issue is a minor,
+nonblocking regression/polish item in the implementation plan.
 
 ## Architecture and versions
 

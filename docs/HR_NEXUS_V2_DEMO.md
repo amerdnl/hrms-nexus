@@ -6,8 +6,10 @@ Target story: admin login → company settings → spreadsheet import → employ
 → employee login → QR/location attendance → leave submission → approval → payroll
 → published payslip → reports/export → audit trail.
 
-Current core pages exist, but settings, imports, verified attendance, balances,
-payroll/payslips, exports and audit are not ready. Do not present them as complete.
+Company Settings now has a persistent admin API/UI at /admin/settings; its browser
+smoke remains pending. Review the neutral setup defaults and enter approved fictional
+company details before the demo. Imports, verified attendance, balances, payroll,
+payslips, exports and audit are not ready. Do not present them as complete.
 The live database currently has one active employee and five orphan attendance
 records; this is not suitable final demo data.
 

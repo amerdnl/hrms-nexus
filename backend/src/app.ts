@@ -13,6 +13,7 @@ import employeeRoutes from "./routes/employeeRoutes.js";
 import departmentRoutes from "./routes/departmentRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import companySettingsRoutes from "./routes/companySettingsRoutes.js";
 
 import { authenticateToken } from "./middleware/authMiddleware.js";
 import { authorizeRoles } from "./middleware/roleMiddleware.js";
@@ -41,6 +42,7 @@ app.use("/api/departments", departmentRoutes);
 
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/settings", companySettingsRoutes);
 
 app.use(
   "/api/attendance",
@@ -94,6 +96,14 @@ const errorHandler: ErrorRequestHandler = (
   response,
   _next,
 ) => {
+  if (error?.type === "entity.parse.failed" && error.status === 400) {
+    response.status(400).json({ success: false, message: "Send a valid JSON object." });
+    return;
+  }
+  if (error?.type === "entity.too.large" && error.status === 413) {
+    response.status(413).json({ success: false, message: "The request body is too large." });
+    return;
+  }
   console.error(error);
 
   response.status(500).json({

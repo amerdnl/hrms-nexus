@@ -90,6 +90,7 @@ const managementRoutes = [
   ["PATCH", "/employees/10/reactivate"], ["DELETE", "/employees/10/permanent"],
   ["GET", "/departments"], ["GET", "/departments/1"], ["GET", "/departments/1/employees"],
   ["POST", "/departments"], ["PUT", "/departments/1"], ["DELETE", "/departments/1"],
+  ["GET", "/settings"], ["PUT", "/settings"],
 ] as const;
 
 for (const [method, path] of managementRoutes) {

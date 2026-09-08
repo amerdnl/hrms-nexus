@@ -8,7 +8,7 @@ import { mock, test } from "node:test";
 import pg from "pg";
 import jwt from "jsonwebtoken";
 import {
-  defaultMigrationDirectory, loadMigrations, MIGRATION_LOCK, runMigrations,
+  defaultMigrationDirectory, loadMigrations, MIGRATION_LOCK, runMigrations as runVersionedMigrations,
 } from "../src/database/migrations.js";
 
 // Deliberately opt-in and fixed to the isolated Docker network's laboratory host.
@@ -61,6 +61,13 @@ test("isolated PostgreSQL migration rehearsal", {
     await assert.rejects(client.query(sql), { code });
     await client.query("ROLLBACK TO SAVEPOINT rejected_write");
   }
+  // This historical suite intentionally exercises only immutable migration 0001.
+  // New migrations have their own upgrade/fresh tests and must not change its cases.
+  const retentionDirectory = await directory({});
+  await copyFile(new URL("0001_employee_history_retention.sql", defaultMigrationDirectory),
+    path.join(retentionDirectory, "0001_employee_history_retention.sql"));
+  const runMigrations = (pool: pg.Pool, options: Parameters<typeof runVersionedMigrations>[1]) =>
+    runVersionedMigrations(pool, { directory: retentionDirectory, ...options });
   try {
     const upgrade = await database("upgrade", "hr_nexus_v2_upgrade");
     const before = await fingerprint(upgrade.pool);

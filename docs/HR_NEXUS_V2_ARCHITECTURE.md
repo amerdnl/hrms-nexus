@@ -15,13 +15,15 @@ session. There is one extra indexed account lookup per authenticated request.
 Database errors deny access rather than falling back to token claims.
 
 Controllers retain parameterized SQL, with attendance operations in a service module.
-Future migrations, settings, imports, payroll and reports should fit this structure.
+Settings follows this structure; imports, payroll and reports should fit it too.
 No new framework, service, role migration or cookie authentication is introduced.
 
-The application remains single-company. Company settings should be a singleton
-configuration with explicit timezone/work calendar/location validation. Payroll must
-use immutable calculation snapshots and exact monetary arithmetic. These are planned
-interfaces, not implemented modules.
+The application remains single-company. Company settings is an admin-only singleton
+configuration with explicit timezone/work calendar/location validation and an atomic
+revision check for concurrent edits. Its API is GET/PUT /api/settings; its UI is
+/admin/settings. Existing attendance calculations are preserved until the attendance
+verification milestone wires in configuration. Payroll snapshots and exact monetary
+arithmetic remain planned work.
 
 Photos remain managed local uploads, restricted on write and public on read. Future
 private HR documents require authorized downloads. Docker build contexts now exclude
@@ -31,5 +33,6 @@ responsibility. Deployment is still a development-server setup, not production h
 Migration tooling now lives in backend/src/database with reviewed SQL files in
 backend/migrations. It uses pg with a checksummed ledger, advisory locking and one
 transaction per version. Its connection URL and exact database name are explicit;
-it is never invoked by app/Compose startup. The proposed history-retention migration
-has only run in isolated databases and still requires source-application approval.
+it is never invoked by app/Compose startup. History retention (0001) and additive Company Settings
+(0002) are applied and verified on the source, following their respective authorization.
+Both applied files are immutable; new schema work uses subsequent numbered migrations.
