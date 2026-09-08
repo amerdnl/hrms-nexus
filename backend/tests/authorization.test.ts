@@ -35,7 +35,7 @@ const queryMock = mock.method(pool, "query", async (sql: string, values: unknown
   } else if (normalized.includes("FROM attendance WHERE employee_id = $1")) {
     rows = [];
   } else if (normalized.includes("FROM employees e LEFT JOIN departments") ||
-             normalized.includes("FROM departments ORDER BY")) {
+             normalized.includes("FROM departments d LEFT JOIN employees")) {
     rows = [];
   } else if (normalized.startsWith("SELECT id, employee_id, email, password_hash")) {
     const account = accounts.get(Number(values[0]));

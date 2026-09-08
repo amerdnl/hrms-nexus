@@ -46,8 +46,9 @@ test("Company Settings PostgreSQL upgrade and authenticated API", {
 
     await t.test("additive upgrade preserves business rows/schema/IDs/sequences/0001 and creates neutral defaults", async () => {
       const status = await runMigrations(db, { mode: "status", database });
-      assert.deepEqual(status.migrations.map((m) => m.status), ["applied", "pending"]);
-      assert.deepEqual((await runMigrations(db, { mode: "apply", database })).newlyApplied, ["0002"]);
+      // Later reviewed migrations may follow 0002; this milestone asserts only 0001/0002.
+      assert.deepEqual(status.migrations.slice(0, 2).map((m) => m.status), ["applied", "pending"]);
+      assert.equal((await runMigrations(db, { mode: "apply", database })).newlyApplied[0], "0002");
       assert.deepEqual(await business(), before);
       assert.deepEqual((await db.query("SELECT * FROM schema_migrations WHERE version='0001'")).rows, firstLedger);
       assert.deepEqual((await db.query("SELECT filename,checksum FROM schema_migrations WHERE version='0002'")).rows,
@@ -102,7 +103,8 @@ test("Company Settings PostgreSQL upgrade and authenticated API", {
       await admin.query(`CREATE DATABASE "${freshDatabase}" TEMPLATE template0`);
       fresh = new pg.Pool({ host, user: "postgres", database: freshDatabase });
       await fresh.query(await readFile(new URL("../../database/schema.sql", import.meta.url), "utf8"));
-      assert.deepEqual((await runMigrations(fresh, { mode: "apply", database: freshDatabase })).newlyApplied, ["0001", "0002"]);
+      assert.deepEqual((await runMigrations(fresh, { mode: "apply", database: freshDatabase })).newlyApplied,
+        migrations.map((m) => m.version));
       assert.equal((await fresh.query("SELECT count(*)::integer FROM company_settings")).rows[0].count, 1);
       assert.equal((await fresh.query("SELECT count(*)::integer FROM employees")).rows[0].count, 0);
       assert.deepEqual((await runMigrations(fresh, { mode: "apply", database: freshDatabase })).newlyApplied, []);
