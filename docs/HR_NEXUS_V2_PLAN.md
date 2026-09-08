@@ -33,10 +33,13 @@ Implemented:
 - Node built-in tests: 35 HTTP checks and one opt-in real PostgreSQL lookup test.
 - Architecture, database, audit, plan and demo documentation established.
 
-Validation is recorded in the audit. Commit this increment as
-`fix: secure employee and department APIs`; obtain its hash with
-`git log -1 --format='%h %s'` after committing. No schema/data migration belongs to
-this increment. Master brief and pre-existing docs/schema.dbml remain untouched.
+Validation is recorded in the audit. Security increment committed locally as
+`ca700db` — `fix: secure employee and department APIs` on `feat/hr-nexus-v2`.
+All 36 tests passed in Docker; backend/test typechecking, both application builds,
+and frontend lint passed. Backend lint has one pre-existing warning. No schema/data
+migration belongs to this increment. Master brief and pre-existing docs/schema.dbml
+remain untouched and untracked. Fresh Docker rebuild and full browser auth smoke
+remain outstanding; the cached-image application is running.
 
 ## Next concrete migration/retention proposal
 
