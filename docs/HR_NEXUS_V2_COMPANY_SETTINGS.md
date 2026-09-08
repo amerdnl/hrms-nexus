@@ -154,7 +154,9 @@ Synthetic saved fields: company `Synthetic Browser Lab`, registration `LAB-ONLY`
 address explicitly marked synthetic, timezone `Asia/Kuala_Lumpur`, 15-minute grace,
 coordinates 0/0 and radius 250. The competing save changed the lab company name to
 `Synthetic Lab — current saved revision`. Independent read-only PostgreSQL evidence
-confirmed revision 2 and these values; lab attendance remains empty.
+confirmed revision 2 and these values; lab attendance remains empty. Temporary
+smoke API/frontend services were stopped afterward; the synthetic lab database was
+retained. The original production services were not stopped or reconfigured.
 
 Source invalid submissions retained a blank company name and were rejected. The
 original source tab was restored, still signed in as admin. A read-only source check

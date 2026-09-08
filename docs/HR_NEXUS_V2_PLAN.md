@@ -103,6 +103,18 @@ two-editor stale revision conflict passed only against a fresh synthetic lab dat
 Source settings remain neutral at revision 0. See the linked browser evidence.
 Company Settings is complete; Employee/Department Stability is now the active P0.
 
+## Employee/Department Stability kickoff
+
+Company Settings is closed in documentation commit `3289c7f`. Focused controller,
+API consumer and form review has begun for the next P0. Confirmed gaps include
+status/account synchronization, validation and email uniqueness, safe department
+conflict handling, and server pagination with aggregate/lookup consumers. Read-only
+source preflight found zero normalized-email collision groups, zero linked-account
+lifecycle mismatches and zero unsupported status values. No existing records changed.
+
+See [the implementation sequence and acceptance scope](HR_NEXUS_V2_EMPLOYEE_STABILITY.md).
+This milestone is in progress; its application changes and validation remain ahead.
+
 ## Remaining blockers / release gates
 
 - Migration 0001 and its browser gate are complete and accepted. Migration 0002 was
