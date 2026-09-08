@@ -27,3 +27,9 @@ Photos remain managed local uploads, restricted on write and public on read. Fut
 private HR documents require authorized downloads. Docker build contexts now exclude
 local .env files and employee uploads; runtime environment injection remains Compose's
 responsibility. Deployment is still a development-server setup, not production hosting.
+
+Migration tooling now lives in backend/src/database with reviewed SQL files in
+backend/migrations. It uses pg with a checksummed ledger, advisory locking and one
+transaction per version. Its connection URL and exact database name are explicit;
+it is never invoked by app/Compose startup. The proposed history-retention migration
+has only run in isolated databases and still requires source-application approval.

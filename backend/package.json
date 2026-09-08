@@ -9,7 +9,9 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "node --import tsx --test tests/*.test.ts",
+    "migrate:status": "tsx src/database/migrate.ts status",
+    "migrate:apply": "tsx src/database/migrate.ts apply"
   },
   "keywords": [],
   "dependencies": {

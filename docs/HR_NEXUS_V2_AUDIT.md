@@ -5,6 +5,13 @@ Starting branch: `docs/readme-update`; commit: `55a1641` (merge PR #13).
 Working branch created: `feat/hr-nexus-v2`. Initially untracked: master brief and
 `docs/schema.dbml`; both preserved. No AGENTS.md applies to this repository.
 
+## Follow-up status
+
+Permanent deletion is retired in `dd13abe` (409 plus UI removal). Migration runner,
+retention SQL and 64-test isolated rehearsal are complete; application to the existing
+database awaits separate approval. See `HR_NEXUS_V2_MIGRATION_DESIGN.md` and
+`HR_NEXUS_V2_MIGRATION_EVIDENCE.md`. Findings below record the original audit baseline.
+
 ## Architecture and versions
 
 React SPA → Axios Bearer requests → Express routes/controllers → parameterized

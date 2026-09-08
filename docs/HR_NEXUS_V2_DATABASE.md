@@ -1,48 +1,52 @@
-# HR Nexus V2 database baseline and migration plan
+# HR Nexus V2 database status
 
-Inspected live PostgreSQL 17.10 on 8 September 2026. No business data or persistent
-schema was changed during the first security increment.
+The existing `hr_nexus` database remains unchanged. Migration 0001 is implemented,
+rehearsed on isolated databases and **awaiting explicit source-application approval**.
 
-| Table | Existing relationships/constraints |
-| --- | --- |
-| departments | unique name; live INTEGER PK |
-| employees | unique employee_number; department FK; live INTEGER PK/reference |
-| users | unique employee_id and email; employee FK ON DELETE CASCADE; admin/employee CHECK; live INTEGER IDs |
-| leave_requests | employee FK ON DELETE CASCADE; reviewer user FK; type/status/date-range CHECKs; live INTEGER IDs |
-| attendance | BIGINT PK/employee_id; unique employee/date; status/time CHECKs; **no live employee FK** |
+- [Exact migration design, SQL checksum, impact and rollback](HR_NEXUS_V2_MIGRATION_DESIGN.md)
+- [Verification evidence](HR_NEXUS_V2_MIGRATION_EVIDENCE.md)
+- [Proposed SQL](../backend/migrations/0001_employee_history_retention.sql)
+- [Read-only verification SQL](sql/verify_history_retention.sql)
+- [Review-only legacy rollback SQL](sql/rollback_0001_legacy.sql)
 
-Fresh `database/schema.sql` uses BIGINT for most entity IDs and includes a cascading
-attendance employee FK. `database/modules/attendance.sql` omits that FK and explains
-one possible origin of the divergence; initialization history has not been proven.
-The live database has **five orphan attendance rows**. Preserve them pending review.
+Live baseline: PostgreSQL 17.10; departments/employees/users/leave_requests use
+INTEGER entity IDs; attendance uses BIGINT. Users and leave requests cascade from
+employees. Attendance has no employee FK and has five orphan rows (IDs 1,3,4,5,6)
+referencing missing employee IDs 1 and 2. The existing employee has ID 3. All rows,
+IDs, timestamps, notes, sequences, constraints and column defaults are preserved
+in the source. No migration ledger or exception view has been created there.
 
-Existing indexes cover employee department, user employee, leave employee/status,
-attendance employee/date/status, and all primary/unique keys. No migration history
-exists. Initialization scripts execute only for a new volume; editing schema.sql
-will not upgrade the existing database. Never reset the volume as an upgrade method.
+Fresh schema.sql has a different BIGINT baseline and a cascading attendance FK.
+Neither initialization script nor seed.sql was modified or replayed. The proposed
+migration supports both shapes and never widens legacy identifiers.
 
-## Proposed migration strategy (not yet implemented)
+## Migration commands
 
-Use existing pg with versioned SQL files, a checksummed history table, an advisory
-lock and transactional apply. Supply apply/status commands for local and Docker use.
-Status must detect edited applied migrations. Test fresh setup and an old schema
-fixture independently; do not replay seed.sql into existing workforce data.
-Use forward corrective migrations rather than destructive automatic down scripts.
+From backend, with an explicitly supplied MIGRATION_DATABASE_URL:
 
-Do not widen existing identifiers solely to remove cosmetic drift. A safe initial
-attendance integrity constraint may use NOT VALID so existing historical exceptions
-remain intact while new writes are enforced. This requires careful review and tests,
-then explicit reconciliation before full validation. Do not invent employee ownership.
-Replace cascades only as part of the approved retention change; avoid downtime locks
-and verify referenced user/reviewer history is preserved.
+```sh
+npm run migrate:status -- --database exact_database_name
+```
 
-Recommend Extra High before this migration work. The concrete approval request is
-in `HR_NEXUS_V2_PLAN.md`: retire permanent employee deletion while retaining normal
-deactivate/reactivate and all history. No destructive operations are proposed.
+After target-specific approval only:
 
-## Verification performed
+```sh
+npm run migrate:apply -- --database exact_database_name
+```
 
-Read-only inspection: server version, columns/types/nullability, constraints, indexes,
-employment-status aggregate and orphan count. A session lookup integration test uses
-BEGIN, temporary shadow tables and ROLLBACK; it leaves public tables unchanged.
-No migration was applicable to the first security increment.
+Status has no persistent writes. Apply requires the connected database name to match
+and uses checksums, an advisory lock and one transaction per migration. Migrations
+are never run automatically at application startup. New files belong in
+`backend/migrations/0002_description.sql` and successive versions. Never edit an
+applied migration, reset a volume, or use seed.sql as an upgrade script.
+
+The isolated rehearsal is reproducible from the repository root:
+
+```sh
+./scripts/rehearse-migrations.sh
+```
+
+It requires running source postgres/backend services and their cached images. It
+creates a separate internal lab, copies the source logically without printing data,
+initializes fresh test schemas without seeds, and leaves the lab for inspection.
+It never runs migration apply against the source. Details and limits are in the design.
