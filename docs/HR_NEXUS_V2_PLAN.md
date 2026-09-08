@@ -13,7 +13,7 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | 1 | Focused repository audit and immediate API authorization | Complete; clean Docker rebuild passed and user accepted authenticated browser smoke |
 | 2 | Migration strategy and employee history retention | Complete; migration receipt and browser gate explicitly accepted by user |
 | 3 | Company settings | Complete; 0002 applied, 98 tests passed, authenticated browser smoke passed on 8 September 2026 |
-| 4 | Employee/department stability | In progress; focused review of lifecycle consistency, robust validation, email uniqueness and server pagination |
+| 4 | Employee/department stability | Complete; 0003 applied, 132 tests passed, 23/23 authenticated browser smoke on 8 September 2026 |
 | 5 | Company import | Not started; CSV/XLSX → mapping → validation → preview → explicit update confirmation → transaction → history |
 | 6 | Attendance verification | Not started; expiring backend QR + radius + official time + verification metadata |
 | 7 | Leave balances/validation | Not started; working days, overlap/balance checks, atomic approval and no double deduction |
@@ -103,22 +103,57 @@ two-editor stale revision conflict passed only against a fresh synthetic lab dat
 Source settings remain neutral at revision 0. See the linked browser evidence.
 Company Settings is complete; Employee/Department Stability is now the active P0.
 
-## Employee/Department Stability kickoff
+## Employee/Department Stability increment
 
-Company Settings is closed in documentation commit `3289c7f`. Focused controller,
-API consumer and form review has begun for the next P0. Confirmed gaps include
-status/account synchronization, validation and email uniqueness, safe department
-conflict handling, and server pagination with aggregate/lookup consumers. Read-only
-source preflight found zero normalized-email collision groups, zero linked-account
-lifecycle mismatches and zero unsupported status values. No existing records changed.
+Implemented within the existing stack and shared UI components, with no dependencies:
+- Account activity is derived from employment status by one shared rule matching the
+  eligibility `findSessionUserById` already enforced. Reactivating through Edit now
+  re-enables the sign-in. Every lifecycle path locks the employee row and then its
+  linked account in that fixed order, so competing writes serialize.
+- All five lifecycle statuses (`active`, `probation`, `inactive`, `resigned`,
+  `terminated`) are supported end to end.
+- Bounded field allowlists, required/optional semantics with explicit `null` clearing,
+  real calendar dates, a 72-byte bcrypt password bound, and positive-integer route IDs.
+  Unknown fields return 400 instead of silently succeeding.
+- Case- and whitespace-insensitive email identity. Duplicate checks use
+  `lower(btrim(email))` and exclude the employee's own linked account ID, which fixes
+  the standalone-admin case the old `employee_id` comparison skipped. Login was aligned
+  to the same expression. No stored email is rewritten.
+- Safe client acquisition (503), isolated rollback, typed department input (400), and
+  a single conditional department DELETE whose concurrent FK failure maps to 409.
+- Server pagination with email search, plus separate aggregate headcounts
+  (`GET /departments`), a complete lightweight directory (`GET /employees/lookup`) and
+  `GET /employees/job-titles`. Every consumer was migrated together; attendance joins
+  and department membership are never truncated. Pagination is opt-in, so the response
+  shape stays backward compatible.
+- Create/edit form parity: department required in both, all statuses offered, email
+  prefilled, date/gender/employment-date fields covered, explicit `null` clearing.
 
-See [the implementation sequence and acceptance scope](HR_NEXUS_V2_EMPLOYEE_STABILITY.md).
-This milestone is in progress; its application changes and validation remain ahead.
+Additive `0003_user_email_normalized_identity.sql` creates one unique index on
+`lower(btrim(email))` behind a fail-closed preflight. Applied through the reviewed
+runner after the user explicitly approved checksum
+`1014b30d8737546814d0a1199ae653bb92e669a1ccdc190c4890f18fbe3a8b1b`, with a separate
+backup taken and restore-verified beforehand. The only source difference is the ledger
+gaining `0003`; all rows, sequences, constraints, the 0001/0002 checksums and the five
+orphan attendance rows are unchanged.
+
+132 tests pass (was 98), including 18 new database-backed stability checks and the
+contract unit tests. Typechecks, both builds and frontend lint pass; backend lint keeps
+its one pre-existing warning. `docker compose down` then `up --build` passed with the
+existing volume, and 0003 and all data survived. The authenticated browser smoke passed
+23/23 against an isolated lab stack, and the database confirmed a `resigned` employee
+edited back to `active` regained an enabled account.
+
+See [design, evidence and follow-ups](HR_NEXUS_V2_EMPLOYEE_STABILITY.md).
+Employee/Department Stability is complete; Company Import is now the active P0.
 
 ## Remaining blockers / release gates
 
-- Migration 0001 and its browser gate are complete and accepted. Migration 0002 was
-  separately authorized as a reviewed safe additive Company Settings migration and is applied.
+- Migration 0001 and its browser gate are complete and accepted. Migrations 0002 and
+  0003 were each separately authorized as reviewed safe additive migrations and are applied.
+- `employment_status` still has no database CHECK constraint; it is enforced in
+  application validation only. Adding one is a materially different additive migration
+  and needs its own review and approval before any source use.
 - Orphan ownership is unresolved by design. No fabricated employee, ownership
   reassignment, record deletion, seed replay, volume reset or destructive cleanup.
 - Clean Docker rebuild/restart passed after retry; no Docker credential settings changed.
@@ -126,8 +161,12 @@ This milestone is in progress; its application changes and validation remain ahe
   Before any dependency upgrade, identify the affected dependency paths, compatible
   fixed versions and regression risk. No dependency upgrade is currently underway.
 - Company Settings authenticated browser smoke is complete. Its source settings were
-  not configured during testing. Both accepted migration gates remain closed.
-- Active P0: employee/department stability; company import follows.
+  not configured during testing. All three accepted migration gates remain closed.
+- The test laboratory exhausted its 512 MB tmpfs during this milestone and crashed,
+  losing its RAM-backed databases. The source database was unaffected and verified
+  intact. The lab was recreated with a 3 GB tmpfs and both documented baselines were
+  rebuilt from retained backups; the full suite passes against it.
+- Active P0: company import; employee/department stability is complete.
 
 ## Regression / polish backlog
 
@@ -153,6 +192,20 @@ npm run build
 
 ```sh
 docker compose exec -T -e HR_NEXUS_DB_TESTS=1 backend npm test
+```
+
+The employee/department stability database suite is gated by `HR_NEXUS_EMPLOYEE_LAB=1`
+and runs only against the isolated lab, alongside the other lab suites:
+
+```sh
+docker run --rm --volumes-from hr-nexus-backend:ro \
+  --network hr-nexus-v2-migration-lab \
+  -e HR_NEXUS_MIGRATION_LAB=1 -e HR_NEXUS_SETTINGS_LAB=1 \
+  -e HR_NEXUS_EMPLOYEE_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
+  -e DATABASE_URL=postgresql://postgres@hr-nexus-v2-migration-lab/postgres \
+  --mount "type=bind,src=$PWD/database,dst=/database,readonly" \
+  --mount "type=bind,src=$PWD/docs,dst=/docs,readonly" \
+  hr-nexus-backend sh -c 'node --import tsx --test tests/*.test.ts'
 ```
 
 The DB test creates only session-local temporary tables and rolls back; it does not

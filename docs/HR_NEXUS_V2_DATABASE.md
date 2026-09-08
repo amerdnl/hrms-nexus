@@ -1,9 +1,18 @@
 # HR Nexus V2 database status
 
-Migrations **0001 and 0002 are applied** to existing `hr_nexus` through the reviewed
-runner. The original retention migration is unchanged; the only added persistent
-configuration is the Company Settings table and its neutral singleton row.
+Migrations **0001, 0002 and 0003 are applied** to existing `hr_nexus` through the
+reviewed runner. The original retention migration is unchanged. The only added
+persistent objects are the Company Settings table with its neutral singleton row and
+one unique index enforcing normalized account email identity.
 
+Migration 0003 creates `users_email_normalized_key` on `lower(btrim(email))` behind a
+fail-closed preflight. It rewrites no email value and changes no row, sequence or
+other constraint; the pre-existing case-sensitive `users_email_key` remains. The
+application's duplicate checks and sign-in lookup use the same expression, so the
+database and the API agree on what counts as the same account. A violation of either
+index is mapped to a 409 conflict.
+
+- [Employee/department stability, migration 0003 and evidence](HR_NEXUS_V2_EMPLOYEE_STABILITY.md)
 - [Company Settings migration, API/UI and verification](HR_NEXUS_V2_COMPANY_SETTINGS.md)
 
 - [Application receipt, backup and release checks](HR_NEXUS_V2_MIGRATION_APPLICATION.md)
@@ -18,9 +27,15 @@ BIGINT attendance IDs. All five business-table counts/fingerprints and full sequ
 state are unchanged. Users/leave employee FKs are validated RESTRICT; attendance's
 RESTRICT FK remains NOT VALID. Five unchanged orphan rows (IDs 1,3,4,5,6) still
 reference missing employee IDs 1 and 2. The sole existing employee remains ID 3.
-The ledger contains exactly one matching 0001 row. Two narrow triggers prevent
-orphan ID adoption/reassignment; the non-updatable exception view exposes all five
-exceptions to authorized database operators.
+The ledger contains exactly one matching row each for 0001, 0002 and 0003. Two narrow
+triggers prevent orphan ID adoption/reassignment; the non-updatable exception view
+exposes all five exceptions to authorized database operators.
+
+Applying 0003 changed nothing in the source but the ledger row: business counts,
+the attendance fingerprint `1:1,3:1,4:2,5:1,6:1`, all sequence state and the
+0001/0002 checksums are identical before and after. Employment status still has no
+database CHECK constraint; it is enforced in application validation only, and adding
+one would be a separate migration requiring its own review.
 
 Fresh schema.sql retains its different BIGINT baseline. Initialization scripts and
 seed.sql were neither modified nor replayed. The approved migration supports both
@@ -69,6 +84,18 @@ host `hr-nexus-v2-migration-lab`. It clones the retained database
 randomly named isolated databases. The original retention tests use the separate
 unmigrated `hr_nexus_v2_upgrade` baseline and copy only immutable 0001 into a test
 migration directory. Do not reset the source or edit applied files to prepare tests.
+
+The employee/department stability suite uses `HR_NEXUS_EMPLOYEE_LAB=1` and the same
+settings baseline, running the full migration chain into its own disposable clones.
+Add that flag to the command below to run every suite.
+
+The laboratory's storage is a tmpfs, so **its databases do not survive the container
+stopping**, and it will crash if that tmpfs fills. It is now created with 3 GB; drop
+stale per-run clones rather than letting it fill. Both baselines are reconstructible
+from the retained backups in `.local-backups/0001-20260908/`:
+`hr_nexus_before_0001.dump` rebuilds `hr_nexus_v2_upgrade`, and
+`hr_nexus_after_0001.dump` rebuilds `hr_nexus_v2_settings_baseline`. The source
+database is a separate container on a real Docker volume and is never affected.
 
 The full verified command (using the retained lab network) is:
 

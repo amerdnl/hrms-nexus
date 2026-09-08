@@ -9,11 +9,22 @@ Working branch created: `feat/hr-nexus-v2`. Initially untracked: master brief an
 
 Permanent deletion is retired in `dd13abe`. Migration 0001 and its browser gate are
 complete and explicitly accepted by the user. Company Settings is implemented and
-0002 is applied after a verified current backup and isolated rehearsal; 98 tests pass.
+0002 is applied after a verified current backup and isolated rehearsal.
 Company Settings authenticated browser smoke passed on 8 September 2026, including
 invalid fields, mobile layout, synthetic lab persistence/concurrency and employee route
-denial. Source settings remain neutral; Employee/Department Stability is now active.
+denial. Source settings remain neutral.
 See `HR_NEXUS_V2_COMPANY_SETTINGS.md` for defaults, validation and exact evidence.
+
+Employee/Department Stability is complete. Migration 0003 adds a unique index on
+`lower(btrim(email))`, applied after explicit user approval of its checksum with a
+restore-verified backup; the only source change is the new ledger row. Lifecycle and
+linked-account state are now derived from one rule and written under row locks,
+employee/department writes have bounded server-side validation with predictable
+400/404/409/503 responses, and the employee list is paginated server-side with the
+department headcount, job title and attendance directory consumers migrated to
+dedicated endpoints. 132 tests pass and a 23-check authenticated browser smoke passed.
+See `HR_NEXUS_V2_EMPLOYEE_STABILITY.md`. Company Import is now the active P0.
+
 Original audit findings below are historical, not the current migration status.
 
 Security release items remain recorded: transitive qs (moderate) and nanoid (high).
@@ -59,8 +70,10 @@ is unrelated to the declared stack and was not removed or incorporated.
 `/employee/profile/password` redirects to profile, where password change is a modal.
 AppLayout/Sidebar, shared form/table/modal primitives, light/dark/system theme,
 loading/error/empty states and responsive classes already exist. Preserve them.
-Employee list pagination and some joins/filtering are client-side; the API returns
-full record sets. Search does not cover email. Browser/mobile regression remains due.
+Employee list pagination and filtering were client-side over full record sets, and
+search did not cover email. Resolved in the stability milestone: the list is
+paginated and filtered server-side, search covers email, and department headcounts,
+job titles and the attendance directory each have their own endpoint.
 
 ## Security findings and first implementation
 
@@ -102,8 +115,10 @@ Five orphan attendance records exist. No business data was altered or deleted.
 Fresh schema cascades attendance/users/leave on employee deletion; actual attendance
 has no employee FK. Live IDs are mostly INTEGER, while fresh schema uses BIGINT.
 Department deletion guards assigned employees and has a database FK backstop.
-Users.email uniqueness is case-sensitive although login compares LOWER(email).
-Employment status lacks a database CHECK. Leave lacks balances, overlaps, working-day
+Users.email uniqueness was case-sensitive although login compared LOWER(email);
+migration 0003 adds a normalized unique index and the application now uses
+lower(btrim(email)) for sign-in and every duplicate check.
+Employment status still lacks a database CHECK and is enforced in validation only. Leave lacks balances, overlaps, working-day
 validation and controlled repeat decisions. Attendance has unique employee/date and
 conditional checkout updates, but settings/QR/location verification are absent.
 Dashboard CURRENT_DATE and attendance's hardcoded Malaysia time need alignment.
