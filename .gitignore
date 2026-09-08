@@ -18,5 +18,8 @@ Thumbs.db
 
 coverage/
 
+# Local database recovery artifacts must never be committed.
+.local-backups/
+
 backend/uploads/profile-images/*
 !backend/uploads/profile-images/.gitkeep

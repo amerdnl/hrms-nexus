@@ -1,7 +1,11 @@
 # Migration 0001 verification evidence
 
 Date: 8 September 2026. Target source: `hr_nexus`, PostgreSQL 17.10.
-Result: **isolated upgrade proven; existing database application not approved or run.**
+Historical rehearsal result: **isolated upgrade proven before source approval.**
+
+Subsequent user approval and source application are recorded in the
+[8 September application receipt](HR_NEXUS_V2_MIGRATION_APPLICATION.md). The source
+now has 0001 applied; the pending status below describes the earlier baseline.
 
 SQL SHA-256:
 `3339156f7143d1ff5a12ebd3b71ca91f21d1c1c6775e4c602fccce1d8c787e39`.

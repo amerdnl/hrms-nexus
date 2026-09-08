@@ -10,8 +10,8 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 
 | Order | P0 milestone | Status / acceptance |
 | --- | --- | --- |
-| 1 | Focused repository audit and immediate API authorization | Implemented and tested; clean Docker rebuild and full browser auth smoke still outstanding |
-| 2 | Migration strategy and employee history retention | Retirement committed; runner/SQL rehearsed on isolated copies; existing database apply awaits design approval |
+| 1 | Focused repository audit and immediate API authorization | Implemented and tested; clean Docker rebuild passed; browser auth smoke blocked on browser connection |
+| 2 | Migration strategy and employee history retention | 0001 applied with approved checksum; preservation/behavior checks and clean rebuild passed; browser gate remains open |
 | 3 | Company settings | Not started; validated admin API/UI, timezone/work hours/location/radius |
 | 4 | Employee/department stability | Not started; lifecycle consistency, robust validation, email uniqueness, server pagination |
 | 5 | Company import | Not started; CSV/XLSX → mapping → validation → preview → explicit update confirmation → transaction → history |
@@ -64,22 +64,30 @@ Review [the exact SQL, impact and rollback design](HR_NEXUS_V2_MIGRATION_DESIGN.
 and [verification evidence](HR_NEXUS_V2_MIGRATION_EVIDENCE.md). The SQL checksum is
 `3339156f7143d1ff5a12ebd3b71ca91f21d1c1c6775e4c602fccce1d8c787e39`.
 
-**STOP: no persistent migration may be applied to existing `hr_nexus` until the user
-approves that package.** Read-only status confirms 0001 remains pending and the five
-orphan rows are unchanged. There is no migration ledger in the source database.
-After approval, recheck the current baseline, apply only the approved version,
-verify it, commit the progress record, and proceed to company settings.
+The user explicitly approved only the checksum above for existing `hr_nexus`.
+Applied at 2026-09-08 06:02:06 UTC after a current backup was restored and checked
+in the isolated lab. Exactly one ledger row exists. All business/orphan fingerprints,
+existing column definitions and complete sequence state match the approved baseline.
+Source SQLSTATE/correction checks and authenticated API lifecycle checks on a fresh
+post-application copy passed. No orphan ownership/data changed and no other migration
+ran on the source. See [application receipt](HR_NEXUS_V2_MIGRATION_APPLICATION.md).
+
+Clean no-cache Docker build, volume-preserving down/up, 64 tests on the new image,
+source/test typechecks, builds and lint passed (one existing backend lint warning).
+The authenticated browser gate remains blocked: runtime discovery returned no
+available browser. The user was asked to enable the browser and sign in. **Company
+Settings must wait for that gate; no settings implementation or migration has begun.**
 
 ## Remaining blockers / release gates
 
-- Existing-database application is awaiting explicit migration-design approval.
+- Migration 0001 source application and verification are complete; approval covered no other migration.
 - Orphan ownership is unresolved by design. No fabricated employee, ownership
   reassignment, record deletion, seed replay, volume reset or destructive cleanup.
-- Clean Docker rebuild remains open after the earlier node:24-alpine metadata timeout.
-  No Docker credential settings were changed. Current stack uses cached images.
-- Full authenticated browser smoke remains open; isolated API lifecycle verification
-  does not replace it. No saved/seeded credentials were used for authenticated testing.
-- Company settings remains the next implementation milestone after approved upgrade.
+- Clean Docker rebuild/restart passed after retry; no Docker credential settings changed.
+  Fresh npm audit reports qs (moderate) and nanoid (high); record and resolve before release.
+- Full authenticated browser smoke remains open because no browser is connected;
+  isolated API lifecycle verification does not replace it. No saved/seeded credentials used.
+- Company settings remains the next P0 milestone after authenticated browser verification.
 
 ## Verification commands
 

@@ -1,6 +1,9 @@
 # HR Nexus V2 migration 0001 — approval package
 
-Status: **implemented and tested only in isolated databases; not applied to `hr_nexus`.**
+Reviewed design retained below. **Subsequently approved and applied to `hr_nexus`
+on 8 September 2026**, with the exact checksum shown here. See the
+[application receipt](HR_NEXUS_V2_MIGRATION_APPLICATION.md) for current status.
+The approval request and release gates below describe the original review package.
 Prepared 8 September 2026. The user approved permanent-delete retirement and isolated
 migration development. Applying any persistent migration to the existing database
 requires a separate approval after reviewing this package.
