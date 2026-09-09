@@ -38,7 +38,11 @@ test("Employee/department stability: migration 0003 and authenticated lifecycle 
           `SELECT count(*)::integer, md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY id)::text,'[]')) AS digest FROM public.${table} t`,
         )).rows;
       }
-      data.sequences = (await db.query("SELECT * FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename")).rows;
+      // Scoped to business sequences; later migrations legitimately add their own.
+      data.sequences = (await db.query(
+        `SELECT * FROM pg_sequences WHERE schemaname='public'
+           AND sequencename NOT LIKE 'import%' ORDER BY sequencename`,
+      )).rows;
       data.orphans = (await db.query(
         "SELECT id, md5((to_jsonb(a)-'integrity_issue')::text) AS digest FROM attendance_integrity_exceptions a ORDER BY id",
       )).rows;
@@ -54,9 +58,14 @@ test("Employee/department stability: migration 0003 and authenticated lifecycle 
 
     await t.test("0003 applies additively and preserves rows, sequences and orphan attendance", async () => {
       const status = await runMigrations(db, { mode: "status", database });
-      assert.deepEqual(status.migrations.map((migration) => migration.status), ["applied", "pending", "pending"]);
+      // Assert this milestone's slice; later reviewed migrations may follow 0003.
+      assert.deepEqual(status.migrations.slice(0, 3).map((migration) => migration.status),
+        ["applied", "pending", "pending"]);
 
-      assert.deepEqual((await runMigrations(db, { mode: "apply", database })).newlyApplied, ["0002", "0003"]);
+      assert.deepEqual(
+        (await runMigrations(db, { mode: "apply", database })).newlyApplied.slice(0, 2),
+        ["0002", "0003"],
+      );
 
       // Nothing outside the additive settings table and the new index moved.
       assert.deepEqual(await business(), before);

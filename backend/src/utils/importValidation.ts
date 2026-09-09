@@ -39,7 +39,6 @@ export interface EmployeeValues {
   address: string | null;
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
-  temporary_password: string | null;
 }
 
 export interface ExistingEmployee {
@@ -268,14 +267,6 @@ export function classifyRows(
       warn("employment_date", "Employment date is in the future.");
     }
 
-    if (raw.temporary_password) {
-      if (raw.temporary_password.length < 8 || Buffer.byteLength(raw.temporary_password, "utf8") > 72) {
-        error("temporary_password", "Temporary password must be 8 to 72 bytes.");
-      } else {
-        warn("temporary_password", "A password from the file is used instead of a generated one.");
-      }
-    }
-
     // Duplicates inside the file itself, before comparing against the database.
     const numberKey = raw.employee_number ? normalizeKey(raw.employee_number) : "";
     if (numberKey) {
@@ -334,7 +325,6 @@ export function classifyRows(
       address: raw.address ?? null,
       emergency_contact_name: raw.emergency_contact_name ?? null,
       emergency_contact_phone: raw.emergency_contact_phone ?? null,
-      temporary_password: raw.temporary_password ?? null,
     };
 
     if (!existing) {

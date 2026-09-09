@@ -32,9 +32,15 @@ test("Company Settings PostgreSQL upgrade and authenticated API", {
       }
       data.columns = (await db.query(`SELECT table_name,column_name,data_type,column_default,is_nullable FROM information_schema.columns
         WHERE table_schema='public' AND table_name IN ('departments','employees','users','leave_requests','attendance') ORDER BY table_name,ordinal_position`)).rows;
-      data.sequences = (await db.query("SELECT * FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename")).rows;
+      data.sequences = (await db.query(
+        `SELECT * FROM pg_sequences WHERE schemaname='public'
+           AND sequencename NOT LIKE 'import%' ORDER BY sequencename`,
+      )).rows;
       data.constraints = (await db.query(`SELECT conrelid::regclass::text,conname,convalidated,pg_get_constraintdef(oid) FROM pg_constraint
-        WHERE connamespace='public'::regnamespace AND conrelid<>COALESCE(to_regclass('public.company_settings'),0) ORDER BY 1,2`)).rows;
+        WHERE connamespace='public'::regnamespace
+          AND conrelid NOT IN (SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname='public' AND (c.relname='company_settings' OR c.relname LIKE 'import%'))
+        ORDER BY 1,2`)).rows;
       data.orphans = (await db.query("SELECT id, md5((to_jsonb(a)-'integrity_issue')::text) AS digest FROM attendance_integrity_exceptions a ORDER BY id")).rows;
       return data;
     }

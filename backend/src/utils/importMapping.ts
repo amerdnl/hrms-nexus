@@ -20,7 +20,6 @@ export const importFields = [
   "address",
   "emergency_contact_name",
   "emergency_contact_phone",
-  "temporary_password",
 ] as const;
 
 export type ImportField = (typeof importFields)[number];
@@ -47,7 +46,6 @@ export const importFieldLabels: Record<ImportField, string> = {
   address: "Address",
   emergency_contact_name: "Emergency contact name",
   emergency_contact_phone: "Emergency contact phone",
-  temporary_password: "Temporary password",
 };
 
 /**
@@ -101,11 +99,17 @@ const aliases: Record<ImportField, string[]> = {
     "emergency contact phone", "emergency contact number", "emergency phone",
     "emergency number", "next of kin phone", "next of kin contact", "kin phone",
   ],
-  temporary_password: [
-    "temporary password", "password", "initial password", "temp password",
-    "default password",
-  ],
 };
+
+/**
+ * Passwords are deliberately not importable. Every new account gets a generated
+ * temporary password returned once at confirmation, so no plaintext credential
+ * is ever parsed from a spreadsheet or written to the import history.
+ */
+export const rejectedPasswordHeaders = [
+  "password", "temporary password", "temp password", "initial password",
+  "default password", "passcode", "pin",
+].map((header) => header.replace(/\s+/g, " "));
 
 /** Lower-cased, punctuation-free, single-spaced, so "Staff-ID" matches "staff id". */
 export function normalizeHeader(header: string): string {
@@ -133,16 +137,24 @@ export interface MappingSuggestion {
   unmatchedHeaders: string[];
   /** Fields whose alias matched more than one column; the admin must choose. */
   ambiguousFields: ImportField[];
+  /** Credential-looking columns, ignored on purpose rather than merely unmatched. */
+  ignoredPasswordHeaders: string[];
 }
 
 export function suggestMapping(headers: string[]): MappingSuggestion {
   const mapping: ColumnMapping = {};
   const matchCounts = new Map<ImportField, number>();
   const unmatchedHeaders: string[] = [];
+  const ignoredPasswordHeaders: string[] = [];
 
   headers.forEach((header, index) => {
     const normalized = normalizeHeader(header);
     if (!normalized) return;
+
+    if (rejectedPasswordHeaders.includes(normalized)) {
+      ignoredPasswordHeaders.push(header);
+      return;
+    }
 
     const field = aliasLookup.get(normalized);
     if (!field) {
@@ -159,7 +171,7 @@ export function suggestMapping(headers: string[]): MappingSuggestion {
     .filter(([, count]) => count > 1)
     .map(([field]) => field);
 
-  return { mapping, unmatchedHeaders, ambiguousFields };
+  return { mapping, unmatchedHeaders, ambiguousFields, ignoredPasswordHeaders };
 }
 
 export interface MappingValidation {
