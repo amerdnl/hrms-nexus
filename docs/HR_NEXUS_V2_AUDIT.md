@@ -23,7 +23,18 @@ employee/department writes have bounded server-side validation with predictable
 400/404/409/503 responses, and the employee list is paginated server-side with the
 department headcount, job title and attendance directory consumers migrated to
 dedicated endpoints. 132 tests pass and a 23-check authenticated browser smoke passed.
-See `HR_NEXUS_V2_EMPLOYEE_STABILITY.md`. Company Import is now the active P0.
+See `HR_NEXUS_V2_EMPLOYEE_STABILITY.md`.
+
+Company Import is complete. Migration 0004 adds the two import history tables, applied
+after explicit user approval of its checksum with a restore-verified backup; the only
+source change is the new ledger row. `/admin/import` and `/api/import` provide
+template, upload, alias-based column mapping, row classification, a reviewable preview
+and a single-transaction apply with explicit opt-ins for updating existing employees
+and creating missing departments. Passwords are never importable and credential columns
+are blanked on upload; generated temporary passwords are returned once. exceljs 4.4.0
+was added for XLSX with approval. 172 tests pass and a 27-check authenticated browser
+smoke passed. See `HR_NEXUS_V2_COMPANY_IMPORT.md`. Attendance Verification is now the
+active P0.
 
 Original audit findings below are historical, not the current migration status.
 
@@ -125,8 +136,9 @@ Dashboard CURRENT_DATE and attendance's hardcoded Malaysia time need alignment.
 
 ## P0 gaps
 
-No migration mechanism, company settings, import workflow, compensation/payroll,
-payslips, leave balances, reporting/export, or audit log module exists. Dashboard
+Compensation/payroll,
+payslips, leave balances, reporting/export and the audit log module remain outstanding;
+the migration mechanism, company settings and import workflow are now in place. Dashboard
 already uses real SQL; extend it instead of replacing mock data that is not present.
 Demo data is insufficient (one active employee found in the live aggregate).
 No automated coverage existed at baseline. Added targeted authorization tests rather

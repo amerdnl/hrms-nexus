@@ -1,9 +1,16 @@
 # HR Nexus V2 database status
 
-Migrations **0001, 0002 and 0003 are applied** to existing `hr_nexus` through the
-reviewed runner. The original retention migration is unchanged. The only added
-persistent objects are the Company Settings table with its neutral singleton row and
-one unique index enforcing normalized account email identity.
+Migrations **0001, 0002, 0003 and 0004 are applied** to existing `hr_nexus` through the
+reviewed runner. The original retention migration is unchanged. The added persistent
+objects are the Company Settings table with its neutral singleton row, one unique index
+enforcing normalized account email identity, and the two import history tables.
+
+Migration 0004 creates `import_jobs` and `import_job_rows` behind a fail-closed
+preflight that aborts if an import table already exists. It is purely additive.
+`import_job_rows.employee_id` and `import_jobs.initiated_by` are ON DELETE RESTRICT, so
+import history can never be the reason an employee or an administrator record is
+destroyed; rows cascade only from their own job. Credential-looking spreadsheet columns
+are blanked before the file is stored, so no plaintext password is retained.
 
 Migration 0003 creates `users_email_normalized_key` on `lower(btrim(email))` behind a
 fail-closed preflight. It rewrites no email value and changes no row, sequence or
@@ -12,6 +19,7 @@ application's duplicate checks and sign-in lookup use the same expression, so th
 database and the API agree on what counts as the same account. A violation of either
 index is mapped to a 409 conflict.
 
+- [Company import, migration 0004 and evidence](HR_NEXUS_V2_COMPANY_IMPORT.md)
 - [Employee/department stability, migration 0003 and evidence](HR_NEXUS_V2_EMPLOYEE_STABILITY.md)
 - [Company Settings migration, API/UI and verification](HR_NEXUS_V2_COMPANY_SETTINGS.md)
 
@@ -27,13 +35,13 @@ BIGINT attendance IDs. All five business-table counts/fingerprints and full sequ
 state are unchanged. Users/leave employee FKs are validated RESTRICT; attendance's
 RESTRICT FK remains NOT VALID. Five unchanged orphan rows (IDs 1,3,4,5,6) still
 reference missing employee IDs 1 and 2. The sole existing employee remains ID 3.
-The ledger contains exactly one matching row each for 0001, 0002 and 0003. Two narrow
+The ledger contains exactly one matching row each for 0001, 0002, 0003 and 0004. Two narrow
 triggers prevent orphan ID adoption/reassignment; the non-updatable exception view
 exposes all five exceptions to authorized database operators.
 
-Applying 0003 changed nothing in the source but the ledger row: business counts,
-the attendance fingerprint `1:1,3:1,4:2,5:1,6:1`, all sequence state and the
-0001/0002 checksums are identical before and after. Employment status still has no
+Applying 0003 and 0004 each changed nothing in the source but their own ledger row:
+business counts, the attendance fingerprint `1:1,3:1,4:2,5:1,6:1`, all business sequence
+state and every earlier checksum are identical before and after. Employment status still has no
 database CHECK constraint; it is enforced in application validation only, and adding
 one would be a separate migration requiring its own review.
 
@@ -59,7 +67,7 @@ npm run migrate:apply -- --database exact_database_name
 Status has no persistent writes. Apply requires the connected database name to match
 and uses checksums, an advisory lock and one transaction per migration. Migrations
 are never run automatically at application startup. New files belong in
-`backend/migrations/0003_description.sql` and successive versions. Never edit an
+`backend/migrations/0005_description.sql` and successive versions. Never edit an
 applied migration, reset a volume, or use seed.sql as an upgrade script.
 
 The original pre-application rehearsal command is shown below. It expects an
@@ -85,9 +93,10 @@ randomly named isolated databases. The original retention tests use the separate
 unmigrated `hr_nexus_v2_upgrade` baseline and copy only immutable 0001 into a test
 migration directory. Do not reset the source or edit applied files to prepare tests.
 
-The employee/department stability suite uses `HR_NEXUS_EMPLOYEE_LAB=1` and the same
-settings baseline, running the full migration chain into its own disposable clones.
-Add that flag to the command below to run every suite.
+The employee/department stability and company import suites use `HR_NEXUS_EMPLOYEE_LAB=1`
+and `HR_NEXUS_IMPORT_LAB=1` with the same settings baseline, running the full migration
+chain into their own disposable clones. Add both flags to the command below to run
+every suite.
 
 The laboratory's storage is a tmpfs, so **its databases do not survive the container
 stopping**, and it will crash if that tmpfs fills. It is now created with 3 GB; drop
@@ -102,7 +111,8 @@ The full verified command (using the retained lab network) is:
 ```sh
 docker run --rm --volumes-from hr-nexus-backend:ro \
   --network hr-nexus-v2-migration-lab \
-  -e HR_NEXUS_MIGRATION_LAB=1 -e HR_NEXUS_SETTINGS_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
+  -e HR_NEXUS_MIGRATION_LAB=1 -e HR_NEXUS_SETTINGS_LAB=1 \
+  -e HR_NEXUS_EMPLOYEE_LAB=1 -e HR_NEXUS_IMPORT_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
   -e DATABASE_URL=postgresql://postgres@hr-nexus-v2-migration-lab/postgres \
   --mount "type=bind,src=$PWD/database,dst=/database,readonly" \
   --mount "type=bind,src=$PWD/docs,dst=/docs,readonly" \

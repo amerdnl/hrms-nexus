@@ -6,7 +6,7 @@ Leadership demo: 16 September. Working branch: `feat/hr-nexus-v2`.
 Use High for routine work. Recommend Extra High before complex migrations, payroll
 money logic, difficult authorization/concurrency work, or complex import upserts.
 
-## Milestone status — 8 September 2026
+## Milestone status — 9 September 2026
 
 | Order | P0 milestone | Status / acceptance |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | 2 | Migration strategy and employee history retention | Complete; migration receipt and browser gate explicitly accepted by user |
 | 3 | Company settings | Complete; 0002 applied, 98 tests passed, authenticated browser smoke passed on 8 September 2026 |
 | 4 | Employee/department stability | Complete; 0003 applied, 132 tests passed, 23/23 authenticated browser smoke on 8 September 2026 |
-| 5 | Company import | Not started; CSV/XLSX → mapping → validation → preview → explicit update confirmation → transaction → history |
+| 5 | Company import | Complete; 0004 applied, 172 tests passed, 27/27 authenticated browser smoke on 9 September 2026 |
 | 6 | Attendance verification | Not started; expiring backend QR + radius + official time + verification metadata |
 | 7 | Leave balances/validation | Not started; working days, overlap/balance checks, atomic approval and no double deduction |
 | 8 | Payroll and payslips | Not started; recommend Extra High before money/state/snapshot implementation |
@@ -145,7 +145,44 @@ existing volume, and 0003 and all data survived. The authenticated browser smoke
 edited back to `active` regained an enabled account.
 
 See [design, evidence and follow-ups](HR_NEXUS_V2_EMPLOYEE_STABILITY.md).
-Employee/Department Stability is complete; Company Import is now the active P0.
+Employee/Department Stability is complete.
+
+## Company Import increment
+
+Implemented within the existing stack and shared UI components:
+- `/admin/import` and `/api/import`, admin-only: download template, upload, map
+  columns, validate, review a filterable preview, confirm, summary.
+- CSV is read by an in-repo RFC 4180 parser, so CSV import adds no supply chain.
+  XLSX uses exceljs 4.4.0, approved in preference to the smaller `xlsx` package
+  because that one carries an unfixable high-severity advisory on npm.
+- Headings are matched through an alias table after normalisation; the suggestion is
+  correctable, unrecognised and ambiguous columns are reported, and the submitted
+  mapping is validated against the real file.
+- Rows classify as new, update, unchanged, conflict or invalid. Updates compare only
+  mapped columns. Duplicates inside the file point at the first occurrence.
+- Applying is one transaction, opt-in twice over (`apply_updates`,
+  `create_missing_departments`), and re-classifies rows against live data so a stale
+  preview cannot be applied on stale terms. A failure rolls the whole import back.
+- Passwords are not importable. Credential columns are blanked at upload; generated
+  temporary passwords are returned once and never stored or logged.
+- Additive `0004_import_jobs.sql` creates import_jobs and import_job_rows. Applied
+  through the reviewed runner after the user explicitly approved checksum
+  `ef174819b9e0f96c8f9e1bfb438f2f79e7ab742ef3a4bbabf85067d09d8eb92b`, with a backup
+  taken and restore-verified beforehand. The only source difference is the new ledger
+  row; the employee link is RESTRICT so import history can never cascade into
+  workforce records.
+
+172 tests pass (was 132), including 18 database-backed import checks. Typechecks, both
+builds and frontend lint pass; backend lint keeps its one pre-existing warning.
+`docker compose down` then `up --build` passed with the existing volume. The
+authenticated browser smoke passed 27/27, including an imported employee signing in
+with their generated temporary password.
+
+A database assertion during that smoke found and fixed a real defect: an ignored
+credential column was still being persisted in the stored file.
+
+See [design, evidence and follow-ups](HR_NEXUS_V2_COMPANY_IMPORT.md).
+Company Import is complete; Attendance Verification is now the active P0.
 
 ## Remaining blockers / release gates
 
@@ -166,7 +203,10 @@ Employee/Department Stability is complete; Company Import is now the active P0.
   losing its RAM-backed databases. The source database was unaffected and verified
   intact. The lab was recreated with a 3 GB tmpfs and both documented baselines were
   rebuilt from retained backups; the full suite passes against it.
-- Active P0: company import; employee/department stability is complete.
+- Active P0: attendance verification; company import is complete.
+- exceljs 4.4.0 was added for XLSX import with explicit approval. Its only advisory is
+  a transitive qs-style `uuid` buffer-bounds issue in a path the import never calls;
+  it joins qs and nanoid as a recorded pre-release item. No other dependency changed.
 
 ## Regression / polish backlog
 
@@ -194,14 +234,15 @@ npm run build
 docker compose exec -T -e HR_NEXUS_DB_TESTS=1 backend npm test
 ```
 
-The employee/department stability database suite is gated by `HR_NEXUS_EMPLOYEE_LAB=1`
-and runs only against the isolated lab, alongside the other lab suites:
+The employee/department stability and company import database suites are gated by
+`HR_NEXUS_EMPLOYEE_LAB=1` and `HR_NEXUS_IMPORT_LAB=1`, and run only against the
+isolated lab alongside the other lab suites:
 
 ```sh
 docker run --rm --volumes-from hr-nexus-backend:ro \
   --network hr-nexus-v2-migration-lab \
   -e HR_NEXUS_MIGRATION_LAB=1 -e HR_NEXUS_SETTINGS_LAB=1 \
-  -e HR_NEXUS_EMPLOYEE_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
+  -e HR_NEXUS_EMPLOYEE_LAB=1 -e HR_NEXUS_IMPORT_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
   -e DATABASE_URL=postgresql://postgres@hr-nexus-v2-migration-lab/postgres \
   --mount "type=bind,src=$PWD/database,dst=/database,readonly" \
   --mount "type=bind,src=$PWD/docs,dst=/docs,readonly" \
