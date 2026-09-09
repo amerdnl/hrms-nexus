@@ -240,6 +240,14 @@ test("Company import: migration 0004 and the authenticated import workflow", {
       assert.deepEqual(data.ignored_password_headers, ["Password"]);
       assert.equal(data.job.status, "pending");
       assert.equal(data.sample.length, 1);
+
+      // The credential cell is blanked before the file is stored or echoed back,
+      // so a customer's spreadsheet password never lands in the import history.
+      assert.deepEqual(data.sample[0], ["E1", "Aisyah", "a@example.invalid", "Engineering", "CC1", ""]);
+      const stored = (await db.query(
+        "SELECT source_rows::text AS rows FROM import_jobs WHERE id = $1", [data.job.id],
+      )).rows[0].rows;
+      assert.ok(!stored.includes("secret123"), "a spreadsheet password reached the database");
     });
 
     await t.test("a mapping missing a required field is refused", async () => {

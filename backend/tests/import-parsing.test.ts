@@ -9,6 +9,7 @@ import {
 } from "../src/utils/spreadsheet.js";
 import {
   normalizeHeader,
+  redactColumns,
   suggestMapping,
   validateMapping,
   readRow,
@@ -126,6 +127,21 @@ test("two columns claiming one field are flagged instead of guessed", () => {
   assert.deepEqual(ambiguousFields, ["email"]);
   // The first match still stands as the suggestion the admin can correct.
   assert.equal(mapping.email, 0);
+});
+
+test("credential columns are identified and their cells are blanked", () => {
+  const suggestion = suggestMapping(["Staff ID", "Name", "Password", "PIN", "Email"]);
+  assert.deepEqual(suggestion.ignoredPasswordHeaders, ["Password", "PIN"]);
+  assert.deepEqual(suggestion.ignoredPasswordColumns, [2, 3]);
+  // A credential column is never treated as merely unrecognised.
+  assert.deepEqual(suggestion.unmatchedHeaders, []);
+
+  const rows = [["E1", "Aisyah", "hunter2", "1234", "a@example.invalid"]];
+  assert.deepEqual(redactColumns(rows, suggestion.ignoredPasswordColumns), [
+    ["E1", "Aisyah", "", "", "a@example.invalid"],
+  ]);
+  // Redaction never rewrites rows when there is nothing to redact.
+  assert.equal(redactColumns(rows, []), rows);
 });
 
 test("mapping validation rejects unusable mappings", () => {

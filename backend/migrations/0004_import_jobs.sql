@@ -74,7 +74,7 @@ CREATE INDEX idx_import_job_rows_classification
 COMMENT ON TABLE public.import_jobs IS
   'Workforce import runs. Rows are retained as an audit trail and are never deleted by the application.';
 COMMENT ON COLUMN public.import_jobs.source_rows IS
-  'Original cell values. Credentials are never importable, so no plaintext password is stored here.';
+  'Original cell values, with any credential-looking column blanked on upload. Passwords are never importable and no plaintext password is stored here.';
 COMMENT ON COLUMN public.import_jobs.column_mapping IS
   'Confirmed field to column-index mapping used for validation and for the applied import.';
 COMMENT ON TABLE public.import_job_rows IS

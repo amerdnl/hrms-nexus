@@ -15,6 +15,7 @@ import { parseIdParam } from "../utils/employeeValidation.js";
 import {
   importFieldLabels,
   importFields,
+  redactColumns,
   requiredImportFields,
   suggestMapping,
   validateMapping,
@@ -93,6 +94,9 @@ export async function createImportJob(request: Request, response: Response): Pro
   }
 
   const suggestion = suggestMapping(sheet.headers);
+  // A customer spreadsheet may carry a password column. It is never importable,
+  // and it must not survive into the import history either.
+  const rows = redactColumns(sheet.rows, suggestion.ignoredPasswordColumns);
 
   try {
     const created = await pool.query<ImportJob>(
@@ -104,8 +108,8 @@ export async function createImportJob(request: Request, response: Response): Pro
         file.originalname.slice(0, 255),
         request.user!.id,
         JSON.stringify(sheet.headers),
-        JSON.stringify(sheet.rows),
-        sheet.rows.length,
+        JSON.stringify(rows),
+        rows.length,
       ],
     );
 
@@ -115,7 +119,7 @@ export async function createImportJob(request: Request, response: Response): Pro
       data: {
         job: created.rows[0],
         headers: sheet.headers,
-        sample: sheet.rows.slice(0, SAMPLE_ROWS),
+        sample: rows.slice(0, SAMPLE_ROWS),
         suggested_mapping: suggestion.mapping,
         unmatched_headers: suggestion.unmatchedHeaders,
         ambiguous_fields: suggestion.ambiguousFields,

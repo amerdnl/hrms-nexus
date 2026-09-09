@@ -139,6 +139,15 @@ export interface MappingSuggestion {
   ambiguousFields: ImportField[];
   /** Credential-looking columns, ignored on purpose rather than merely unmatched. */
   ignoredPasswordHeaders: string[];
+  /** Their column indexes, so their cells can be redacted before being stored. */
+  ignoredPasswordColumns: number[];
+}
+
+/** Blanks credential columns so a spreadsheet password is never persisted. */
+export function redactColumns(rows: string[][], columns: number[]): string[][] {
+  if (columns.length === 0) return rows;
+  const redacted = new Set(columns);
+  return rows.map((row) => row.map((value, index) => (redacted.has(index) ? "" : value)));
 }
 
 export function suggestMapping(headers: string[]): MappingSuggestion {
@@ -146,6 +155,7 @@ export function suggestMapping(headers: string[]): MappingSuggestion {
   const matchCounts = new Map<ImportField, number>();
   const unmatchedHeaders: string[] = [];
   const ignoredPasswordHeaders: string[] = [];
+  const ignoredPasswordColumns: number[] = [];
 
   headers.forEach((header, index) => {
     const normalized = normalizeHeader(header);
@@ -153,6 +163,7 @@ export function suggestMapping(headers: string[]): MappingSuggestion {
 
     if (rejectedPasswordHeaders.includes(normalized)) {
       ignoredPasswordHeaders.push(header);
+      ignoredPasswordColumns.push(index);
       return;
     }
 
@@ -171,7 +182,10 @@ export function suggestMapping(headers: string[]): MappingSuggestion {
     .filter(([, count]) => count > 1)
     .map(([field]) => field);
 
-  return { mapping, unmatchedHeaders, ambiguousFields, ignoredPasswordHeaders };
+  return {
+    mapping, unmatchedHeaders, ambiguousFields,
+    ignoredPasswordHeaders, ignoredPasswordColumns,
+  };
 }
 
 export interface MappingValidation {
