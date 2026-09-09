@@ -16,7 +16,7 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | 4 | Employee/department stability | Complete; 0003 applied, 132 tests passed, 23/23 authenticated browser smoke on 8 September 2026 |
 | 5 | Company import | Complete; 0004 applied, 172 tests passed, 27/27 authenticated browser smoke on 9 September 2026 |
 | 6 | Attendance verification | Complete; 0005 applied, 208 tests passed, 18/18 authenticated browser smoke on 9 September 2026 |
-| 7 | Leave balances/validation | Not started; working days, overlap/balance checks, atomic approval and no double deduction |
+| 7 | Leave balances/validation | Complete; 0006 applied, 243 tests passed, 23/23 authenticated browser smoke on 9 September 2026 |
 | 8 | Payroll and payslips | Not started; recommend Extra High before money/state/snapshot implementation |
 | 9 | Reports/export and dashboards | Not started; extend existing database-backed dashboards and add CSV exports |
 | 10 | Audit and demo data | Not started; safe audit metadata, 20+ fictional employees, complete demo flow |
@@ -222,7 +222,47 @@ authenticated browser smoke passed 18/18, including a geofence refusal at 2335 m
 denied location permission, an expired code and a verified check-in and check-out.
 
 See [design, honest limitations and evidence](HR_NEXUS_V2_ATTENDANCE.md).
-Attendance Verification is complete; Leave Balances is now the active P0.
+Attendance Verification is complete.
+
+## Leave Balances and Validation increment
+
+- `leave_policies` and `leave_entitlements` added. Policy is company configuration, not
+  statutory entitlement: seeded defaults are labelled as HR Nexus defaults with no legal
+  meaning in the table comment, the API and the UI, and every value is editable. No
+  Malaysian statutory rule is encoded and no compliance is claimed.
+- **Usage is derived, never stored.** A balance is the grant minus the working days on
+  approved requests, so approving twice cannot deduct twice by construction. Grants
+  carry entitlement, carry-forward and a signed adjustment so corrections never rewrite
+  history.
+- Duration counts only days in the configured working week -- previously `working_days`
+  was stored and used by nothing -- and is snapshotted at submission so a later settings
+  change cannot restate historical leave. Public holidays are not modelled in V1 and the
+  UI says so.
+- Validation covers real dates, overlap against pending and approved, insufficient
+  balance naming the exact numbers, ranges with no working days, and a refusal to span
+  two leave years. Unknown payload fields are refused, so a client cannot smuggle a
+  status or employee id.
+- Submission takes a transaction-scoped advisory lock per employee; decisions are
+  guarded inside the UPDATE, so two simultaneous approvals decide exactly once.
+- Cancellation releases days and marks the row rather than deleting it; started leave is
+  refused and directed to an administrator correction.
+- Unpaid leave never limits by balance and is exposed for payroll through one agreed
+  endpoint. Company Import gains optional opening-balance columns recorded as
+  carry-forward.
+
+Additive `0006_leave_balances.sql` applied after the user explicitly approved checksum
+`a8c6e479bb00ba46d482389a3082c26f9206fb16761eabaaa2ad6cfc791a34fd`, with a backup taken
+and restore-verified beforehand. Its one non-additive step widens the leave status CHECK
+to a strict superset; rollback can only restore the original constraint while no row is
+cancelled, after which the retained backup is the recovery path. The only source
+differences are the ledger row and that CHECK, and no leave row was back-filled.
+
+243 tests pass (was 208). A real UX defect was found by browser verification and fixed:
+field-level validation messages were being dropped, so a refused submission showed only
+a generic summary.
+
+See [design, limitations and evidence](HR_NEXUS_V2_LEAVE.md).
+Leave Balances is complete; Payroll and Payslips is now the active P0.
 
 ## Remaining blockers / release gates
 
@@ -243,7 +283,10 @@ Attendance Verification is complete; Leave Balances is now the active P0.
   losing its RAM-backed databases. The source database was unaffected and verified
   intact. The lab was recreated with a 3 GB tmpfs and both documented baselines were
   rebuilt from retained backups; the full suite passes against it.
-- Active P0: leave balances and validation; attendance verification is complete.
+- Active P0: payroll and payslips; leave balances is complete. Recommend Extra High
+  before money, state-transition and snapshot implementation.
+- Remaining P0 scope: payroll and payslips, reports/export and dashboards, audit log and
+  demo data. Company import compensation fields still await the Payroll V1 schema.
 - **Release/security blocker: no forced first-login password change.** Generated
   temporary passwords are unique and cryptographically random (128-bit), only bcrypt
   hashes are persisted, and no plaintext reaches import history or logs -- all verified.
@@ -263,8 +306,9 @@ Attendance Verification is complete; Leave Balances is now the active P0.
 
 - Minor, nonblocking: when the leave list is empty after filtering, its empty-state
   message incorrectly implies requests exist. Show a filter-specific no-results
-  message; distinguish it from having no requests at all. Record for regression/polish,
-  without blocking Company Settings.
+  message; distinguish it from having no requests at all.
+- Minor: the employee balance panel shows the current leave year only, so leave booked
+  for a future year is validated correctly but is not reflected in the panel.
 
 ## Verification commands
 
@@ -285,17 +329,17 @@ npm run build
 docker compose exec -T -e HR_NEXUS_DB_TESTS=1 backend npm test
 ```
 
-The employee/department stability, company import and attendance database suites are
-gated by `HR_NEXUS_EMPLOYEE_LAB=1`, `HR_NEXUS_IMPORT_LAB=1` and
-`HR_NEXUS_ATTENDANCE_LAB=1`, and run only against the isolated lab alongside the other
-lab suites:
+The employee/department stability, company import, attendance and leave database suites
+are gated by `HR_NEXUS_EMPLOYEE_LAB=1`, `HR_NEXUS_IMPORT_LAB=1`,
+`HR_NEXUS_ATTENDANCE_LAB=1` and `HR_NEXUS_LEAVE_LAB=1`, and run only against the
+isolated lab alongside the other lab suites:
 
 ```sh
 docker run --rm --volumes-from hr-nexus-backend:ro \
   --network hr-nexus-v2-migration-lab \
   -e HR_NEXUS_MIGRATION_LAB=1 -e HR_NEXUS_SETTINGS_LAB=1 \
   -e HR_NEXUS_EMPLOYEE_LAB=1 -e HR_NEXUS_IMPORT_LAB=1 \
-  -e HR_NEXUS_ATTENDANCE_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
+  -e HR_NEXUS_ATTENDANCE_LAB=1 -e HR_NEXUS_LEAVE_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
   -e DATABASE_URL=postgresql://postgres@hr-nexus-v2-migration-lab/postgres \
   --mount "type=bind,src=$PWD/database,dst=/database,readonly" \
   --mount "type=bind,src=$PWD/docs,dst=/docs,readonly" \

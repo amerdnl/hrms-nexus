@@ -1,10 +1,19 @@
 # HR Nexus V2 database status
 
-Migrations **0001 through 0005 are applied** to existing `hr_nexus` through the
+Migrations **0001 through 0006 are applied** to existing `hr_nexus` through the
 reviewed runner. The original retention migration is unchanged. The added persistent
 objects are the Company Settings table with its neutral singleton row, one unique index
 enforcing normalized account email identity, the two import history tables, and
-attendance verification metadata with its two QR tables.
+attendance verification metadata with its two QR tables, and leave policy and
+entitlement tables.
+
+Migration 0006 adds `leave_policies` and `leave_entitlements` plus four nullable columns
+on `leave_requests`, and widens the leave status CHECK to a strict superset including
+`cancelled`. That constraint swap is the only non-additive step in the chain so far: a
+preflight verifies every stored status already satisfies the wider rule, and rollback
+can restore the original constraint only while no row is cancelled. Leave usage is
+derived from approved requests rather than stored, so no counter can drift or
+double-deduct.
 
 Migration 0005 adds eleven nullable columns to `attendance` plus
 `attendance_qr_challenges` and `attendance_qr_uses`. Nullable with no default, so every
@@ -27,6 +36,7 @@ application's duplicate checks and sign-in lookup use the same expression, so th
 database and the API agree on what counts as the same account. A violation of either
 index is mapped to a 409 conflict.
 
+- [Leave balances, migration 0006 and evidence](HR_NEXUS_V2_LEAVE.md)
 - [Attendance verification, migration 0005 and evidence](HR_NEXUS_V2_ATTENDANCE.md)
 - [Company import, migration 0004 and evidence](HR_NEXUS_V2_COMPANY_IMPORT.md)
 - [Employee/department stability, migration 0003 and evidence](HR_NEXUS_V2_EMPLOYEE_STABILITY.md)
@@ -44,7 +54,7 @@ BIGINT attendance IDs. All five business-table counts/fingerprints and full sequ
 state are unchanged. Users/leave employee FKs are validated RESTRICT; attendance's
 RESTRICT FK remains NOT VALID. Five unchanged orphan rows (IDs 1,3,4,5,6) still
 reference missing employee IDs 1 and 2. The sole existing employee remains ID 3.
-The ledger contains exactly one matching row each for 0001 through 0005. Two narrow
+The ledger contains exactly one matching row each for 0001 through 0006. Two narrow
 triggers prevent orphan ID adoption/reassignment; the non-updatable exception view
 exposes all five exceptions to authorized database operators.
 
@@ -76,7 +86,7 @@ npm run migrate:apply -- --database exact_database_name
 Status has no persistent writes. Apply requires the connected database name to match
 and uses checksums, an advisory lock and one transaction per migration. Migrations
 are never run automatically at application startup. New files belong in
-`backend/migrations/0006_description.sql` and successive versions. Never edit an
+`backend/migrations/0007_description.sql` and successive versions. Never edit an
 applied migration, reset a volume, or use seed.sql as an upgrade script.
 
 The original pre-application rehearsal command is shown below. It expects an
@@ -126,7 +136,7 @@ docker run --rm --volumes-from hr-nexus-backend:ro \
   --network hr-nexus-v2-migration-lab \
   -e HR_NEXUS_MIGRATION_LAB=1 -e HR_NEXUS_SETTINGS_LAB=1 \
   -e HR_NEXUS_EMPLOYEE_LAB=1 -e HR_NEXUS_IMPORT_LAB=1 \
-  -e HR_NEXUS_ATTENDANCE_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
+  -e HR_NEXUS_ATTENDANCE_LAB=1 -e HR_NEXUS_LEAVE_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
   -e DATABASE_URL=postgresql://postgres@hr-nexus-v2-migration-lab/postgres \
   --mount "type=bind,src=$PWD/database,dst=/database,readonly" \
   --mount "type=bind,src=$PWD/docs,dst=/docs,readonly" \

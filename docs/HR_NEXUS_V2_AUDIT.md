@@ -43,8 +43,20 @@ hours, grace period, office coordinates and radius all come from Company Setting
 Clocking requires a short-lived office QR, stored only as a hash and non-replayable per
 person per action, plus a location inside the configured radius, with the server setting
 the official time. An unconfigured office fails closed. 208 tests pass and an 18-check
-authenticated browser smoke passed. See `HR_NEXUS_V2_ATTENDANCE.md`. Leave Balances is
-now the active P0.
+authenticated browser smoke passed. See `HR_NEXUS_V2_ATTENDANCE.md`.
+
+Leave Balances and Validation is complete. Migration 0006 adds leave policy and
+entitlement tables plus four nullable columns on leave_requests, and widens the leave
+status CHECK to include cancelled; applied after explicit approval with a
+restore-verified backup, and no leave row was back-filled. Leave usage is derived from
+approved requests rather than stored, so approving twice cannot deduct twice. Duration
+uses the configured working week and is snapshotted at submission. Overlap, insufficient
+balance, year-boundary and no-working-day requests are all refused with specific
+messages, submission is serialised per employee by an advisory lock, and decisions are
+guarded inside the UPDATE. Cancellation releases days and keeps the record. Policy is
+company configuration, explicitly not a statutory entitlement, and no Malaysian legal
+compliance is claimed. 243 tests pass and a 23-check authenticated browser smoke passed.
+See `HR_NEXUS_V2_LEAVE.md`. Payroll and Payslips is now the active P0.
 
 Recorded release/security blocker: there is no forced first-login password change.
 Generated temporary passwords are unique, cryptographically random and stored only as
@@ -144,8 +156,8 @@ Department deletion guards assigned employees and has a database FK backstop.
 Users.email uniqueness was case-sensitive although login compared LOWER(email);
 migration 0003 adds a normalized unique index and the application now uses
 lower(btrim(email)) for sign-in and every duplicate check.
-Employment status still lacks a database CHECK and is enforced in validation only. Leave lacks balances, overlaps, working-day
-validation and controlled repeat decisions. Attendance has unique employee/date and
+Employment status still lacks a database CHECK and is enforced in validation only. Leave balances, overlap and working-day validation and controlled repeat decisions were
+added in the leave milestone. Attendance has unique employee/date and
 conditional checkout updates, but settings/QR/location verification are absent.
 Dashboard CURRENT_DATE and attendance's hardcoded Malaysia time need alignment.
 
