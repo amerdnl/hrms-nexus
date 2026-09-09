@@ -74,7 +74,24 @@ out of approved, and refuses any change to an approved or paid period's records 
 items. Duplicate calculation is prevented by UNIQUE (period_id, employee_id) and
 UNIQUE (period_year, period_month). Employees see only their own payslips, and only for
 approved or paid periods. 283 tests pass and a 21-check authenticated browser smoke
-passed. See `HR_NEXUS_V2_PAYROLL.md`. Reports/export and dashboards is now the active P0.
+passed. See `HR_NEXUS_V2_PAYROLL.md`.
+
+Reports, Export and Dashboards (V1) is complete, with no migration: every report is a
+read-only aggregation over existing tables, and a test asserts the suite writes nothing
+and leaves the five orphan rows identical. Four administrator-only reports (workforce,
+attendance, leave, payroll) each have a CSV export. No business rule is restated:
+lateness is summed from the minutes snapshotted at clock-in, leave days from the working
+days snapshotted at submission, balances go through the same buildBalance the employee's
+own page uses, and payroll figures are read from the immutable payslip records. Exports
+are guarded by the same router-level authorization as the reports, carry no coordinates,
+GPS accuracy or distance-from-office, and are bounded at 366 days and 10,000 rows.
+CSV formula injection is neutralised before quoting, because a spreadsheet evaluates a
+quoted field beginning with "=" once the parser strips the quotes. Payroll aggregates are
+summed in SQL over BIGINT sen and formatted with BigInt, never through a JavaScript
+number. The admin dashboard now resolves "today" through the configured company timezone
+rather than CURRENT_DATE, resolving the dashboard/attendance mismatch recorded below.
+314 tests pass and a 33-check authenticated browser smoke passed.
+See `HR_NEXUS_V2_REPORTS.md`. Audit log and demo data is now the active P0.
 
 A test-harness defect was found and fixed during this milestone: no integration suite
 dropped its clone database, so 346 abandoned clones exhausted the laboratory's tmpfs and
@@ -185,12 +202,14 @@ lower(btrim(email)) for sign-in and every duplicate check.
 Employment status still lacks a database CHECK and is enforced in validation only. Leave balances, overlap and working-day validation and controlled repeat decisions were
 added in the leave milestone. Attendance has unique employee/date and
 conditional checkout updates, but settings/QR/location verification are absent.
-Dashboard CURRENT_DATE and attendance's hardcoded Malaysia time need alignment.
+Dashboard CURRENT_DATE and attendance's timezone handling are now aligned: both use the
+zoned clock built from Company Settings.
 
 ## P0 gaps
 
-Reporting/export and the audit log module remain outstanding; the migration mechanism,
-company settings, import workflow, attendance verification, leave balances and payroll
+The audit log module and demo data remain outstanding, as do Employee Dashboard V2
+(master §40) and company-wide data export (master §42). The migration mechanism, company
+settings, import workflow, attendance verification, leave balances, payroll and reporting
 are now in place. Dashboard
 already uses real SQL; extend it instead of replacing mock data that is not present.
 Demo data is insufficient (one active employee found in the live aggregate).

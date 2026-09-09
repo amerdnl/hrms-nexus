@@ -48,6 +48,7 @@ application's duplicate checks and sign-in lookup use the same expression, so th
 database and the API agree on what counts as the same account. A violation of either
 index is mapped to a 409 conflict.
 
+- [Reports, export and dashboards — no migration](HR_NEXUS_V2_REPORTS.md)
 - [Payroll and payslips, migration 0007 and evidence](HR_NEXUS_V2_PAYROLL.md)
 - [Leave balances, migration 0006 and evidence](HR_NEXUS_V2_LEAVE.md)
 - [Attendance verification, migration 0005 and evidence](HR_NEXUS_V2_ATTENDANCE.md)
@@ -82,6 +83,13 @@ Fresh schema.sql retains its different BIGINT baseline. Initialization scripts a
 seed.sql were neither modified nor replayed. The approved migration supports both
 shapes without widening legacy identifiers. A current logical backup was successfully
 restored into an isolated lab before source application.
+
+Reporting added no migration and no schema object. It reads existing tables only, and its
+integration suite asserts that running every report leaves business data and the five
+protected orphan rows byte-identical. Leave and payroll reporting join through
+`employees.department_id`, which is already indexed; `leave_requests` has no index on its
+date columns, which is acceptable at present data volumes and is the first thing to
+revisit if a leave report over a large range becomes slow.
 
 ## Migration commands
 

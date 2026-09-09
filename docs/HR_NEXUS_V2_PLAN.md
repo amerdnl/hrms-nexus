@@ -18,8 +18,8 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | 6 | Attendance verification | Complete; 0005 applied, 208 tests passed, 18/18 authenticated browser smoke on 9 September 2026 |
 | 7 | Leave balances/validation | Complete; 0006 applied, 243 tests passed, 23/23 authenticated browser smoke on 9 September 2026 |
 | 8 | Payroll and payslips | Complete; 0007 applied, 283 tests passed, 21/21 authenticated browser smoke on 9 September 2026 |
-| 9 | Reports/export and dashboards | Not started; now the active P0. Extend existing database-backed dashboards and add CSV exports |
-| 10 | Audit and demo data | Not started; safe audit metadata, 20+ fictional employees, complete demo flow |
+| 9 | Reports/export and dashboards | Complete; no migration needed, 314 tests passed, 33/33 authenticated browser smoke on 9 September 2026 |
+| 10 | Audit and demo data | Not started; now the active P0. Safe audit metadata, 20+ fictional employees, complete demo flow |
 
 ## First security increment
 
@@ -306,7 +306,44 @@ with a restore-verified backup; the only source changes are the schema additions
 ledger row, and business data is byte-identical to the pre-apply baseline.
 
 See [design, rounding rules, limitations and evidence](HR_NEXUS_V2_PAYROLL.md).
-Payroll and Payslips is complete; Reports/export and dashboards is now the active P0.
+Payroll and Payslips is complete; Reports/export and dashboards followed.
+
+## Reports, Export and Dashboards (V1) increment
+
+- **No migration.** Every report is a read-only aggregation over existing tables, and a
+  test asserts the whole suite writes nothing and leaves the five orphan rows identical.
+- Four reports behind `/api/reports`, all administrator-only: workforce, attendance,
+  leave (requests plus balances) and payroll, each with a CSV export.
+- **No business rule is restated.** Lateness is summed from the `late_minutes`
+  snapshotted at clock-in, leave days from the `working_days` snapshotted at submission,
+  balances go through the same `buildBalance` the employee's own page uses, and payroll
+  figures are read from the immutable payslip records. A report therefore cannot disagree
+  with the record it came from. `getBalancesForEmployees` is the only new calculation
+  path, and exists solely to replace an N+1.
+- **An export is not a weaker door than its report**: the guard is on the whole router,
+  and a test asserts both return the same status for an employee.
+- **Exports carry no verification metadata.** Coordinates, GPS accuracy and
+  distance-from-office describe where a person physically was and are excluded; tests
+  assert the fixture coordinates appear nowhere in the file.
+- **CSV formula injection is neutralised before quoting**, because a spreadsheet
+  evaluates a quoted field beginning with "=" once the parser strips the quotes. A plain
+  number is exempt from the "-" rule so payroll deductions stay readable. An employee
+  named `=cmd|' /C calc'!A0` is in the fixtures.
+- Exports are bounded: a range over 366 days and an export over 10,000 rows are refused
+  rather than silently truncated.
+- Payroll aggregates are summed in SQL over BIGINT sen and formatted with BigInt, never
+  converted to a JavaScript number.
+- The admin dashboard now resolves "today" through the configured company timezone
+  instead of CURRENT_DATE, which previously disagreed with attendance across midnight,
+  and gains on-leave-today, not-clocked-in and current payroll status.
+- Three user-facing defects were found by browser verification and fixed: the filter
+  panel did nothing (a memoised loader captured the first render's empty filters), every
+  export downloaded as "report.csv" (Content-Disposition is not CORS-safelisted), and a
+  refused report was presented as an empty one with the previous run's rows still on
+  screen. Tabs also scroll rather than pushing the page sideways at 375px.
+
+314 tests pass (was 283). See [design, limitations and evidence](HR_NEXUS_V2_REPORTS.md).
+Reports is complete; Audit log and demo data is now the active P0.
 
 ## Remaining blockers / release gates
 
@@ -331,9 +368,15 @@ Payroll and Payslips is complete; Reports/export and dashboards is now the activ
   recreated with an 8 GB tmpfs and both documented baselines rebuilt from retained
   backups; a full run now settles at 118 MB. The source database was unaffected
   throughout and verified byte-identical to its recorded baseline.
-- Active P0: reports/export and dashboards; payroll and payslips is complete.
-- Remaining P0 scope: reports/export and dashboards, audit log and demo data. Company
-  import compensation fields are delivered; opening leave balances are delivered.
+- Active P0: audit log and demo data; reports/export and dashboards is complete.
+- Remaining P0 scope: audit log and demo data, plus two master items not covered by the
+  reporting milestone's stated scope: Employee Dashboard V2 (master §40) and company-wide
+  data export (master §42). XLSX export is also not implemented; exports are CSV only.
+- Observed intermittent, not reproduced: one full-suite run reported a process-level
+  failure in the Company Settings suite that did not recur in three subsequent full runs,
+  and the suite passes in isolation. Most likely contention between suites concurrently
+  issuing `CREATE DATABASE ... TEMPLATE hr_nexus_v2_settings_baseline`, which PostgreSQL
+  refuses while the template is in use. Recorded rather than treated as fixed.
 - **Release/security blocker: no forced first-login password change.** Generated
   temporary passwords are unique and cryptographically random (128-bit), only bcrypt
   hashes are persisted, and no plaintext reaches import history or logs -- all verified.
