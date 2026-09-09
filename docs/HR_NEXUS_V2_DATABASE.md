@@ -1,11 +1,22 @@
 # HR Nexus V2 database status
 
-Migrations **0001 through 0007 are applied** to existing `hr_nexus` through the
+Migrations **0001 through 0008 are applied** to existing `hr_nexus` through the
 reviewed runner. The original retention migration is unchanged. The added persistent
 objects are the Company Settings table with its neutral singleton row, one unique index
 enforcing normalized account email identity, the two import history tables, attendance
-verification metadata with its two QR tables, leave policy and entitlement tables, and
-the four payroll tables.
+verification metadata with its two QR tables, leave policy and entitlement tables,
+the four payroll tables, and the append-only audit_events table.
+
+Migration 0008 adds `audit_events`: one table, four indexes, one function and one
+trigger. Purely additive. Rows can be inserted but never updated or deleted, enforced by a
+BEFORE UPDATE OR DELETE trigger rather than by privileges, because the application
+connects as the owning role. Two CHECK constraints bound it: `outcome` is limited to
+success or failure, and `changes` is capped at 8 KB so the column cannot become a
+request-body dump. The actor foreign keys are ON DELETE SET NULL, deliberately, so an
+audit row can never be the reason a permitted deletion fails; `actor_label` snapshots the
+identity so the entry stays readable afterwards. Applied to source with the approved
+checksum, though not by a command from the assistant session that designed it - see
+HR_NEXUS_V2_AUDIT_LOG.md.
 
 Migration 0007 adds `employee_compensation`, `payroll_periods`, `payroll_records` and
 `payroll_items`. It is purely additive: no existing table, column, constraint or row is
@@ -48,6 +59,8 @@ application's duplicate checks and sign-in lookup use the same expression, so th
 database and the API agree on what counts as the same account. A violation of either
 index is mapped to a 409 conflict.
 
+- [Audit log, migration 0008 and evidence](HR_NEXUS_V2_AUDIT_LOG.md)
+- [Demo dataset and its loading guards](HR_NEXUS_V2_DEMO_DATA.md)
 - [Reports, export and dashboards — no migration](HR_NEXUS_V2_REPORTS.md)
 - [Payroll and payslips, migration 0007 and evidence](HR_NEXUS_V2_PAYROLL.md)
 - [Leave balances, migration 0006 and evidence](HR_NEXUS_V2_LEAVE.md)
@@ -68,7 +81,7 @@ BIGINT attendance IDs. All five business-table counts/fingerprints and full sequ
 state are unchanged. Users/leave employee FKs are validated RESTRICT; attendance's
 RESTRICT FK remains NOT VALID. Five unchanged orphan rows (IDs 1,3,4,5,6) still
 reference missing employee IDs 1 and 2. The sole existing employee remains ID 3.
-The ledger contains exactly one matching row each for 0001 through 0007. Two narrow
+The ledger contains exactly one matching row each for 0001 through 0008. Two narrow
 triggers prevent orphan ID adoption/reassignment; the non-updatable exception view
 exposes all five exceptions to authorized database operators.
 

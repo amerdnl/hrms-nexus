@@ -19,7 +19,7 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | 7 | Leave balances/validation | Complete; 0006 applied, 243 tests passed, 23/23 authenticated browser smoke on 9 September 2026 |
 | 8 | Payroll and payslips | Complete; 0007 applied, 283 tests passed, 21/21 authenticated browser smoke on 9 September 2026 |
 | 9 | Reports/export and dashboards | Complete; no migration needed, 314 tests passed, 33/33 authenticated browser smoke on 9 September 2026 |
-| 10 | Audit and demo data | Not started; now the active P0. Safe audit metadata, 20+ fictional employees, complete demo flow |
+| 10 | Audit and demo data | Complete; 0008 applied, 358 tests passed, 24/24 authenticated browser smoke on 9 September 2026 |
 
 ## First security increment
 
@@ -343,7 +343,57 @@ Payroll and Payslips is complete; Reports/export and dashboards followed.
   screen. Tabs also scroll rather than pushing the page sideways at 375px.
 
 314 tests pass (was 283). See [design, limitations and evidence](HR_NEXUS_V2_REPORTS.md).
-Reports is complete; Audit log and demo data is now the active P0.
+Reports is complete; Audit log and demo data followed.
+
+## Audit Log and Demo Data increment
+
+### Audit Log V1
+
+- Migration 0008 adds one table, `audit_events`, with four indexes and a trigger that
+  refuses UPDATE and DELETE. Append-only is enforced by the database, not by convention:
+  a trigger rather than REVOKE, because the application connects as the owning role.
+- Two CHECK constraints back it: `outcome` is limited to two known values, and `changes`
+  is capped at 8 KB so no code path can turn it into a request-body dump.
+- 26 call sites across nine controllers cover authentication, employee lifecycle,
+  departments, settings, import, attendance corrections, leave decisions and policy,
+  salary changes and every payroll transition including approval and payment.
+- **Redaction is by key name and recursive**, so a secret nested two objects deep is still
+  removed, and a diff excludes a forbidden field rather than comparing it. Passwords,
+  hashes, tokens, QR material and attendance coordinates can never be recorded. A password
+  change records the event and no change set at all.
+- **The audit insert is wrapped in a SAVEPOINT, and that is load-bearing.** PostgreSQL
+  aborts a transaction on the first error, so an audit insert that failed inside a
+  caller's transaction and was merely caught turned their COMMIT into a rollback - the API
+  answered 200 while the change was silently discarded. Observed during development, now
+  covered by a test that hides the table and asserts the change still commits.
+- Reading is administrator-only and there is no write endpoint at all, so no caller can
+  forge history. Filters are matched against closed lists and the page size is capped.
+- 0008 reached the source with the approved checksum but **not by a command from this
+  session**; see HR_NEXUS_V2_AUDIT_LOG.md for the timing, the after-the-fact verification
+  and the resulting gap in backup evidence.
+
+### Demo data
+
+- A fictional company: 6 departments, 24 employees, ~850 attendance records over eight
+  weeks, leave in every state, compensation, an approved August 2026 payroll with 22
+  payslips, and audit activity.
+- **The loader refuses the wrong database rather than relying on care**: DEMO_DATABASE_URL
+  with no fallback, a --database name that must match the connection, an explicit flag
+  required for the application's own database, a migration-level check, writes confined to
+  identifiers 9000-9099, and a post-write abort if the orphan rows or any employee outside
+  that range moved. Each refusal is covered by a test running the real script.
+- August is deliberate: payroll periods are unique per month, so the demo cannot collide
+  with the September 2026 draft period on source.
+- **Reproducible**: two independently seeded fresh databases hold byte-identical
+  companies. Re-seeding in place over an approved demo payroll is refused rather than
+  worked around, because approved payroll is immutable by design.
+- No plaintext password is stored; DEMO_PASSWORD is bcrypt-hashed, and without it a random
+  password is generated and printed once.
+- The demo has not been loaded into the source database and should not be without
+  approval.
+
+358 tests pass (was 314). See [audit design and evidence](HR_NEXUS_V2_AUDIT_LOG.md) and
+[the demo dataset](HR_NEXUS_V2_DEMO_DATA.md).
 
 ## Remaining blockers / release gates
 
@@ -368,15 +418,27 @@ Reports is complete; Audit log and demo data is now the active P0.
   recreated with an 8 GB tmpfs and both documented baselines rebuilt from retained
   backups; a full run now settles at 118 MB. The source database was unaffected
   throughout and verified byte-identical to its recorded baseline.
-- Active P0: audit log and demo data; reports/export and dashboards is complete.
-- Remaining P0 scope: audit log and demo data, plus two master items not covered by the
-  reporting milestone's stated scope: Employee Dashboard V2 (master §40) and company-wide
-  data export (master §42). XLSX export is also not implemented; exports are CSV only.
+- Active P0: none of the ten numbered increments remain. Four P0 items from the master
+  are still outstanding and are listed below; P0 is NOT feature-complete.
+- **Remaining P0 scope, none of it started:**
+  1. Employee Dashboard V2 (master §40) - real employee metrics: today's attendance and
+     verification state, leave balance, upcoming leave, recent attendance, latest payslip.
+  2. Company-wide Data Export (master §42) - employees, departments, attendance, leave and
+     payroll, so a company can retrieve its own data.
+  3. XLSX export - exports are CSV only; the exceljs dependency added for import is not
+     reused for output yet.
+  4. Forced first-login password change - the release/security blocker below.
+  P0 must not be declared feature-complete until these are resolved or explicitly
+  deferred with the user's approval.
 - Observed intermittent, not reproduced: one full-suite run reported a process-level
   failure in the Company Settings suite that did not recur in three subsequent full runs,
   and the suite passes in isolation. Most likely contention between suites concurrently
   issuing `CREATE DATABASE ... TEMPLATE hr_nexus_v2_settings_baseline`, which PostgreSQL
   refuses while the template is in use. Recorded rather than treated as fixed.
+- Payroll V1 selects every employee who has compensation in force, regardless of
+  employment status, so an inactive or resigned employee with a compensation record would
+  appear on a payroll run. Found while building demo data; Payroll is accepted as complete
+  and was not reopened. Recorded for a decision rather than changed.
 - **Release/security blocker: no forced first-login password change.** Generated
   temporary passwords are unique and cryptographically random (128-bit), only bcrypt
   hashes are persisted, and no plaintext reaches import history or logs -- all verified.

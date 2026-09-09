@@ -6,18 +6,22 @@ Target story: admin login → company settings → spreadsheet import → employ
 → employee login → QR/location attendance → leave submission → approval → payroll
 → published payslip → reports/export → audit trail.
 
-Company Settings is complete: its admin API/UI at /admin/settings passed authenticated
-browser validation, mobile, persistence, stale-edit and employee-denial checks. Valid
-writes used a fresh synthetic-only lab database; source settings remain neutral.
-Review defaults and enter approved fictional company details only in the demo environment. Imports, verified attendance, balances, payroll,
-payslips, exports and audit are not ready. Do not present them as complete.
-The live database currently has one active employee and five orphan attendance
-records; this is not suitable final demo data.
+Company Settings, Employee/Department stability, Company Import, Attendance
+Verification, Leave, Payroll, Reports and the Audit Log are all complete and browser
+verified. **Employee Dashboard V2, company-wide data export and XLSX export are not
+built**, and there is still no forced first-login password change. Do not present those
+four as complete.
 
-Once P0 is stable, prepare 20+ professional fictional employees across departments,
-attendance/late examples, pending/approved leave, balances, compensation, payroll,
-payslips and audit history using intentional non-destructive seed tooling.
-Do not use real personal data or overwrite existing records to stage the demo.
+The demo dataset is ready and reproducible: 6 departments, 24 fictional employees, eight
+weeks of attendance with lateness, leave in every state, compensation, an approved August
+2026 payroll with 22 payslips, and audit activity. See `HR_NEXUS_V2_DEMO_DATA.md` for what
+it contains, the accounts, and how to load it.
+
+**It has not been loaded into the source database, and should not be without explicit
+approval.** The source still holds one active employee, the five protected orphan
+attendance records and a September 2026 draft payroll period; that is not suitable demo
+data. Load the demo into a separate database - the loader refuses the application's own
+database unless explicitly flagged, and confines every write to identifiers 9000-9099.
 
 Rehearse admin/employee permissions, duplicate import, QR expiry/wrong location,
 leave double approval, historical payslip stability, exports, and audit attribution.

@@ -91,7 +91,35 @@ summed in SQL over BIGINT sen and formatted with BigInt, never through a JavaScr
 number. The admin dashboard now resolves "today" through the configured company timezone
 rather than CURRENT_DATE, resolving the dashboard/attendance mismatch recorded below.
 314 tests pass and a 33-check authenticated browser smoke passed.
-See `HR_NEXUS_V2_REPORTS.md`. Audit log and demo data is now the active P0.
+See `HR_NEXUS_V2_REPORTS.md`.
+
+Audit Log V1 and the demo dataset are complete. Migration 0008 adds one append-only
+`audit_events` table with a trigger that refuses UPDATE and DELETE - a trigger rather than
+REVOKE, because the application connects as the owning role. 26 call sites across nine
+controllers cover authentication, employee lifecycle, departments, settings, import,
+attendance corrections, leave decisions and policy, salary changes and every payroll
+transition including approval and payment. Redaction is by key name and recursive, so a
+secret nested two objects deep is still removed, and a diff excludes a forbidden field
+rather than comparing it; passwords, hashes, tokens, QR material and attendance
+coordinates can never be recorded, and the change set is capped at 8 KB in the application
+and again as a database CHECK. The audit insert is wrapped in a SAVEPOINT because
+PostgreSQL aborts a transaction on the first error: without it a failed audit write turned
+the caller's COMMIT into a rollback while the API still answered 200. Reading is
+administrator-only and there is no write endpoint, so history cannot be forged. The demo
+dataset is a fictional 6-department, 24-employee company with attendance, leave,
+compensation, an approved August 2026 payroll and audit activity; its loader refuses the
+application's database unless explicitly flagged, confines every write to identifiers
+9000-9099, and aborts if the protected orphan rows move. 358 tests pass and a 24-check
+authenticated browser smoke passed. See `HR_NEXUS_V2_AUDIT_LOG.md` and
+`HR_NEXUS_V2_DEMO_DATA.md`.
+
+Migration 0008 reached the source with the approved checksum but not by a command from
+this assistant session, and no pre-apply backup of the source exists for it; the timing
+and the after-the-fact verification are recorded in `HR_NEXUS_V2_AUDIT_LOG.md`.
+
+**P0 is not feature-complete.** Employee Dashboard V2 (master section 40), company-wide
+data export (section 42), XLSX export and the forced first-login password change all
+remain outstanding.
 
 A test-harness defect was found and fixed during this milestone: no integration suite
 dropped its clone database, so 346 abandoned clones exhausted the laboratory's tmpfs and
@@ -207,10 +235,10 @@ zoned clock built from Company Settings.
 
 ## P0 gaps
 
-The audit log module and demo data remain outstanding, as do Employee Dashboard V2
-(master §40) and company-wide data export (master §42). The migration mechanism, company
-settings, import workflow, attendance verification, leave balances, payroll and reporting
-are now in place. Dashboard
+Employee Dashboard V2 (master §40), company-wide data export (master §42) and XLSX export
+remain outstanding. The migration mechanism, company settings, import workflow, attendance
+verification, leave balances, payroll, reporting, the audit log and demo data are now in
+place. Dashboard
 already uses real SQL; extend it instead of replacing mock data that is not present.
 Demo data is insufficient (one active employee found in the live aggregate).
 No automated coverage existed at baseline. Added targeted authorization tests rather
