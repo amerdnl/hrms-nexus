@@ -5,6 +5,7 @@ import { test } from "node:test";
 import jwt from "jsonwebtoken";
 import pg from "pg";
 import { loadMigrations, runMigrations } from "../src/database/migrations.js";
+import { dropLabClones } from "./labClones.js";
 import { getZonedNow } from "../src/utils/attendanceVerification.js";
 
 // Explicit opt-in; the only permitted host is the isolated, internal Docker lab.
@@ -22,6 +23,7 @@ test("Attendance verification: migration 0005 and the authenticated QR workflow"
 
   const OFFICE = { latitude: 3.1390, longitude: 101.6869 };
 
+  let suiteCompleted = false;
   try {
     await admin.query(`CREATE DATABASE "${database}" TEMPLATE hr_nexus_v2_settings_baseline`);
     pool = new pg.Pool({ host, user: "postgres", database });
@@ -539,10 +541,12 @@ test("Attendance verification: migration 0005 and the authenticated QR workflow"
         "SELECT count(*)::integer FROM attendance_integrity_exceptions",
       )).rows[0].count, 5);
     });
+    suiteCompleted = true;
   } finally {
     if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
     if (appPool) await appPool.end();
     if (pool) await pool.end();
+    await dropLabClones(admin, suffix, suiteCompleted, t);
     await admin.end();
   }
 });

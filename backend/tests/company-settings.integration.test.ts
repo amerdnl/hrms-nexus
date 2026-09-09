@@ -9,6 +9,7 @@ import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { defaultMigrationDirectory, loadMigrations, runMigrations } from "../src/database/migrations.js";
+import { dropLabClones } from "./labClones.js";
 
 // Explicit opt-in; the only permitted host is the isolated, internal Docker lab.
 // Baseline is a retained logical source copy with 0001 applied and no settings yet.
@@ -25,6 +26,7 @@ test("Company Settings PostgreSQL upgrade and authenticated API", {
   let appPool: pg.Pool | undefined;
   let server: ReturnType<import("express").Express["listen"]> | undefined;
   let settingsDirectory: string | undefined;
+  let suiteCompleted = false;
   try {
     await admin.query(`CREATE DATABASE "${database}" TEMPLATE hr_nexus_v2_settings_baseline`);
     pool = new pg.Pool({ host, user: "postgres", database });
@@ -280,12 +282,14 @@ test("Company Settings PostgreSQL upgrade and authenticated API", {
       assert.equal((await (await call("GET")).json()).data.revision, 3);
     });
     t.diagnostic(`Company Settings lab database: ${database}; migration 0002 SHA-256: ${second.checksum}`);
+    suiteCompleted = true;
   } finally {
     if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
     if (settingsDirectory) await rm(settingsDirectory, { recursive: true, force: true });
     if (appPool) await appPool.end();
     if (fresh) await fresh.end();
     if (pool) await pool.end();
+    await dropLabClones(admin, suffix, suiteCompleted, t);
     await admin.end();
   }
 });

@@ -5,6 +5,7 @@ import { test } from "node:test";
 import jwt from "jsonwebtoken";
 import pg from "pg";
 import { loadMigrations, runMigrations } from "../src/database/migrations.js";
+import { dropLabClones } from "./labClones.js";
 
 // Explicit opt-in; the only permitted host is the isolated, internal Docker lab.
 // Every write below happens in a disposable clone, never in the source database.
@@ -19,6 +20,7 @@ test("Payroll V1: migration 0007 and the authenticated payroll workflow", {
   let appPool: pg.Pool | undefined;
   let server: ReturnType<import("express").Express["listen"]> | undefined;
 
+  let suiteCompleted = false;
   try {
     await admin.query(`CREATE DATABASE "${database}" TEMPLATE hr_nexus_v2_settings_baseline`);
     pool = new pg.Pool({ host, user: "postgres", database });
@@ -499,10 +501,12 @@ test("Payroll V1: migration 0007 and the authenticated payroll workflow", {
         orphansBefore,
       );
     });
+    suiteCompleted = true;
   } finally {
     if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
     if (appPool) await appPool.end();
     if (pool) await pool.end();
+    await dropLabClones(admin, suffix, suiteCompleted, t);
     await admin.end();
   }
 });

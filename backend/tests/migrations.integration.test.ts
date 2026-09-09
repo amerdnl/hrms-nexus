@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { mock, test } from "node:test";
 import pg from "pg";
+import { dropLabClones } from "./labClones.js";
 import jwt from "jsonwebtoken";
 import {
   defaultMigrationDirectory, loadMigrations, MIGRATION_LOCK, runMigrations as runVersionedMigrations,
@@ -68,6 +69,7 @@ test("isolated PostgreSQL migration rehearsal", {
     path.join(retentionDirectory, "0001_employee_history_retention.sql"));
   const runMigrations = (pool: pg.Pool, options: Parameters<typeof runVersionedMigrations>[1]) =>
     runVersionedMigrations(pool, { directory: retentionDirectory, ...options });
+  let suiteCompleted = false;
   try {
     const upgrade = await database("upgrade", "hr_nexus_v2_upgrade");
     const before = await fingerprint(upgrade.pool);
@@ -319,8 +321,10 @@ test("isolated PostgreSQL migration rehearsal", {
 
     t.diagnostic(`Isolated database suffix: ${suffix}; copied baseline was never mutated.`);
     t.diagnostic(`Proposed migration checksums: ${JSON.stringify((await loadMigrations()).map(({ version, checksum }) => ({ version, checksum })))}`);
+    suiteCompleted = true;
   } finally {
     await Promise.all(pools.map((pool) => pool.end()));
+    await dropLabClones(admin, suffix, suiteCompleted, t);
     await admin.end();
     for (const dir of directories) await rm(dir, { recursive: true });
   }

@@ -8,6 +8,7 @@ import { test } from "node:test";
 import jwt from "jsonwebtoken";
 import pg from "pg";
 import { defaultMigrationDirectory, loadMigrations, runMigrations } from "../src/database/migrations.js";
+import { dropLabClones } from "./labClones.js";
 
 // Explicit opt-in; the only permitted host is the isolated, internal Docker lab.
 // Every write below happens in a disposable clone, never in the source database.
@@ -25,6 +26,7 @@ test("Employee/department stability: migration 0003 and authenticated lifecycle 
   let server: ReturnType<import("express").Express["listen"]> | undefined;
   let partialDirectory: string | undefined;
 
+  let suiteCompleted = false;
   try {
     await admin.query(`CREATE DATABASE "${database}" TEMPLATE hr_nexus_v2_settings_baseline`);
     pool = new pg.Pool({ host, user: "postgres", database });
@@ -567,13 +569,15 @@ test("Employee/department stability: migration 0003 and authenticated lifecycle 
         ["1:1", "3:1", "4:2", "5:1", "6:1"],
       );
     });
+    suiteCompleted = true;
   } finally {
     if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
     if (appPool) await appPool.end();
     if (pool) await pool.end();
     if (collisionPool) await collisionPool.end();
     if (partialDirectory) await rm(partialDirectory, { recursive: true, force: true });
-    // Disposable clones are retained for inspection, as the lab convention expects.
+    // Clones are retained for inspection only when the suite failed; see dropLabClones.
+    await dropLabClones(admin, suffix, suiteCompleted, t);
     await admin.end();
   }
 });
