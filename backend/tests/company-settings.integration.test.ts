@@ -5,7 +5,10 @@ import { readFile } from "node:fs/promises";
 import { mock, test } from "node:test";
 import pg from "pg";
 import jwt from "jsonwebtoken";
-import { loadMigrations, runMigrations } from "../src/database/migrations.js";
+import { copyFile, mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { defaultMigrationDirectory, loadMigrations, runMigrations } from "../src/database/migrations.js";
 
 // Explicit opt-in; the only permitted host is the isolated, internal Docker lab.
 // Baseline is a retained logical source copy with 0001 applied and no settings yet.
@@ -21,6 +24,7 @@ test("Company Settings PostgreSQL upgrade and authenticated API", {
   let fresh: pg.Pool | undefined;
   let appPool: pg.Pool | undefined;
   let server: ReturnType<import("express").Express["listen"]> | undefined;
+  let settingsDirectory: string | undefined;
   try {
     await admin.query(`CREATE DATABASE "${database}" TEMPLATE hr_nexus_v2_settings_baseline`);
     pool = new pg.Pool({ host, user: "postgres", database });
@@ -89,11 +93,18 @@ test("Company Settings PostgreSQL upgrade and authenticated API", {
     const second = migrations.find((m) => m.version === "0002")!;
     assert.equal(second.filename, "0002_company_settings.sql");
 
+    // Scope this database to the chain this suite is about. Running every later
+    // migration here would make their legitimate schema changes look like drift.
+    settingsDirectory = await mkdtemp(path.join(os.tmpdir(), "hr-nexus-settings-lab-"));
+    for (const filename of ["0001_employee_history_retention.sql", "0002_company_settings.sql"]) {
+      await copyFile(new URL(filename, defaultMigrationDirectory), path.join(settingsDirectory, filename));
+    }
+    const scoped = { directory: settingsDirectory };
+
     await t.test("additive upgrade preserves business rows/schema/IDs/sequences/0001 and creates neutral defaults", async () => {
-      const status = await runMigrations(db, { mode: "status", database });
-      // Later reviewed migrations may follow 0002; this milestone asserts only 0001/0002.
-      assert.deepEqual(status.migrations.slice(0, 2).map((m) => m.status), ["applied", "pending"]);
-      assert.equal((await runMigrations(db, { mode: "apply", database })).newlyApplied[0], "0002");
+      const status = await runMigrations(db, { mode: "status", database, ...scoped });
+      assert.deepEqual(status.migrations.map((m) => m.status), ["applied", "pending"]);
+      assert.deepEqual((await runMigrations(db, { mode: "apply", database, ...scoped })).newlyApplied, ["0002"]);
       assert.deepEqual(await business(), before);
       assert.deepEqual((await db.query("SELECT * FROM schema_migrations WHERE version='0001'")).rows, firstLedger);
       assert.deepEqual((await db.query("SELECT filename,checksum FROM schema_migrations WHERE version='0002'")).rows,
@@ -113,7 +124,7 @@ test("Company Settings PostgreSQL upgrade and authenticated API", {
     });
     await t.test("repeat apply is a no-op with exactly one 0002 checksum row", async () => {
       const initial = (await db.query("SELECT * FROM company_settings")).rows;
-      assert.deepEqual((await runMigrations(db, { mode: "apply", database })).newlyApplied, []);
+      assert.deepEqual((await runMigrations(db, { mode: "apply", database, ...scoped })).newlyApplied, []);
       assert.equal((await db.query("SELECT count(*)::integer FROM schema_migrations WHERE version='0002'")).rows[0].count, 1);
       assert.deepEqual((await db.query("SELECT * FROM company_settings")).rows, initial);
     });
@@ -271,6 +282,7 @@ test("Company Settings PostgreSQL upgrade and authenticated API", {
     t.diagnostic(`Company Settings lab database: ${database}; migration 0002 SHA-256: ${second.checksum}`);
   } finally {
     if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
+    if (settingsDirectory) await rm(settingsDirectory, { recursive: true, force: true });
     if (appPool) await appPool.end();
     if (fresh) await fresh.end();
     if (pool) await pool.end();

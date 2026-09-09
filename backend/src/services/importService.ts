@@ -175,6 +175,8 @@ export interface ApplyResult {
   /** Returned once, never persisted and never logged. */
   credentials: AppliedCredential[];
   createdDepartments: string[];
+  /** Entitlement rows written from mapped opening-balance columns. */
+  openingBalanceGrants: number;
 }
 
 export interface ApplyOptions {
@@ -307,6 +309,51 @@ export async function applyImport(
     }
   }
 
+  // Opening balances are what the employee had left in the previous system, so
+  // they are recorded as carry-forward for the current leave year rather than a
+  // fresh grant. An existing grant is replaced only for the types the file maps.
+  type OpeningField =
+    | "opening_annual_days" | "opening_medical_days" | "opening_emergency_days";
+  const openingByType: Array<[OpeningField, string]> = [
+    ["opening_annual_days", "annual"],
+    ["opening_medical_days", "medical"],
+    ["opening_emergency_days", "emergency"],
+  ];
+  const mapsOpeningBalances = openingByType.some(([field]) => mapping[field] !== undefined);
+  let openingBalanceGrants = 0;
+
+  if (mapsOpeningBalances) {
+    const leaveYear = Number(
+      (await client.query<{ year: string }>(
+        `SELECT to_char(CURRENT_TIMESTAMP AT TIME ZONE COALESCE(
+           (SELECT timezone FROM public.company_settings WHERE id = 1), 'UTC'), 'YYYY') AS year`,
+      )).rows[0]!.year,
+    );
+
+    for (const result of [...toCreate, ...toUpdate]) {
+      if (result.employeeId === null) continue;
+      for (const [field, leaveType] of openingByType) {
+        if (mapping[field] === undefined) continue;
+        const days = result.values?.[field] ?? null;
+        if (days === null) continue;
+
+        await client.query(
+          `INSERT INTO public.leave_entitlements
+             (employee_id, leave_year, leave_type, entitled_days, carried_forward_days, source, note)
+           VALUES ($1, $2, $3, 0, $4, 'opening_balance', 'Imported opening balance')
+           ON CONFLICT (employee_id, leave_year, leave_type) DO UPDATE SET
+             entitled_days = 0,
+             carried_forward_days = EXCLUDED.carried_forward_days,
+             source = 'opening_balance',
+             note = EXCLUDED.note,
+             updated_at = CURRENT_TIMESTAMP`,
+          [result.employeeId, leaveYear, leaveType, days],
+        );
+        openingBalanceGrants += 1;
+      }
+    }
+  }
+
   const applied = new Set([...toCreate, ...toUpdate].map((result) => result.rowNumber));
   await persistRows(client, job.id, results);
   if (applied.size > 0) {
@@ -335,6 +382,7 @@ export async function applyImport(
     updated: toUpdate.length,
     credentials,
     createdDepartments,
+    openingBalanceGrants,
   };
 }
 
@@ -352,6 +400,9 @@ export function buildTemplateCsv(): string {
     gender: "Female",
     phone: "+60 12-345 6789",
     address: "12 Jalan Example, Kuala Lumpur",
+    opening_annual_days: "8",
+    opening_medical_days: "10",
+    opening_emergency_days: "2",
     emergency_contact_name: "Nurul Rahman",
     emergency_contact_phone: "+60 12-987 6543",
   };

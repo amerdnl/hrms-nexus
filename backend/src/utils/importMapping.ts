@@ -20,6 +20,9 @@ export const importFields = [
   "address",
   "emergency_contact_name",
   "emergency_contact_phone",
+  "opening_annual_days",
+  "opening_medical_days",
+  "opening_emergency_days",
 ] as const;
 
 export type ImportField = (typeof importFields)[number];
@@ -46,6 +49,9 @@ export const importFieldLabels: Record<ImportField, string> = {
   address: "Address",
   emergency_contact_name: "Emergency contact name",
   emergency_contact_phone: "Emergency contact phone",
+  opening_annual_days: "Opening annual leave balance",
+  opening_medical_days: "Opening medical leave balance",
+  opening_emergency_days: "Opening emergency leave balance",
 };
 
 /**
@@ -98,6 +104,19 @@ const aliases: Record<ImportField, string[]> = {
   emergency_contact_phone: [
     "emergency contact phone", "emergency contact number", "emergency phone",
     "emergency number", "next of kin phone", "next of kin contact", "kin phone",
+  ],
+  // Days already available to the employee in the system being migrated from.
+  opening_annual_days: [
+    "opening annual leave balance", "annual leave balance", "annual leave brought forward",
+    "annual balance", "al balance", "annual leave remaining", "opening annual",
+  ],
+  opening_medical_days: [
+    "opening medical leave balance", "medical leave balance", "medical balance",
+    "sick leave balance", "ml balance", "medical leave remaining", "opening medical",
+  ],
+  opening_emergency_days: [
+    "opening emergency leave balance", "emergency leave balance", "emergency balance",
+    "el balance", "emergency leave remaining", "opening emergency",
   ],
 };
 

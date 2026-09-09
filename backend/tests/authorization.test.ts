@@ -27,10 +27,10 @@ const queryMock = mock.method(pool, "query", async (sql: string, values: unknown
     ) ? [account] : [];
   } else if (normalized.startsWith("SELECT employee_id FROM users")) {
     rows = [{ employee_id: accounts.get(Number(values[0]))?.employee_id }];
-  } else if (normalized.includes("FROM leave_requests WHERE id = $1 AND employee_id = $2")) {
+  } else if (/FROM (public\.)?leave_requests WHERE id = \$1 AND employee_id = \$2/.test(normalized)) {
     rows = Number(values[0]) === 100 && Number(values[1]) === 10
       ? [{ id: 100, employee_id: "10", reason: "Own leave" }] : [];
-  } else if (normalized.includes("FROM leave_requests WHERE employee_id = $1")) {
+  } else if (/FROM (public\.)?leave_requests WHERE employee_id = \$1/.test(normalized)) {
     rows = [{ id: 100, employee_id: String(values[0]) }];
   } else if (normalized.includes("FROM public.company_settings WHERE id = 1")) {
     rows = [{ timezone: "Asia/Kuala_Lumpur", office_latitude: null, office_longitude: null }];

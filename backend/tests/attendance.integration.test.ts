@@ -46,8 +46,9 @@ test("Attendance verification: migration 0005 and the authenticated QR workflow"
     assert.equal(fifth.filename, "0005_attendance_verification.sql");
 
     await t.test("0005 applies additively and leaves existing attendance untouched", async () => {
+      // This milestone's slice; later reviewed migrations may follow 0005.
       assert.deepEqual(
-        (await runMigrations(db, { mode: "apply", database })).newlyApplied,
+        (await runMigrations(db, { mode: "apply", database })).newlyApplied.slice(0, 4),
         ["0002", "0003", "0004", "0005"],
       );
 

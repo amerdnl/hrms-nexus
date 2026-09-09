@@ -39,6 +39,10 @@ export interface EmployeeValues {
   address: string | null;
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
+  /** Days carried in from a previous system. Absent when the column is unmapped. */
+  opening_annual_days: number | null;
+  opening_medical_days: number | null;
+  opening_emergency_days: number | null;
 }
 
 export interface ExistingEmployee {
@@ -267,6 +271,22 @@ export function classifyRows(
       warn("employment_date", "Employment date is in the future.");
     }
 
+    // Opening balances are what the employee has left in the system being
+    // migrated from, so they become carry-forward rather than a fresh grant.
+    const openingDays: Record<string, number | null> = {
+      opening_annual_days: null, opening_medical_days: null, opening_emergency_days: null,
+    };
+    for (const field of ["opening_annual_days", "opening_medical_days", "opening_emergency_days"] as const) {
+      const value = raw[field];
+      if (value === undefined) continue;
+      const parsed = Number(value);
+      if (!/^\d+(\.\d+)?$/.test(value) || !Number.isFinite(parsed) || parsed < 0 || parsed > 366) {
+        error(field, `${importFieldLabels[field]} must be a number of days from 0 to 366.`);
+        continue;
+      }
+      openingDays[field] = Math.round(parsed * 10) / 10;
+    }
+
     // Duplicates inside the file itself, before comparing against the database.
     const numberKey = raw.employee_number ? normalizeKey(raw.employee_number) : "";
     if (numberKey) {
@@ -325,6 +345,9 @@ export function classifyRows(
       address: raw.address ?? null,
       emergency_contact_name: raw.emergency_contact_name ?? null,
       emergency_contact_phone: raw.emergency_contact_phone ?? null,
+      opening_annual_days: openingDays.opening_annual_days ?? null,
+      opening_medical_days: openingDays.opening_medical_days ?? null,
+      opening_emergency_days: openingDays.opening_emergency_days ?? null,
     };
 
     if (!existing) {
