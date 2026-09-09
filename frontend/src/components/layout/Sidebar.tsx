@@ -8,6 +8,7 @@ import {
   Settings,
   Upload,
   UserRound,
+  Wallet,
   Users,
   X,
   type LucideIcon,
@@ -32,6 +33,7 @@ const adminNavigation: NavigationItem[] = [
   { label: "Departments", to: "/admin/departments", icon: Building2 },
   { label: "Attendance", to: "/admin/attendance", icon: Clock3 },
   { label: "Leave", to: "/admin/leave", icon: CalendarDays },
+  { label: "Payroll", to: "/admin/payroll", icon: Wallet },
   { label: "Import", to: "/admin/import", icon: Upload },
   { label: "Settings", to: "/admin/settings", icon: Settings },
 ];
@@ -41,6 +43,7 @@ const employeeNavigation: NavigationItem[] = [
   { label: "Profile", to: "/employee/profile", icon: UserRound },
   { label: "Attendance", to: "/employee/attendance", icon: Clock3 },
   { label: "Leave", to: "/employee/leave", icon: CalendarDays },
+  { label: "Payslips", to: "/employee/payroll", icon: Wallet },
 ];
 
 const navigationItemBase =

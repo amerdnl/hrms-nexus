@@ -21,6 +21,8 @@ import EmployeeEditPage from "./pages/admin/EmployeeEditPage";
 import EmployeeFormPage from "./pages/admin/EmployeeFormPage";
 import CompanySettingsPage from "./pages/admin/CompanySettingsPage";
 import ImportPage from "./pages/admin/ImportPage";
+import AdminPayrollPage from "./pages/admin/AdminPayrollPage";
+import EmployeePayslipsPage from "./pages/employee/EmployeePayslipsPage";
 
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
@@ -71,6 +73,7 @@ export default function App() {
           <Route path="/admin/attendance" element={<AdminAttendancePage />} />
           <Route path="/admin/leave" element={<AdminLeavePage />} />
           <Route path="/admin/import" element={<ImportPage />} />
+          <Route path="/admin/payroll" element={<AdminPayrollPage />} />
           <Route path="/admin/settings" element={<CompanySettingsPage />} />
         </Route>
       </Route>
@@ -90,6 +93,7 @@ export default function App() {
             element={<EmployeeAttendancePage />}
           />
           <Route path="/employee/leave" element={<EmployeeLeavePage />} />
+          <Route path="/employee/payroll" element={<EmployeePayslipsPage />} />
         </Route>
       </Route>
 
