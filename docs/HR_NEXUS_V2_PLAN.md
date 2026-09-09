@@ -17,8 +17,8 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | 5 | Company import | Complete; 0004 applied, 172 tests passed, 27/27 authenticated browser smoke on 9 September 2026 |
 | 6 | Attendance verification | Complete; 0005 applied, 208 tests passed, 18/18 authenticated browser smoke on 9 September 2026 |
 | 7 | Leave balances/validation | Complete; 0006 applied, 243 tests passed, 23/23 authenticated browser smoke on 9 September 2026 |
-| 8 | Payroll and payslips | Not started; recommend Extra High before money/state/snapshot implementation |
-| 9 | Reports/export and dashboards | Not started; extend existing database-backed dashboards and add CSV exports |
+| 8 | Payroll and payslips | Complete; 0007 applied, 283 tests passed, 21/21 authenticated browser smoke on 9 September 2026 |
+| 9 | Reports/export and dashboards | Not started; now the active P0. Extend existing database-backed dashboards and add CSV exports |
 | 10 | Audit and demo data | Not started; safe audit metadata, 20+ fictional employees, complete demo flow |
 
 ## First security increment
@@ -262,7 +262,51 @@ field-level validation messages were being dropped, so a refused submission show
 a generic summary.
 
 See [design, limitations and evidence](HR_NEXUS_V2_LEAVE.md).
-Leave Balances is complete; Payroll and Payslips is now the active P0.
+Leave Balances is complete; Payroll and Payslips followed.
+
+## Payroll and Payslips (V1) increment
+
+- Four tables added by migration 0007: `employee_compensation`, `payroll_periods`,
+  `payroll_records`, `payroll_items`. Purely additive; no existing table, column,
+  constraint or row was modified.
+- **Money is integer sen in BIGINT, never a float.** All 10 `*_sen` columns are
+  `bigint`, arithmetic is BigInt, and decimal input is parsed from a string digit by
+  digit rather than through parseFloat. The only NUMERIC columns are the two scaled
+  quantities (overtime hours, unpaid leave days), never a money amount.
+- **One rounding rule, applied once per derived line**: half away from zero, via
+  `(2n + d) / 2d` in BigInt, which has no fractional intermediate. Only unpaid leave and
+  overtime are rounded; totals are exact integer sums, and `net_sen = gross_sen -
+  deductions_sen` is a database CHECK. Net is deliberately not clamped at zero.
+- **No EPF/SOCSO/EIS/PCB is computed and no Malaysian rate is encoded.** Statutory
+  amounts exist only as manual lines, enforced by
+  `CHECK (NOT is_statutory OR is_manual)`, and the limitation is repeated in the table
+  comment, the API, the payroll page and the payslip.
+- **Historical payslips cannot change**: a record snapshots identity, compensation,
+  working days, unpaid leave and overtime, so a later rename, salary revision,
+  working-week change or leave correction cannot rewrite it. Salary history is
+  append-only; calculation selects the row in force at the period end date.
+- **State machine enforced in the database** by a BEFORE UPDATE trigger:
+  draft -> calculated -> reviewed -> approved -> paid, with no path backwards out of
+  approved. A second trigger refuses every INSERT/UPDATE/DELETE on records and items of
+  an approved or paid period, so immutability holds against direct SQL too.
+- **Duplicate calculation is structurally impossible**: UNIQUE (period_id, employee_id)
+  and UNIQUE (period_year, period_month). Recalculation locks the period FOR UPDATE,
+  regenerates only non-manual lines, and runs in one transaction.
+- Employees see only their own payslips, resolved from the session rather than a request
+  parameter, and only for approved or paid periods.
+- Company Import gained basic salary, allowance and overtime rate through the same
+  string-to-sen path. A new compensation row opens only when the amounts differ from
+  what is in force, so compensation history is never silently overwritten.
+- A real defect was found and fixed during the milestone: unpaid leave spanning a period
+  boundary was deducting the request's full duration instead of the working days falling
+  inside the period.
+
+283 tests pass (was 243). Migration 0007 was applied to source after explicit approval
+with a restore-verified backup; the only source changes are the schema additions and the
+ledger row, and business data is byte-identical to the pre-apply baseline.
+
+See [design, rounding rules, limitations and evidence](HR_NEXUS_V2_PAYROLL.md).
+Payroll and Payslips is complete; Reports/export and dashboards is now the active P0.
 
 ## Remaining blockers / release gates
 
@@ -279,22 +323,27 @@ Leave Balances is complete; Payroll and Payslips is now the active P0.
   fixed versions and regression risk. No dependency upgrade is currently underway.
 - Company Settings authenticated browser smoke is complete. Its source settings were
   not configured during testing. All three accepted migration gates remain closed.
-- The test laboratory exhausted its 512 MB tmpfs during this milestone and crashed,
-  losing its RAM-backed databases. The source database was unaffected and verified
-  intact. The lab was recreated with a 3 GB tmpfs and both documented baselines were
-  rebuilt from retained backups; the full suite passes against it.
-- Active P0: payroll and payslips; leave balances is complete. Recommend Extra High
-  before money, state-transition and snapshot implementation.
-- Remaining P0 scope: payroll and payslips, reports/export and dashboards, audit log and
-  demo data. Company import compensation fields still await the Payroll V1 schema.
+- The test laboratory exhausted its tmpfs twice. The root cause was found during the
+  payroll milestone: no integration suite dropped its clone database, on the stated
+  convention that clones were retained for inspection, so 346 abandoned clones filled
+  the 3 GB tmpfs and every database-backed suite failed at once with 53100. Fixed in
+  `fcb7933`: a passing suite drops what it created, a failing one keeps it. The lab was
+  recreated with an 8 GB tmpfs and both documented baselines rebuilt from retained
+  backups; a full run now settles at 118 MB. The source database was unaffected
+  throughout and verified byte-identical to its recorded baseline.
+- Active P0: reports/export and dashboards; payroll and payslips is complete.
+- Remaining P0 scope: reports/export and dashboards, audit log and demo data. Company
+  import compensation fields are delivered; opening leave balances are delivered.
 - **Release/security blocker: no forced first-login password change.** Generated
   temporary passwords are unique and cryptographically random (128-bit), only bcrypt
   hashes are persisted, and no plaintext reaches import history or logs -- all verified.
   But there is no must_change_password column and no forced-reset logic, so nothing
   compels an employee to change a distributed temporary password. Needs its own
   milestone before release.
-- Company Import gains compensation fields once Payroll V1 defines their schema, and
-  opening leave balances once Leave Balances does. Neither is started.
+- Company Import compensation fields are delivered with Payroll V1: basic salary,
+  allowance and overtime rate import through the same string-to-sen path, and a new
+  compensation row is opened only when the amounts differ from what is in force, so
+  compensation history is never silently overwritten.
 - qrcode-generator 2.0.4 (MIT, zero dependencies, no advisories) was added for QR
   rendering with explicit approval. exceljs's transitive uuid advisory, plus qs and
   nanoid, remain recorded release items; no dependency was upgraded.

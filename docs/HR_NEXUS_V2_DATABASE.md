@@ -1,11 +1,23 @@
 # HR Nexus V2 database status
 
-Migrations **0001 through 0006 are applied** to existing `hr_nexus` through the
+Migrations **0001 through 0007 are applied** to existing `hr_nexus` through the
 reviewed runner. The original retention migration is unchanged. The added persistent
 objects are the Company Settings table with its neutral singleton row, one unique index
-enforcing normalized account email identity, the two import history tables, and
-attendance verification metadata with its two QR tables, and leave policy and
-entitlement tables.
+enforcing normalized account email identity, the two import history tables, attendance
+verification metadata with its two QR tables, leave policy and entitlement tables, and
+the four payroll tables.
+
+Migration 0007 adds `employee_compensation`, `payroll_periods`, `payroll_records` and
+`payroll_items`. It is purely additive: no existing table, column, constraint or row is
+modified, and all four tables are created empty. Every money column is `BIGINT` holding
+integer sen -- no floating-point column exists in any payroll table -- and the only
+`NUMERIC` columns are the two scaled quantities (overtime hours in hundredths, unpaid
+leave days in tenths). Three triggers enforce integrity the application cannot bypass: a
+BEFORE UPDATE trigger permits only draft -> calculated -> reviewed -> approved -> paid
+with no path backwards out of approved, and two more refuse every INSERT, UPDATE or
+DELETE against the records and items of an approved or paid period. Salary history is
+append-only, and a payroll record snapshots identity, compensation and working days so a
+later change cannot rewrite a historical payslip.
 
 Migration 0006 adds `leave_policies` and `leave_entitlements` plus four nullable columns
 on `leave_requests`, and widens the leave status CHECK to a strict superset including
@@ -36,6 +48,7 @@ application's duplicate checks and sign-in lookup use the same expression, so th
 database and the API agree on what counts as the same account. A violation of either
 index is mapped to a 409 conflict.
 
+- [Payroll and payslips, migration 0007 and evidence](HR_NEXUS_V2_PAYROLL.md)
 - [Leave balances, migration 0006 and evidence](HR_NEXUS_V2_LEAVE.md)
 - [Attendance verification, migration 0005 and evidence](HR_NEXUS_V2_ATTENDANCE.md)
 - [Company import, migration 0004 and evidence](HR_NEXUS_V2_COMPANY_IMPORT.md)
@@ -54,13 +67,14 @@ BIGINT attendance IDs. All five business-table counts/fingerprints and full sequ
 state are unchanged. Users/leave employee FKs are validated RESTRICT; attendance's
 RESTRICT FK remains NOT VALID. Five unchanged orphan rows (IDs 1,3,4,5,6) still
 reference missing employee IDs 1 and 2. The sole existing employee remains ID 3.
-The ledger contains exactly one matching row each for 0001 through 0006. Two narrow
+The ledger contains exactly one matching row each for 0001 through 0007. Two narrow
 triggers prevent orphan ID adoption/reassignment; the non-updatable exception view
 exposes all five exceptions to authorized database operators.
 
-Applying 0003, 0004 and 0005 each changed nothing in the source but their own ledger row:
-business counts, the attendance fingerprint `1:1,3:1,4:2,5:1,6:1`, all business sequence
-state and every earlier checksum are identical before and after. Employment status still has no
+Applying 0003, 0004, 0005 and 0007 each changed nothing in the source but their own
+ledger row and, where applicable, their new empty tables: business counts, the attendance
+fingerprint `1:1,3:1,4:2,5:1,6:1`, all business sequence state and every earlier checksum
+are identical before and after. Base tables went from 13 to 17 with 0007. Employment status still has no
 database CHECK constraint; it is enforced in application validation only, and adding
 one would be a separate migration requiring its own review.
 

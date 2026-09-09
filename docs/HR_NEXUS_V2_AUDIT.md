@@ -56,7 +56,31 @@ messages, submission is serialised per employee by an advisory lock, and decisio
 guarded inside the UPDATE. Cancellation releases days and keeps the record. Policy is
 company configuration, explicitly not a statutory entitlement, and no Malaysian legal
 compliance is claimed. 243 tests pass and a 23-check authenticated browser smoke passed.
-See `HR_NEXUS_V2_LEAVE.md`. Payroll and Payslips is now the active P0.
+See `HR_NEXUS_V2_LEAVE.md`.
+
+Payroll and Payslips (V1) is complete. Migration 0007 adds four payroll tables and three
+triggers, applied after explicit approval with a restore-verified backup; it is purely
+additive and the only source changes are the new empty tables and the ledger row. Money
+is integer sen in BIGINT with BigInt arithmetic and no floating-point path anywhere;
+decimal input is parsed from a string digit by digit. There is one rounding rule, half
+away from zero, applied at most once per derived line, and totals are exact integer sums
+with `net_sen = gross_sen - deductions_sen` as a database CHECK. No EPF, SOCSO, EIS or
+PCB is computed and no Malaysian rate is encoded: statutory amounts exist only as manual
+lines, enforced by `CHECK (NOT is_statutory OR is_manual)`. Payroll records snapshot
+identity, compensation and working days, so a later rename, salary revision or
+working-week change cannot rewrite a historical payslip. The database enforces the
+draft -> calculated -> reviewed -> approved -> paid state machine with no path backwards
+out of approved, and refuses any change to an approved or paid period's records and
+items. Duplicate calculation is prevented by UNIQUE (period_id, employee_id) and
+UNIQUE (period_year, period_month). Employees see only their own payslips, and only for
+approved or paid periods. 283 tests pass and a 21-check authenticated browser smoke
+passed. See `HR_NEXUS_V2_PAYROLL.md`. Reports/export and dashboards is now the active P0.
+
+A test-harness defect was found and fixed during this milestone: no integration suite
+dropped its clone database, so 346 abandoned clones exhausted the laboratory's tmpfs and
+every database-backed suite failed at once. A passing suite now drops what it created and
+a failing one keeps it for inspection. The source database was unaffected and verified
+byte-identical to its recorded baseline.
 
 Recorded release/security blocker: there is no forced first-login password change.
 Generated temporary passwords are unique, cryptographically random and stored only as
@@ -133,7 +157,9 @@ employee ID. Profile updates whitelist contact columns and reject restricted fie
 Uploads already limit size, allow JPG/PNG/WebP, check signatures, randomize names,
 and constrain managed deletion paths. SQL values are parameterized; dynamic columns
 come from code allowlists. No general mass assignment was found in reviewed writes.
-No payroll/payslip endpoints exist yet, so their authorization is not implemented.
+Payroll endpoints are admin-only except the employee payslip routes, which resolve the
+employee from the authenticated session rather than a request parameter and expose only
+approved or paid periods.
 
 Auth uses bcrypt (12 rounds on new/changed passwords), JWT Bearer, default 8-hour
 expiry, frontend 401 session clearing, and admin/employee roles. The new account
@@ -163,9 +189,9 @@ Dashboard CURRENT_DATE and attendance's hardcoded Malaysia time need alignment.
 
 ## P0 gaps
 
-Compensation/payroll,
-payslips, leave balances, reporting/export and the audit log module remain outstanding;
-the migration mechanism, company settings and import workflow are now in place. Dashboard
+Reporting/export and the audit log module remain outstanding; the migration mechanism,
+company settings, import workflow, attendance verification, leave balances and payroll
+are now in place. Dashboard
 already uses real SQL; extend it instead of replacing mock data that is not present.
 Demo data is insufficient (one active employee found in the live aggregate).
 No automated coverage existed at baseline. Added targeted authorization tests rather
