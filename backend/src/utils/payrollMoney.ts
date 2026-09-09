@@ -108,3 +108,39 @@ export function formatScaled(scaled: number, decimals: 1 | 2): string {
   const fraction = String(scaled % scale).padStart(decimals, "0");
   return `${whole}.${fraction}`;
 }
+
+/**
+ * Renders an aggregated sen total, which arrives from PostgreSQL as a string
+ * because SUM(BIGINT) can exceed a JavaScript safe integer.
+ *
+ * Parsing to a Number first would defeat the point of storing sen as BIGINT, so
+ * the whole and fractional parts are derived with BigInt and only the finished
+ * digits become a string. Report totals therefore stay exact no matter how many
+ * records were summed.
+ */
+export function formatSenExact(value: string | number | bigint): string {
+  let sen: bigint;
+  try {
+    sen = typeof value === "bigint" ? value : BigInt(typeof value === "number" ? Math.trunc(value) : value.trim());
+  } catch {
+    return "0.00";
+  }
+
+  const negative = sen < 0n;
+  const absolute = negative ? -sen : sen;
+  const fraction = String(absolute % 100n).padStart(2, "0");
+  return `${negative ? "-" : ""}${absolute / 100n}.${fraction}`;
+}
+
+/** Exact sum of sen values that arrived as BIGINT strings. */
+export function sumSen(values: readonly (string | number | bigint)[]): bigint {
+  let total = 0n;
+  for (const value of values) {
+    try {
+      total += typeof value === "bigint" ? value : BigInt(typeof value === "number" ? Math.trunc(value) : value.trim());
+    } catch {
+      // A malformed aggregate contributes nothing rather than poisoning the total.
+    }
+  }
+  return total;
+}

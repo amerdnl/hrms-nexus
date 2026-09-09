@@ -1,10 +1,32 @@
 import type { Request, Response } from "express";
 import pool from "../config/db.js";
+import { getZonedNow } from "../utils/attendanceVerification.js";
+
+/**
+ * "Today" on the dashboard must be the same day attendance is judged against.
+ *
+ * The previous version used CURRENT_DATE, which is the database server's date.
+ * Attendance decides which calendar day a clock action belongs to using the
+ * timezone configured in Company Settings, so across midnight the two disagreed
+ * and the dashboard reported a different set of people than the attendance page.
+ */
+async function companyToday(): Promise<string> {
+  const settings = await pool.query<{ timezone: string }>(
+    "SELECT timezone FROM public.company_settings WHERE id = 1",
+  );
+  try {
+    return getZonedNow(settings.rows[0]?.timezone ?? "UTC").date;
+  } catch {
+    return getZonedNow("UTC").date;
+  }
+}
 
 export async function getAdminDashboard(
   request: Request,
   response: Response,
 ): Promise<void> {
+  const today = await companyToday();
+
   const [
     totalEmployeesResult,
     activeEmployeesResult,
@@ -14,6 +36,9 @@ export async function getAdminDashboard(
     recentEmployeesResult,
     recentAttendanceResult,
     recentLeavesResult,
+    onLeaveTodayResult,
+    notClockedInResult,
+    payrollStatusResult,
   ] = await Promise.all([
     pool.query(`
       SELECT COUNT(*)::int AS count
@@ -38,8 +63,8 @@ export async function getAdminDashboard(
         COUNT(*) FILTER (WHERE status = 'absent')::int AS absent,
         COUNT(*) FILTER (WHERE status = 'on_leave')::int AS on_leave
       FROM attendance
-      WHERE attendance_date = CURRENT_DATE
-    `),
+      WHERE attendance_date = $1
+    `, [today]),
 
     pool.query(`
       SELECT COUNT(*)::int AS count
@@ -88,6 +113,45 @@ export async function getAdminDashboard(
   ORDER BY lr.created_at DESC
   LIMIT 5
 `),
+
+    // On leave today comes from APPROVED leave covering the date, not from an
+    // attendance row: someone on approved leave usually has no attendance record
+    // at all, so counting attendance would report them as simply missing.
+    pool.query(`
+      SELECT COUNT(DISTINCT lr.employee_id)::int AS count
+      FROM leave_requests lr
+      JOIN employees e ON e.id = lr.employee_id
+      WHERE lr.status = 'approved'
+        AND $1::date BETWEEN lr.start_date AND lr.end_date
+        AND e.employment_status IN ('active', 'probation')
+    `, [today]),
+
+    // "Missing" is an absence of evidence, so it is derived by exclusion:
+    // employed, no attendance row today, and not on approved leave.
+    pool.query(`
+      SELECT COUNT(*)::int AS count
+      FROM employees e
+      WHERE e.employment_status IN ('active', 'probation')
+        AND NOT EXISTS (
+          SELECT 1 FROM attendance a
+          WHERE a.employee_id = e.id AND a.attendance_date = $1
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM leave_requests lr
+          WHERE lr.employee_id = e.id AND lr.status = 'approved'
+            AND $1::date BETWEEN lr.start_date AND lr.end_date
+        )
+    `, [today]),
+
+    // The most recent payroll period and how far through the process it is.
+    pool.query(`
+      SELECT p.id::text, p.period_year, p.period_month, p.status,
+             (SELECT COUNT(*)::int FROM payroll_records r WHERE r.period_id = p.id) AS records,
+             (SELECT COALESCE(SUM(r.net_sen), 0)::text FROM payroll_records r WHERE r.period_id = p.id) AS net_sen
+      FROM payroll_periods p
+      ORDER BY p.period_year DESC, p.period_month DESC
+      LIMIT 1
+    `),
   ]);
 
   response.status(200).json({
@@ -102,6 +166,10 @@ export async function getAdminDashboard(
       recentEmployees: recentEmployeesResult.rows,
       recentAttendance: recentAttendanceResult.rows,
       recentLeaves: recentLeavesResult.rows,
+      today,
+      onLeaveToday: onLeaveTodayResult.rows[0].count,
+      notClockedIn: notClockedInResult.rows[0].count,
+      payrollStatus: payrollStatusResult.rows[0] ?? null,
     },
   });
 }

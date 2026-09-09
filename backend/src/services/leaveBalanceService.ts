@@ -260,3 +260,79 @@ export async function loadLeaveSettings(
   );
   return result.rows[0] ?? null;
 }
+
+export interface EmployeeLeaveBalances {
+  employeeId: number;
+  balances: LeaveBalance[];
+}
+
+/**
+ * Balances for many employees in one pass.
+ *
+ * `getBalances` answers for a single employee and is the right shape for
+ * self-service, but calling it per employee across a company is a textbook N+1.
+ * This runs two set-based queries instead and then reuses the very same
+ * `buildBalance` rule, so a report and a payslip can never disagree about what
+ * "remaining" means.
+ *
+ * Employees with no entitlement row still appear, with a zero grant, so a report
+ * shows the whole workforce rather than silently omitting anyone.
+ */
+export async function getBalancesForEmployees(
+  db: Pick<PoolClient, "query">,
+  employeeIds: readonly number[],
+  leaveYear: number,
+): Promise<Map<number, LeaveBalance[]>> {
+  const result = new Map<number, LeaveBalance[]>();
+  if (employeeIds.length === 0) return result;
+
+  const policies = await loadPolicies(db);
+
+  const grants = await db.query<{ employee_id: number; leave_type: LeaveType; granted: string }>(
+    `SELECT employee_id, leave_type,
+            (entitled_days + carried_forward_days + adjustment_days) AS granted
+     FROM public.leave_entitlements
+     WHERE employee_id = ANY($1::int[]) AND leave_year = $2`,
+    [employeeIds, leaveYear],
+  );
+
+  const usage = await db.query<{
+    employee_id: number; leave_type: LeaveType; status: string; days: string;
+  }>(
+    `SELECT employee_id, leave_type, status, COALESCE(SUM(working_days), 0) AS days
+     FROM public.leave_requests
+     WHERE employee_id = ANY($1::int[]) AND leave_year = $2
+       AND status IN ('approved', 'pending')
+     GROUP BY employee_id, leave_type, status`,
+    [employeeIds, leaveYear],
+  );
+
+  const key = (employeeId: number, type: LeaveType) => `${employeeId}:${type}`;
+  const grantBy = new Map(grants.rows.map((row) => [key(row.employee_id, row.leave_type), num(row.granted)]));
+  const usedBy = new Map<string, number>();
+  const pendingBy = new Map<string, number>();
+  for (const row of usage.rows) {
+    const target = row.status === "approved" ? usedBy : pendingBy;
+    target.set(key(row.employee_id, row.leave_type), num(row.days));
+  }
+
+  const activeTypes = leaveTypes.filter((type) => policies.get(type)?.active !== false);
+
+  for (const employeeId of employeeIds) {
+    result.set(
+      employeeId,
+      activeTypes.map((type) => {
+        const policy = policies.get(type);
+        return buildBalance(
+          type,
+          grantBy.get(key(employeeId, type)) ?? 0,
+          usedBy.get(key(employeeId, type)) ?? 0,
+          pendingBy.get(key(employeeId, type)) ?? 0,
+          { deductsBalance: policy?.deducts_balance ?? true, isPaid: policy?.is_paid ?? true },
+        );
+      }),
+    );
+  }
+
+  return result;
+}
