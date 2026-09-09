@@ -28,6 +28,12 @@ const app = express();
 app.use(
   cors({
     origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
+    /**
+     * Content-Disposition is not a CORS-safelisted response header, so without
+     * this the browser hides it from JavaScript and every report export is
+     * saved as the fallback filename instead of the one the server chose.
+     */
+    exposedHeaders: ["Content-Disposition"],
   }),
 );
 

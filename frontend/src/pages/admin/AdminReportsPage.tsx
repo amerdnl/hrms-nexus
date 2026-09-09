@@ -84,7 +84,16 @@ export default function AdminReportsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const filters: ReportFilters = {
+  /**
+   * Draft filters live in the inputs above; these are the ones a report was
+   * actually run with. Keeping them apart is what makes "Apply filters" mean
+   * something, and it keeps the loader's dependencies honest: deriving the
+   * filter object on every render and then memoising the loader without it
+   * would capture the first render's values and quietly send those forever.
+   */
+  const [applied, setApplied] = useState<ReportFilters>({});
+
+  const draft: ReportFilters = {
     from: from || undefined,
     to: to || undefined,
     departmentId: departmentId ? Number(departmentId) : null,
@@ -113,30 +122,48 @@ export default function AdminReportsPage() {
     setError("");
     try {
       if (active === "workforce") setWorkforce(await getWorkforceReport());
-      if (active === "attendance") setAttendance(await getAttendanceReport(filters));
-      if (active === "leave") setLeave(await getLeaveReport(filters));
+      if (active === "attendance") setAttendance(await getAttendanceReport(applied));
+      if (active === "leave") setLeave(await getLeaveReport(applied));
       if (active === "payroll") {
-        setPayroll(periodId ? await getPayrollReport(periodId, filters) : null);
+        setPayroll(periodId ? await getPayrollReport(periodId, applied) : null);
       }
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Unable to load this report."));
+      // Clear what the failed tab was showing. Leaving the previous run's rows
+      // on screen next to an error means the figures no longer correspond to
+      // the filters in the form, which is worse than showing nothing.
+      if (active === "workforce") setWorkforce(null);
+      if (active === "attendance") setAttendance(null);
+      if (active === "leave") setLeave(null);
+      if (active === "payroll") setPayroll(null);
     } finally {
       setLoading(false);
     }
-    // The filter values are read fresh on every call; re-running on each
-    // keystroke would fire an unbounded query per character.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, periodId]);
+  }, [active, periodId, applied]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  /** Commits the draft, which re-runs the report through the effect above. */
+  const applyFilters = () => setApplied(draft);
+
+  /**
+   * A refused request must never be presented as an empty result. "No leave in
+   * this range" is a claim about the data; if the query was rejected we do not
+   * know what the data holds, and saying so is simply wrong.
+   */
+  const failed = error !== "";
+  const emptyFor = (title: string, description: string) =>
+    failed
+      ? { title: "This report could not be run", description: "Adjust the filters above and apply again." }
+      : { title, description };
+
   async function exportCsv(path: string) {
     setBusy(true);
     setError("");
     try {
-      await downloadReport(path, filters);
+      await downloadReport(path, applied);
     } catch (requestError) {
       setError(await readBlobErrorMessage(requestError, "Unable to export this report."));
     } finally {
@@ -249,7 +276,7 @@ export default function AdminReportsPage() {
         {/* ----------------------------------------------------- attendance */}
         {active === "attendance" && (
           <>
-            <FilterPanel columns={3} onApply={() => void load()} isBusy={loading}>
+            <FilterPanel columns={3} onApply={applyFilters} isBusy={loading}>
               {dateFields}
               {departmentField}
             </FilterPanel>
@@ -283,8 +310,10 @@ export default function AdminReportsPage() {
                 emptyState={
                   <EmptyState
                     icon={Clock3}
-                    title="No employees match this filter"
-                    description="Widen the date range or choose a different department."
+                    {...emptyFor(
+                      "No employees match this filter",
+                      "Widen the date range or choose a different department.",
+                    )}
                   />
                 }
               >
@@ -314,7 +343,7 @@ export default function AdminReportsPage() {
         {/* ---------------------------------------------------------- leave */}
         {active === "leave" && (
           <>
-            <FilterPanel columns={4} onApply={() => void load()} isBusy={loading}>
+            <FilterPanel columns={4} onApply={applyFilters} isBusy={loading}>
               {dateFields}
               {departmentField}
               <FormField id="report-leave-type" label="Leave type">
@@ -370,8 +399,10 @@ export default function AdminReportsPage() {
                 emptyState={
                   <EmptyState
                     icon={CalendarDays}
-                    title="No leave in this range"
-                    description="No request overlaps the selected dates and filters."
+                    {...emptyFor(
+                      "No leave in this range",
+                      "No request overlaps the selected dates and filters.",
+                    )}
                   />
                 }
               >
@@ -396,7 +427,7 @@ export default function AdminReportsPage() {
             </SectionCard>
 
             <SectionCard
-              title={`Leave balances for ${leave?.leaveYear ?? ""}`}
+              title={leave ? `Leave balances for ${leave.leaveYear}` : "Leave balances"}
               description="Balances are a position for the leave year, not a total for the date range above."
               padded={false}
               actions={exportButton("/reports/leave/balances/export", "Export balances")}
@@ -410,8 +441,10 @@ export default function AdminReportsPage() {
                 emptyState={
                   <EmptyState
                     icon={CalendarDays}
-                    title="No balances to show"
-                    description="No active employee matches this department filter."
+                    {...emptyFor(
+                      "No balances to show",
+                      "No active employee matches this department filter.",
+                    )}
                   />
                 }
               >
@@ -440,7 +473,7 @@ export default function AdminReportsPage() {
         {/* -------------------------------------------------------- payroll */}
         {active === "payroll" && (
           <>
-            <FilterPanel columns={2} onApply={() => void load()} isBusy={loading}>
+            <FilterPanel columns={2} onApply={applyFilters} isBusy={loading}>
               <FormField id="report-period" label="Payroll period">
                 <SelectInput
                   id="report-period" value={periodId}

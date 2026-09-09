@@ -53,7 +53,11 @@ export default function Tabs({ tabs, active, onChange, className }: TabsProps) {
       ref={listRef}
       role="tablist"
       onKeyDown={handleKeyDown}
-      className={cn("flex gap-1 border-b border-line", className)}
+      /* Enough tabs on a narrow screen will exceed the viewport, so the strip
+         scrolls itself rather than pushing the whole page sideways.
+         shrink-0 on each button stops them being squeezed into unreadable
+         slivers instead. */
+      className={cn("flex gap-1 overflow-x-auto border-b border-line", className)}
     >
       {tabs.map((tab) => {
         const isActive = tab.id === active;
@@ -70,7 +74,7 @@ export default function Tabs({ tabs, active, onChange, className }: TabsProps) {
             tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(tab.id)}
             className={cn(
-              "-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+              "-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
               isActive
                 ? "border-primary text-primary"
                 : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
