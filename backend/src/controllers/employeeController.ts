@@ -2,6 +2,8 @@ import bcrypt from "bcrypt";
 import type { Request, Response } from "express";
 import type { PoolClient } from "pg";
 import pool from "../config/db.js";
+import { actorFromUser, recordAudit } from "../services/auditService.js";
+import { diffChanges } from "../utils/auditRedaction.js";
 import {
   isEmployeeAccountActive,
   parseEmployeeListQuery,
@@ -335,6 +337,21 @@ export const createEmployee = async (request: Request, response: Response) => {
       ],
     );
 
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "EMPLOYEE_CREATED",
+      entityType: "employee",
+      entityId: record.id,
+      summary: `Created employee ${record.employee_number} (${record.full_name})`,
+      changes: {
+        employee_number: record.employee_number,
+        full_name: record.full_name,
+        department_id: record.department_id,
+        employment_status: record.employment_status,
+        job_title: record.job_title,
+      },
+    }, client);
+
     await client.query("COMMIT");
 
     response.status(201).json({
@@ -397,9 +414,16 @@ async function applyLifecycle(
 async function lockEmployee(
   client: PoolClient,
   employeeId: number,
-): Promise<{ found: boolean; employmentStatus?: string; userId?: number | null }> {
-  const employee = await client.query<{ employment_status: string }>(
-    "SELECT employment_status FROM employees WHERE id = $1 FOR UPDATE",
+): Promise<{
+  found: boolean;
+  employmentStatus?: string;
+  userId?: number | null;
+  before?: Record<string, unknown>;
+}> {
+  // The whole row, not just the status: an audit entry has to say what actually
+  // changed, and that needs the values as they were before the write.
+  const employee = await client.query<Record<string, unknown> & { employment_status: string }>(
+    "SELECT * FROM employees WHERE id = $1 FOR UPDATE",
     [employeeId],
   );
 
@@ -415,6 +439,7 @@ async function lockEmployee(
     found: true,
     employmentStatus: row.employment_status,
     userId: account.rows[0]?.id ?? null,
+    before: row,
   };
 }
 
@@ -533,12 +558,24 @@ export const updateEmployee = async (request: Request, response: Response) => {
       [isEmployeeAccountActive(employee.employment_status!), id],
     );
 
+    const after = updated.rows[0];
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "EMPLOYEE_UPDATED",
+      entityType: "employee",
+      entityId: id,
+      summary: `Updated employee ${after.employee_number} (${after.full_name})`,
+      changes: diffChanges(locked.before ?? null, after, [
+        ...updatableColumns, "employment_status",
+      ]),
+    }, client);
+
     await client.query("COMMIT");
 
     response.status(200).json({
       success: true,
       message: "Employee updated successfully",
-      data: updated.rows[0],
+      data: after,
     });
   } catch (error) {
     await safeRollback(client);
@@ -566,6 +603,7 @@ export const deleteEmployee = async (request: Request, response: Response) => {
     status: "inactive",
     successMessage: "Employee deactivated successfully",
     failureMessage: "Failed to deactivate employee",
+    action: "EMPLOYEE_DEACTIVATED",
   });
 };
 
@@ -574,13 +612,19 @@ export const reactivateEmployee = async (request: Request, response: Response) =
     status: "active",
     successMessage: "Employee reactivated successfully",
     failureMessage: "Failed to reactivate employee",
+    action: "EMPLOYEE_REACTIVATED",
   });
 };
 
 async function changeLifecycle(
   request: Request,
   response: Response,
-  options: { status: string; successMessage: string; failureMessage: string },
+  options: {
+    status: string;
+    successMessage: string;
+    failureMessage: string;
+    action: "EMPLOYEE_DEACTIVATED" | "EMPLOYEE_REACTIVATED";
+  },
 ) {
   const id = parseIdParam(request.params.id);
 
@@ -614,6 +658,19 @@ async function changeLifecycle(
     }
 
     await applyLifecycle(client, id, options.status);
+
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: options.action,
+      entityType: "employee",
+      entityId: id,
+      summary: `${options.successMessage.replace(" successfully", "")}: ${
+        locked.before?.employee_number ?? `employee #${id}`}`,
+      changes: {
+        employment_status: { before: locked.employmentStatus ?? null, after: options.status },
+      },
+    }, client);
+
     await client.query("COMMIT");
 
     response.status(200).json({ success: true, message: options.successMessage });

@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { actorFromUser, recordAudit } from "../services/auditService.js";
 import type { PoolClient } from "pg";
 import pool from "../config/db.js";
 import {
@@ -473,12 +474,28 @@ export async function updateLeaveStatus(
       return;
     }
 
+    const decided = updated.rows[0];
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: status === "approved" ? "LEAVE_APPROVED" : "LEAVE_REJECTED",
+      entityType: "leave",
+      entityId: leaveId,
+      summary:
+        `${status === "approved" ? "Approved" : "Rejected"} ${decided.leave_type} leave ` +
+        `for employee #${decided.employee_id}, ${decided.start_date} to ${decided.end_date}`,
+      changes: {
+        status: { before: "pending", after: status },
+        working_days: decided.working_days,
+        admin_comment: adminComment ?? null,
+      },
+    }, client);
+
     await client.query("COMMIT");
 
     response.status(200).json({
       success: true,
       message: `Leave request ${status} successfully`,
-      data: { leave: updated.rows[0] },
+      data: { leave: decided },
     });
   } catch (error) {
     await safeRollback(client);
@@ -589,12 +606,24 @@ export async function cancelLeaveRequest(
       return;
     }
 
+    const cancelled = updated.rows[0];
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "LEAVE_CANCELLED",
+      entityType: "leave",
+      entityId: leaveId,
+      summary:
+        `Cancelled ${cancelled.leave_type} leave for employee #${cancelled.employee_id}, ` +
+        `${cancelled.start_date} to ${cancelled.end_date}`,
+      changes: { status: { before: "pending or approved", after: "cancelled" } },
+    }, client);
+
     await client.query("COMMIT");
 
     response.status(200).json({
       success: true,
       message: "Leave request cancelled. Its days are available again.",
-      data: { leave: updated.rows[0] },
+      data: { leave: cancelled },
     });
   } catch (error) {
     await safeRollback(client);
@@ -662,10 +691,25 @@ export async function updateLeavePolicy(request: Request, response: Response): P
       [leaveType, round1(days), body.deductsBalance ?? null, body.isPaid ?? null, body.active ?? null],
     );
 
+    const policy = result.rows[0];
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "LEAVE_POLICY_CHANGED",
+      entityType: "leave_policy",
+      entityId: leaveType,
+      summary: `Changed the ${leaveType} leave policy`,
+      changes: {
+        default_annual_days: policy?.default_annual_days ?? null,
+        deducts_balance: policy?.deducts_balance ?? null,
+        is_paid: policy?.is_paid ?? null,
+        active: policy?.active ?? null,
+      },
+    });
+
     response.status(200).json({
       success: true,
       message: "Leave policy updated. Existing grants are unchanged.",
-      data: { policy: result.rows[0] },
+      data: { policy },
     });
   } catch (error) {
     unavailable(response, error, "policy update");
@@ -813,6 +857,21 @@ export async function setEmployeeEntitlement(
       source: "manual",
       note,
     });
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "LEAVE_ENTITLEMENT_CHANGED",
+      entityType: "leave",
+      entityId: employeeId,
+      summary: `Set the ${leaveType} entitlement for employee #${employeeId} in ${year}`,
+      changes: {
+        leave_type: leaveType,
+        leave_year: year,
+        entitled_days: entitledDays,
+        carried_forward_days: carriedForwardDays,
+        adjustment_days: adjustmentDays,
+      },
+    }, client);
+
     await client.query("COMMIT");
 
     response.status(200).json({

@@ -1,5 +1,7 @@
 import type { Request, Response } from "express";
 import pool from "../config/db.js";
+import { actorFromUser, recordAudit } from "../services/auditService.js";
+import { diffChanges } from "../utils/auditRedaction.js";
 import { eligibleEmploymentStatuses, parseIdParam } from "../utils/employeeValidation.js";
 
 const NAME_MAX = 100;
@@ -195,10 +197,20 @@ export const createDepartment = async (req: Request, res: Response) => {
       [validation.name, validation.description],
     );
 
+    const created = result.rows[0];
+    await recordAudit({
+      actor: actorFromUser(req.user, req.user?.email),
+      action: "DEPARTMENT_CREATED",
+      entityType: "department",
+      entityId: created.id,
+      summary: `Created department ${created.name}`,
+      changes: { name: created.name, description: created.description },
+    });
+
     res.status(201).json({
       success: true,
       message: "Department created successfully",
-      data: result.rows[0],
+      data: created,
     });
   } catch (error) {
     if (databaseErrorCode(error) === "23505") {
@@ -231,11 +243,15 @@ export const updateDepartment = async (req: Request, res: Response) => {
   }
 
   try {
+    // RETURNING gives the new row; the old values come from the same statement so
+    // the audit diff needs no second round trip and cannot race the update.
     const result = await pool.query(
-      `UPDATE departments
+      `UPDATE departments d
        SET name = $1, description = $2, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3
-       RETURNING id, name, description, created_at, updated_at`,
+       FROM (SELECT id, name, description FROM departments WHERE id = $3) AS prior
+       WHERE d.id = $3
+       RETURNING d.id, d.name, d.description, d.created_at, d.updated_at,
+                 prior.name AS prior_name, prior.description AS prior_description`,
       [validation.name, validation.description, id],
     );
 
@@ -244,10 +260,24 @@ export const updateDepartment = async (req: Request, res: Response) => {
       return;
     }
 
+    const { prior_name, prior_description, ...department } = result.rows[0];
+
+    await recordAudit({
+      actor: actorFromUser(req.user, req.user?.email),
+      action: "DEPARTMENT_UPDATED",
+      entityType: "department",
+      entityId: department.id,
+      summary: `Updated department ${department.name}`,
+      changes: diffChanges(
+        { name: prior_name, description: prior_description },
+        { name: department.name, description: department.description },
+      ),
+    });
+
     res.status(200).json({
       success: true,
       message: "Department updated successfully",
-      data: result.rows[0],
+      data: department,
     });
   } catch (error) {
     if (databaseErrorCode(error) === "23505") {
@@ -279,11 +309,20 @@ export const deleteDepartment = async (request: Request, response: Response) => 
       `DELETE FROM departments
        WHERE id = $1
          AND NOT EXISTS (SELECT 1 FROM employees WHERE department_id = $1)
-       RETURNING id`,
+       RETURNING id, name`,
       [id],
     );
 
     if (deleted.rows.length > 0) {
+      await recordAudit({
+        actor: actorFromUser(request.user, request.user?.email),
+        action: "DEPARTMENT_DELETED",
+        entityType: "department",
+        entityId: id,
+        summary: `Deleted department ${deleted.rows[0].name}`,
+        changes: { name: deleted.rows[0].name },
+      });
+
       response.status(200).json({ success: true, message: "Department deleted successfully" });
       return;
     }

@@ -36,9 +36,10 @@ test("Payroll V1: migration 0007 and the authenticated payroll workflow", {
     assert.equal(seventh.filename, "0007_payroll.sql");
 
     await t.test("0007 applies additively and leaves existing data untouched", async () => {
-      assert.deepEqual(
-        (await runMigrations(db, { mode: "apply", database })).newlyApplied.slice(-1),
-        ["0007"],
+      // Membership, not position: later migrations legitimately follow 0007, and
+      // this suite is about 0007 being applied, not about being last.
+      assert.ok(
+        (await runMigrations(db, { mode: "apply", database })).newlyApplied.includes("0007"),
       );
       assert.deepEqual(
         (await db.query(

@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import type { Request, Response } from "express";
 import jwt, { type SignOptions } from "jsonwebtoken";
+import { actorFromUser, recordAudit, systemActor } from "../services/auditService.js";
 import {
   findSafeUserById,
   findSessionUserById,
@@ -46,6 +47,17 @@ export async function login(
     !userRecord ||
     !(await bcrypt.compare(password, userRecord.password_hash))
   ) {
+    // The attempted address is recorded; the password never is, not even its
+    // length. Whether the account exists is not revealed here either, exactly
+    // as the response itself refuses to reveal it.
+    await recordAudit({
+      actor: { ...systemActor, label: email, userId: null },
+      action: "LOGIN_FAILED",
+      entityType: "auth",
+      summary: "Sign-in failed: invalid email or password",
+      outcome: "failure",
+    });
+
     response.status(401).json({
       success: false,
       message: "Invalid email or password",
@@ -54,6 +66,18 @@ export async function login(
   }
 
   if (!userRecord.is_active || !(await findSessionUserById(Number(userRecord.id)))) {
+    await recordAudit({
+      actor: {
+        userId: Number(userRecord.id), employeeId: userRecord.employee_id,
+        label: userRecord.email, role: userRecord.role,
+      },
+      action: "LOGIN_FAILED",
+      entityType: "auth",
+      entityId: userRecord.id,
+      summary: "Sign-in refused: the account is inactive",
+      outcome: "failure",
+    });
+
     response.status(403).json({
       success: false,
       message: "This account is inactive",
@@ -75,6 +99,17 @@ export async function login(
     },
   );
   const user = await findSafeUserById(userRecord.id);
+
+  await recordAudit({
+    actor: {
+      userId: Number(userRecord.id), employeeId: userRecord.employee_id,
+      label: userRecord.email, role: userRecord.role,
+    },
+    action: "LOGIN",
+    entityType: "auth",
+    entityId: userRecord.id,
+    summary: `${userRecord.role === "admin" ? "Administrator" : "Employee"} signed in`,
+  });
 
   response.status(200).json({
     success: true,
@@ -112,7 +147,15 @@ export async function getCurrentUser(
   });
 }
 
-export function logout(_request: Request, response: Response): void {
+export async function logout(request: Request, response: Response): Promise<void> {
+  await recordAudit({
+    actor: actorFromUser(request.user, request.user?.email),
+    action: "LOGOUT",
+    entityType: "auth",
+    entityId: request.user?.id ?? null,
+    summary: "Signed out",
+  });
+
   response.status(200).json({
     success: true,
     message:

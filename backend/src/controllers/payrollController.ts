@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type { PoolClient } from "pg";
 import pool from "../config/db.js";
+import { actorFromUser, recordAudit } from "../services/auditService.js";
 import {
   calculatePeriod,
   lockPeriod,
@@ -91,6 +92,19 @@ export async function createPeriod(request: Request, response: Response): Promis
   try {
     await client.query("BEGIN");
     const period = await openPeriod(client, year, month, request.user!.id);
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "PAYROLL_PERIOD_OPENED",
+      entityType: "payroll",
+      entityId: period.id,
+      summary: `Opened the payroll period for ${period.period_year}-${String(period.period_month).padStart(2, "0")}`,
+      changes: {
+        period_year: period.period_year,
+        period_month: period.period_month,
+        working_days: period.working_days,
+      },
+    }, client);
+
     await client.query("COMMIT");
     response.status(201).json({ success: true, message: "Payroll period opened.", data: { period } });
   } catch (error) {
@@ -197,6 +211,17 @@ export async function calculatePayrollPeriod(request: Request, response: Respons
       );
     }
 
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "PAYROLL_CALCULATED",
+      entityType: "payroll",
+      entityId: period.id,
+      summary:
+        `Calculated payroll for ${period.period_year}-${String(period.period_month).padStart(2, "0")}: ` +
+        `${summary.calculated} paid, ${summary.skipped.length} skipped`,
+      changes: { calculated: summary.calculated, skipped: summary.skipped.length },
+    }, client);
+
     await client.query("COMMIT");
     response.status(200).json({
       success: true,
@@ -286,6 +311,20 @@ export async function transitionPeriod(request: Request, response: Response): Pr
        WHERE id = $1`,
       actor[target] ? [period.id, target, request.user!.id] : [period.id, target],
     );
+
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action:
+        target === "approved" ? "PAYROLL_APPROVED"
+        : target === "paid" ? "PAYROLL_PAID"
+        : "PAYROLL_STATE_CHANGED",
+      entityType: "payroll",
+      entityId: period.id,
+      summary:
+        `Payroll ${period.period_year}-${String(period.period_month).padStart(2, "0")} ` +
+        `moved from ${period.status} to ${target}`,
+      changes: { status: { before: period.status, after: target } },
+    }, client);
 
     await client.query("COMMIT");
     response.status(200).json({ success: true, message: `Payroll ${target}.` });
@@ -549,6 +588,15 @@ export async function deleteManualItem(request: Request, response: Response): Pr
     }
 
     await refreshRecordTotals(client, String(recordId));
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "PAYROLL_LINE_REMOVED",
+      entityType: "payroll",
+      entityId: recordId,
+      summary: `Removed manual line #${itemId} from payroll record #${recordId}`,
+      changes: { item_id: itemId },
+    }, client);
+
     await client.query("COMMIT");
     response.status(200).json({ success: true, message: "Line removed." });
   } catch (error) {
@@ -645,6 +693,22 @@ export async function createCompensation(request: Request, response: Response): 
       note: typeof body.note === "string" ? body.note.trim().slice(0, 500) || null : null,
       createdBy: request.user!.id,
     });
+
+    // Amounts are recorded in sen, exactly as stored. A salary change is one of
+    // the highest-value events in the system and the figures are the point of it.
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "SALARY_CHANGED",
+      entityType: "compensation",
+      entityId: employeeId,
+      summary: `Set compensation for employee #${employeeId}, effective ${effectiveFrom}`,
+      changes: {
+        basic_salary_sen: (basic as { sen: number }).sen,
+        allowance_sen: (allowance as { sen: number }).sen,
+        overtime_rate_sen: (overtime as { sen: number }).sen,
+        effective_from: effectiveFrom,
+      },
+    }, client);
 
     await client.query("COMMIT");
     response.status(201).json({

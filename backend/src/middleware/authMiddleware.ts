@@ -84,7 +84,10 @@ export async function authenticateToken(
       throw new jwt.JsonWebTokenError("Invalid token payload");
     }
 
-    const authenticatedUser: AuthenticatedUser = {
+    // Only the claims the token itself carries. Deliberately not an
+    // AuthenticatedUser: the email on the session user comes from the database,
+    // never from the token, so it must not be constructible from claims here.
+    const claimed: Pick<AuthenticatedUser, "id" | "employeeId" | "role"> = {
       id: userId,
       employeeId,
       role: decoded.role,
@@ -93,8 +96,8 @@ export async function authenticateToken(
     const currentUser = await findSessionUserById(userId);
     if (
       !currentUser ||
-      currentUser.role !== authenticatedUser.role ||
-      currentUser.employeeId !== authenticatedUser.employeeId
+      currentUser.role !== claimed.role ||
+      currentUser.employeeId !== claimed.employeeId
     ) {
       response.status(401).json({
         success: false,

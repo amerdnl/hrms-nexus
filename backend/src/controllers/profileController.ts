@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import { actorFromUser, recordAudit } from "../services/auditService.js";
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import type { Request, Response } from "express";
@@ -212,6 +213,15 @@ export async function changePassword(
      WHERE id = $2`,
     [passwordHash, user.id],
   );
+
+  // The event, never the secret: no password, no hash, and no change set at all.
+  await recordAudit({
+    actor: actorFromUser(request.user, request.user?.email),
+    action: "PASSWORD_CHANGED",
+    entityType: "auth",
+    entityId: user.id,
+    summary: "Changed their own password",
+  });
 
   response.status(200).json({
     success: true,

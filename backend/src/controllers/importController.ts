@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { actorFromUser, recordAudit } from "../services/auditService.js";
 import type { PoolClient } from "pg";
 import pool from "../config/db.js";
 import {
@@ -113,11 +114,24 @@ export async function createImportJob(request: Request, response: Response): Pro
       ],
     );
 
+    const job = created.rows[0]!;
+
+    // The filename and row count only. The uploaded rows themselves are never
+    // audited: they are the company's personnel data, already stored on the job.
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "IMPORT_STARTED",
+      entityType: "import",
+      entityId: job.id,
+      summary: `Uploaded ${file.originalname.slice(0, 120)} for import (${rows.length} rows)`,
+      changes: { total_rows: rows.length, columns: sheet.headers.length },
+    });
+
     response.status(201).json({
       success: true,
       message: "File read successfully. Confirm the column mapping to continue.",
       data: {
-        job: created.rows[0],
+        job,
         headers: sheet.headers,
         sample: rows.slice(0, SAMPLE_ROWS),
         suggested_mapping: suggestion.mapping,
@@ -362,6 +376,21 @@ export async function confirmImportJob(request: Request, response: Response): Pr
       createMissingDepartments: body.create_missing_departments === true,
     });
 
+    // Counts only. The generated temporary passwords in result.credentials are
+    // returned to the administrator once and never recorded here or anywhere.
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "IMPORT_COMPLETED",
+      entityType: "import",
+      entityId: job.id,
+      summary: `Import completed: ${result.created} created, ${result.updated} updated`,
+      changes: {
+        created: result.created,
+        updated: result.updated,
+        created_departments: result.createdDepartments.length,
+      },
+    }, client);
+
     await client.query("COMMIT");
 
     response.status(200).json({
@@ -395,6 +424,17 @@ export async function confirmImportJob(request: Request, response: Response): Pr
       } catch {
         // The response below still reports the failure accurately.
       }
+
+      // Outside the failed transaction, so the failure is recorded even though
+      // the import itself changed nothing.
+      await recordAudit({
+        actor: actorFromUser(request.user, request.user?.email),
+        action: "IMPORT_FAILED",
+        entityType: "import",
+        entityId: jobId,
+        summary: "Import failed and no records were changed",
+        outcome: "failure",
+      });
     }
 
     console.error("Import apply failed:", error);

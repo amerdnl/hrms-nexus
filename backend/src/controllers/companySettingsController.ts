@@ -1,5 +1,7 @@
 import type { Request, Response } from "express";
 import pool from "../config/db.js";
+import { actorFromUser, recordAudit } from "../services/auditService.js";
+import { diffChanges } from "../utils/auditRedaction.js";
 import type { CompanySettings } from "../types/companySettings.js";
 import { validateCompanySettings } from "../utils/companySettingsValidation.js";
 
@@ -30,6 +32,12 @@ export async function updateCompanySettings(request: Request, response: Response
   }
   const s = validation.data;
   try {
+    // Captured before the write so the entry can say what actually changed.
+    const previous = await pool.query<CompanySettings>(
+      `SELECT ${columns} FROM public.company_settings WHERE id=1`,
+    );
+    const before = (previous.rows[0] ?? null) as unknown as Record<string, unknown> | null;
+
     // One conditional statement makes a save atomic and rejects stale admin edits.
     const result = await pool.query<CompanySettings>(`UPDATE public.company_settings SET
       company_name=$1, registration_number=$2, address=$3, email=$4, phone=$5, timezone=$6,
@@ -44,7 +52,22 @@ export async function updateCompanySettings(request: Request, response: Response
       response.status(409).json({ success: false, message: "Settings changed since you opened this page. Reload the latest settings before saving again." });
       return;
     }
-    response.json({ success: true, message: "Company settings saved.", data: result.rows[0] });
+
+    const saved = result.rows[0];
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "SETTINGS_CHANGED",
+      entityType: "settings",
+      entityId: 1,
+      summary: `Company settings saved (revision ${saved.revision})`,
+      // Office coordinates are configuration, not a person's location, so they
+      // are recorded: a change to the geofence is exactly the kind of setting an
+      // investigation needs to see. The redactor drops them by key name, so the
+      // change is reported as a redacted field rather than smuggled through.
+      changes: diffChanges(before, saved as unknown as Record<string, unknown>),
+    });
+
+    response.json({ success: true, message: "Company settings saved.", data: saved });
   } catch {
     response.status(503).json({ success: false, message: "Unable to save company settings. Reload to check the current values before retrying." });
   }

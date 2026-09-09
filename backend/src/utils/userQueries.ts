@@ -9,8 +9,9 @@ export async function findSessionUserById(
     id: string;
     employee_id: string | null;
     role: UserRole;
+    email: string;
   }>(
-    `SELECT u.id, u.employee_id, u.role
+    `SELECT u.id, u.employee_id, u.role, u.email
      FROM users u
      LEFT JOIN employees e ON e.id = u.employee_id
      WHERE u.id = $1 AND u.is_active = TRUE
@@ -35,7 +36,7 @@ export async function findSessionUserById(
     return null;
   }
 
-  return { id, employeeId, role: row.role };
+  return { id, employeeId, role: row.role, email: row.email };
 }
 
 export interface UserRecord {

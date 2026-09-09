@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { actorFromUser, recordAudit } from "../services/auditService.js";
 import {
   createManualAttendance as createManualAttendanceRecord,
   getAllAttendance,
@@ -137,6 +138,25 @@ export async function createManualAttendance(
       verificationMethod: method,
     });
 
+    // Times and status only. Coordinates, GPS accuracy and distance-from-office
+    // are never recorded here: an admin correction is an administrative act, and
+    // where the employee physically was is not part of it.
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "ATTENDANCE_MANUAL_CREATED",
+      entityType: "attendance",
+      entityId: attendance.id,
+      summary: `Created a manual attendance record for employee #${employeeId} on ${attendanceDate}`,
+      changes: {
+        employee_id: Number(employeeId),
+        attendance_date: attendanceDate,
+        check_in_time: checkInTime ?? null,
+        check_out_time: checkOutTime ?? null,
+        status,
+        verification_method: method,
+      },
+    });
+
     response.status(201).json({
       success: true,
       message: "Manual attendance created successfully",
@@ -240,6 +260,19 @@ export async function updateAttendance(
       });
       return;
     }
+
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "ATTENDANCE_CORRECTED",
+      entityType: "attendance",
+      entityId: attendanceId,
+      summary: `Corrected attendance record #${attendanceId}`,
+      changes: {
+        check_in_time: checkInTime ?? null,
+        check_out_time: checkOutTime ?? null,
+        status: status ?? null,
+      },
+    });
 
     response.status(200).json({
       success: true,
