@@ -5,21 +5,55 @@ import type {
   AttendanceFilters,
   AttendanceRecord,
   AttendanceStatistics,
+  AttendanceVerificationStatus,
   ManualAttendanceInput,
+  OfficeQrChallenge,
+  ReportedPosition,
   UpdateAttendanceInput,
 } from "../types/attendance";
 
-export async function checkIn(): Promise<AttendanceRecord> {
+/**
+ * Verified clock-in. The scanned code and the one-off position are the only
+ * things sent; the server decides the official date, time and lateness.
+ */
+export async function checkIn(
+  token: string,
+  position: ReportedPosition,
+): Promise<AttendanceRecord> {
   const response = await apiClient.post<ApiResponse<AttendanceRecord>>(
     "/attendance/check-in",
+    { token, position },
   );
 
   return response.data.data;
 }
 
-export async function checkOut(): Promise<AttendanceRecord> {
+export async function checkOut(
+  token: string,
+  position: ReportedPosition,
+): Promise<AttendanceRecord> {
   const response = await apiClient.patch<ApiResponse<AttendanceRecord>>(
     "/attendance/check-out",
+    { token, position },
+  );
+
+  return response.data.data;
+}
+
+/** Issues the office QR an administrator displays. Administrator-only. */
+export async function issueOfficeQr(): Promise<OfficeQrChallenge> {
+  const response = await apiClient.post<ApiResponse<OfficeQrChallenge>>(
+    "/attendance/qr",
+    {},
+  );
+
+  return response.data.data;
+}
+
+/** Whether verified attendance is usable, checked before asking for location. */
+export async function getVerificationStatus(): Promise<AttendanceVerificationStatus> {
+  const response = await apiClient.get<ApiResponse<AttendanceVerificationStatus>>(
+    "/attendance/verification-status",
   );
 
   return response.data.data;

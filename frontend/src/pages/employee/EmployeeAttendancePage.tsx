@@ -9,14 +9,13 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  checkIn,
-  checkOut,
   getMyAttendanceHistory,
   getTodayAttendance,
 } from "../../api/attendanceApi";
 import { getApiErrorMessage } from "../../api/axios";
 import Alert from "../../components/ui/Alert";
 import Button from "../../components/ui/Button";
+import VerifiedClockPanel from "../../components/attendance/VerifiedClockPanel";
 import DataTable from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import FilterPanel from "../../components/ui/FilterPanel";
@@ -69,7 +68,7 @@ function EmployeeAttendancePage() {
   const [endDate, setEndDate] = useState("");
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | "">("");
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [clockMode, setClockMode] = useState<"check-in" | "check-out" | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -96,38 +95,16 @@ function EmployeeAttendancePage() {
     void loadAttendance();
   }, [loadAttendance]);
 
-  async function handleCheckIn() {
-    setActionLoading(true);
-    setMessage("");
+  async function handleRecorded(record: AttendanceRecord) {
+    setToday(record);
+    setMessage(
+      clockMode === "check-in"
+        ? "Check-in verified and recorded"
+        : "Check-out verified and recorded",
+    );
     setError("");
-
-    try {
-      const attendance = await checkIn();
-      setToday(attendance);
-      setMessage("Check-in recorded successfully");
-      await loadAttendance();
-    } catch (requestError) {
-      setError(getErrorMessage(requestError));
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function handleCheckOut() {
-    setActionLoading(true);
-    setMessage("");
-    setError("");
-
-    try {
-      const attendance = await checkOut();
-      setToday(attendance);
-      setMessage("Check-out recorded successfully");
-      await loadAttendance();
-    } catch (requestError) {
-      setError(getErrorMessage(requestError));
-    } finally {
-      setActionLoading(false);
-    }
+    setClockMode(null);
+    await loadAttendance();
   }
 
   function clearFilters() {
@@ -206,27 +183,35 @@ function EmployeeAttendancePage() {
 
       <SectionCard
         title="Record today's attendance"
-        description="Attendance uses Malaysia time."
+        description="Scan the office QR code to record verified attendance. The official time is set by the server."
         icon={Clock3}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <Button
             icon={LogIn}
-            onClick={handleCheckIn}
-            disabled={loading || actionLoading || hasCheckedIn}
+            onClick={() => { setClockMode("check-in"); setMessage(""); setError(""); }}
+            disabled={loading || hasCheckedIn || clockMode !== null}
           >
             Check in
           </Button>
 
           <Button
             icon={LogOut}
-            onClick={handleCheckOut}
-            disabled={loading || actionLoading || !hasCheckedIn || hasCheckedOut}
+            onClick={() => { setClockMode("check-out"); setMessage(""); setError(""); }}
+            disabled={loading || !hasCheckedIn || hasCheckedOut || clockMode !== null}
           >
             Check out
           </Button>
         </div>
       </SectionCard>
+
+      {clockMode && (
+        <VerifiedClockPanel
+          mode={clockMode}
+          onRecorded={(record) => void handleRecorded(record)}
+          onCancel={() => setClockMode(null)}
+        />
+      )}
 
       <FilterPanel
         columns={3}

@@ -12,6 +12,7 @@ import { getEmployeeLookup } from "../../api/employeeApi";
 import AttendanceStatsCards from "../../components/attendance/AttendanceStatsCards";
 import EditAttendanceForm from "../../components/attendance/EditAttendanceForm";
 import ManualAttendanceForm from "../../components/attendance/ManualAttendanceForm";
+import OfficeQrDisplay from "../../components/attendance/OfficeQrDisplay";
 import Alert from "../../components/ui/Alert";
 import Button from "../../components/ui/Button";
 import DataTable from "../../components/ui/DataTable";
@@ -89,6 +90,20 @@ function currentMonthRange(): { startDate: string; endDate: string } {
     startDate: `${month}-01`,
     endDate: `${month}-${String(lastDay).padStart(2, "0")}`,
   };
+}
+
+const methodLabels: Record<string, string> = {
+  QR_LOCATION: "QR + location",
+  ADMIN_OVERRIDE: "Admin override",
+  REMOTE_APPROVED: "Remote approved",
+  FIELD_WORK: "Field work",
+};
+
+/** Records predating verification have no method; they are simply older. */
+function sourceLabel(record: AttendanceRecord): string {
+  const method = record.verification?.verificationMethod;
+  if (method) return methodLabels[method] ?? method;
+  return record.isManual ? "Manual" : "Employee";
 }
 
 function getErrorMessage(error: unknown): string {
@@ -350,6 +365,8 @@ function AdminAttendancePage() {
       {message && <Alert tone="success">{message}</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
 
+      <OfficeQrDisplay />
+
       <FormField
         id="statistics-date"
         label="Statistics date"
@@ -549,8 +566,17 @@ function AdminAttendancePage() {
                   <StatusBadge {...attendanceStatusMeta(record.status)} />
                 </td>
 
+                {/* Says how the record was established, and how far away the
+                    employee was, so a verified scan is distinguishable from a
+                    declared one at a glance. */}
                 <td className="px-5 py-4 text-fg-muted">
-                  {record.isManual ? "Manual" : "Employee"}
+                  <p>{sourceLabel(record)}</p>
+                  {record.verification?.checkInDistanceMeters !== null &&
+                    record.verification?.checkInDistanceMeters !== undefined && (
+                      <p className="mt-0.5 text-xs text-fg-subtle">
+                        {Math.round(record.verification.checkInDistanceMeters)} m from office
+                      </p>
+                    )}
                 </td>
 
                 <td className="max-w-60 truncate px-5 py-4 text-fg-muted">

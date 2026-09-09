@@ -1,5 +1,48 @@
 export type AttendanceStatus = "present" | "late" | "absent" | "on_leave";
 
+export type VerificationMethod =
+  | "QR_LOCATION" | "ADMIN_OVERRIDE" | "REMOTE_APPROVED" | "FIELD_WORK";
+
+export type VerificationStatus = "verified" | "manual" | "exception";
+
+/** Verification metadata; every field is null for records predating it. */
+export interface AttendanceVerification {
+  checkInLatitude: number | null;
+  checkInLongitude: number | null;
+  checkInAccuracyMeters: number | null;
+  checkInDistanceMeters: number | null;
+  checkOutLatitude: number | null;
+  checkOutLongitude: number | null;
+  checkOutAccuracyMeters: number | null;
+  checkOutDistanceMeters: number | null;
+  verificationMethod: VerificationMethod | null;
+  verificationStatus: VerificationStatus | null;
+  lateMinutes: number | null;
+}
+
+/** The only three location values the client ever sends, and only on demand. */
+export interface ReportedPosition {
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number;
+}
+
+export interface OfficeQrChallenge {
+  code: string;
+  qr_svg: string;
+  expires_at: string;
+  ttl_seconds: number;
+  radius_meters: number;
+}
+
+export interface AttendanceVerificationStatus {
+  configured: boolean;
+  radius_meters: number | null;
+  timezone: string | null;
+  work_start_time: string | null;
+  grace_period_minutes: number | null;
+}
+
 export interface AttendanceRecord {
   id: number;
   employeeId: number;
@@ -11,6 +54,7 @@ export interface AttendanceRecord {
   adminNote: string | null;
   createdAt: string;
   updatedAt: string;
+  verification?: AttendanceVerification;
 }
 
 export interface AttendanceStatistics {
@@ -28,6 +72,7 @@ export interface ManualAttendanceInput {
   checkOutTime?: string | null;
   status: AttendanceStatus;
   adminNote?: string | null;
+  verificationMethod?: VerificationMethod;
 }
 
 export interface UpdateAttendanceInput {
