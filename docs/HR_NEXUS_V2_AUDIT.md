@@ -113,9 +113,12 @@ application's database unless explicitly flagged, confines every write to identi
 authenticated browser smoke passed. See `HR_NEXUS_V2_AUDIT_LOG.md` and
 `HR_NEXUS_V2_DEMO_DATA.md`.
 
-Migration 0008 reached the source with the approved checksum but not by a command from
-this assistant session, and no pre-apply backup of the source exists for it; the timing
-and the after-the-fact verification are recorded in `HR_NEXUS_V2_AUDIT_LOG.md`.
+Migration 0008 was applied to source through the checksummed runner after its design and
+checksum were approved, with a fresh backup taken and proved restorable beforehand; the
+runner reported `newlyApplied: ["0008"]` and re-running it was a no-op. One gap is
+recorded rather than glossed over: that pre-apply dump is no longer present in
+`.local-backups/0008-20260909/`, though its SHA-256 is. Full detail is in
+`HR_NEXUS_V2_AUDIT_LOG.md`.
 
 **P0 is not feature-complete.** Employee Dashboard V2 (master section 40), company-wide
 data export (section 42), XLSX export and the forced first-login password change all

@@ -430,8 +430,9 @@ Reports is complete; Audit log and demo data followed.
   4. Forced first-login password change - the release/security blocker below.
   P0 must not be declared feature-complete until these are resolved or explicitly
   deferred with the user's approval.
-- Observed intermittent, not reproduced: one full-suite run reported a process-level
-  failure in the Company Settings suite that did not recur in three subsequent full runs,
+- Observed intermittent, seen twice and never reproduced on demand: a full-suite run has
+  once reported a process-level failure in the Company Settings suite, and once in the
+  Audit suite. Neither recurred in three subsequent full runs each,
   and the suite passes in isolation. Most likely contention between suites concurrently
   issuing `CREATE DATABASE ... TEMPLATE hr_nexus_v2_settings_baseline`, which PostgreSQL
   refuses while the template is in use. Recorded rather than treated as fixed.
