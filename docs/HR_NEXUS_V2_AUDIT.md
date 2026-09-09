@@ -33,8 +33,23 @@ and a single-transaction apply with explicit opt-ins for updating existing emplo
 and creating missing departments. Passwords are never importable and credential columns
 are blanked on upload; generated temporary passwords are returned once. exceljs 4.4.0
 was added for XLSX with approval. 172 tests pass and a 27-check authenticated browser
-smoke passed. See `HR_NEXUS_V2_COMPANY_IMPORT.md`. Attendance Verification is now the
-active P0.
+smoke passed. See `HR_NEXUS_V2_COMPANY_IMPORT.md`.
+
+Attendance Verification is complete. Migration 0005 adds nullable verification metadata
+and two QR tables, applied after explicit approval with a restore-verified backup; the
+only source change is the new ledger row and no existing record carries metadata. The
+hard-coded Asia/Kuala_Lumpur zone and 09:00 late cutoff are gone: timezone, working
+hours, grace period, office coordinates and radius all come from Company Settings.
+Clocking requires a short-lived office QR, stored only as a hash and non-replayable per
+person per action, plus a location inside the configured radius, with the server setting
+the official time. An unconfigured office fails closed. 208 tests pass and an 18-check
+authenticated browser smoke passed. See `HR_NEXUS_V2_ATTENDANCE.md`. Leave Balances is
+now the active P0.
+
+Recorded release/security blocker: there is no forced first-login password change.
+Generated temporary passwords are unique, cryptographically random and stored only as
+bcrypt hashes with no plaintext in import history or logs, but nothing compels an
+employee to change one.
 
 Original audit findings below are historical, not the current migration status.
 

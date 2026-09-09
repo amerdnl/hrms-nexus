@@ -15,7 +15,7 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | 3 | Company settings | Complete; 0002 applied, 98 tests passed, authenticated browser smoke passed on 8 September 2026 |
 | 4 | Employee/department stability | Complete; 0003 applied, 132 tests passed, 23/23 authenticated browser smoke on 8 September 2026 |
 | 5 | Company import | Complete; 0004 applied, 172 tests passed, 27/27 authenticated browser smoke on 9 September 2026 |
-| 6 | Attendance verification | Not started; expiring backend QR + radius + official time + verification metadata |
+| 6 | Attendance verification | Complete; 0005 applied, 208 tests passed, 18/18 authenticated browser smoke on 9 September 2026 |
 | 7 | Leave balances/validation | Not started; working days, overlap/balance checks, atomic approval and no double deduction |
 | 8 | Payroll and payslips | Not started; recommend Extra High before money/state/snapshot implementation |
 | 9 | Reports/export and dashboards | Not started; extend existing database-backed dashboards and add CSV exports |
@@ -182,7 +182,47 @@ A database assertion during that smoke found and fixed a real defect: an ignored
 credential column was still being persisted in the stored file.
 
 See [design, evidence and follow-ups](HR_NEXUS_V2_COMPANY_IMPORT.md).
-Company Import is complete; Attendance Verification is now the active P0.
+Company Import is complete.
+
+## Attendance Verification increment
+
+Replaces honour-system clocking with server-verified attendance:
+- `attendanceTime.ts`, which hard-coded Asia/Kuala_Lumpur and a 09:00 cutoff for every
+  company, is removed. Timezone, work start/end, grace period, office coordinates and
+  radius all come from Company Settings, and the read path uses the same zone as the
+  write path. The unverified check-in/check-out service functions are removed too.
+- An administrator displays a short-lived office QR; only its SHA-256 hash is stored.
+  One code serves everyone in the window, while uniqueness over
+  (challenge, employee, action) makes it non-replayable per person. Expiry is enforced
+  by the database clock; the display reissues just before expiry.
+- Location is judged before the code is spent, and the whole action is one transaction.
+  A fix vaguer than 150 m is refused; otherwise the geofence is the radius plus at most
+  a 50 m accuracy allowance. An unconfigured office fails closed everywhere.
+- Only latitude, longitude and accuracy are accepted, only at the moment of an action.
+  There is no watchPosition anywhere; the official timestamp is always the server's.
+- Lateness follows the configured start and grace and is snapshotted into late_minutes.
+  Overnight shifts recognise their early-morning half.
+- All four methods are supported. Administrator records are never marked verified, and
+  an administrator cannot declare a record to be a QR scan.
+
+Additive `0005_attendance_verification.sql` adds eleven nullable columns plus two QR
+tables. Applied after the user explicitly approved checksum
+`00dede24d12d79e58d8fbbcc772181c9794fd05d9f48f9b77ee8222176f9be2e`, with a backup taken
+and restore-verified beforehand. The only source difference is the new ledger row, and
+zero rows carry verification metadata: every legacy record, including the five orphans,
+is untouched.
+
+208 tests pass (was 172), including 19 database-backed attendance checks. Two real bugs
+were caught by those tests and fixed before commit: a token normaliser that stripped
+base64url hyphens and corrupted roughly half of all codes, and a housekeeping query
+fired without await on a connection about to be released.
+
+`docker compose down` then `up --build` passed with the existing volume. The
+authenticated browser smoke passed 18/18, including a geofence refusal at 2335 m, a
+denied location permission, an expired code and a verified check-in and check-out.
+
+See [design, honest limitations and evidence](HR_NEXUS_V2_ATTENDANCE.md).
+Attendance Verification is complete; Leave Balances is now the active P0.
 
 ## Remaining blockers / release gates
 
@@ -203,7 +243,18 @@ Company Import is complete; Attendance Verification is now the active P0.
   losing its RAM-backed databases. The source database was unaffected and verified
   intact. The lab was recreated with a 3 GB tmpfs and both documented baselines were
   rebuilt from retained backups; the full suite passes against it.
-- Active P0: attendance verification; company import is complete.
+- Active P0: leave balances and validation; attendance verification is complete.
+- **Release/security blocker: no forced first-login password change.** Generated
+  temporary passwords are unique and cryptographically random (128-bit), only bcrypt
+  hashes are persisted, and no plaintext reaches import history or logs -- all verified.
+  But there is no must_change_password column and no forced-reset logic, so nothing
+  compels an employee to change a distributed temporary password. Needs its own
+  milestone before release.
+- Company Import gains compensation fields once Payroll V1 defines their schema, and
+  opening leave balances once Leave Balances does. Neither is started.
+- qrcode-generator 2.0.4 (MIT, zero dependencies, no advisories) was added for QR
+  rendering with explicit approval. exceljs's transitive uuid advisory, plus qs and
+  nanoid, remain recorded release items; no dependency was upgraded.
 - exceljs 4.4.0 was added for XLSX import with explicit approval. Its only advisory is
   a transitive qs-style `uuid` buffer-bounds issue in a path the import never calls;
   it joins qs and nanoid as a recorded pre-release item. No other dependency changed.
@@ -234,15 +285,17 @@ npm run build
 docker compose exec -T -e HR_NEXUS_DB_TESTS=1 backend npm test
 ```
 
-The employee/department stability and company import database suites are gated by
-`HR_NEXUS_EMPLOYEE_LAB=1` and `HR_NEXUS_IMPORT_LAB=1`, and run only against the
-isolated lab alongside the other lab suites:
+The employee/department stability, company import and attendance database suites are
+gated by `HR_NEXUS_EMPLOYEE_LAB=1`, `HR_NEXUS_IMPORT_LAB=1` and
+`HR_NEXUS_ATTENDANCE_LAB=1`, and run only against the isolated lab alongside the other
+lab suites:
 
 ```sh
 docker run --rm --volumes-from hr-nexus-backend:ro \
   --network hr-nexus-v2-migration-lab \
   -e HR_NEXUS_MIGRATION_LAB=1 -e HR_NEXUS_SETTINGS_LAB=1 \
-  -e HR_NEXUS_EMPLOYEE_LAB=1 -e HR_NEXUS_IMPORT_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
+  -e HR_NEXUS_EMPLOYEE_LAB=1 -e HR_NEXUS_IMPORT_LAB=1 \
+  -e HR_NEXUS_ATTENDANCE_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
   -e DATABASE_URL=postgresql://postgres@hr-nexus-v2-migration-lab/postgres \
   --mount "type=bind,src=$PWD/database,dst=/database,readonly" \
   --mount "type=bind,src=$PWD/docs,dst=/docs,readonly" \
