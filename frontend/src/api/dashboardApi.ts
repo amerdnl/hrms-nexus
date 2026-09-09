@@ -62,6 +62,17 @@ interface AdminDashboardApiResponse {
       on_leave: number;
     };
     pendingLeaves: number;
+    today: string;
+    onLeaveToday: number;
+    notClockedIn: number;
+    payrollStatus: {
+      id: string;
+      period_year: number;
+      period_month: number;
+      status: string;
+      records: number;
+      net_sen: string;
+    } | null;
     recentEmployees: Array<{
       id: number;
       employee_number: string;
@@ -142,6 +153,19 @@ export async function getAdminDashboard(): Promise<AdminDashboardData> {
       onLeave: response.data.data.attendanceToday.on_leave,
     },
     pendingLeaves: response.data.data.pendingLeaves,
+    today: response.data.data.today,
+    onLeaveToday: response.data.data.onLeaveToday,
+    notClockedIn: response.data.data.notClockedIn,
+    payrollStatus: response.data.data.payrollStatus
+      ? {
+          id: response.data.data.payrollStatus.id,
+          periodYear: response.data.data.payrollStatus.period_year,
+          periodMonth: response.data.data.payrollStatus.period_month,
+          status: response.data.data.payrollStatus.status,
+          records: response.data.data.payrollStatus.records,
+          netSen: response.data.data.payrollStatus.net_sen,
+        }
+      : null,
 
     recentEmployees: response.data.data.recentEmployees.map((employee) => ({
       id: employee.id,

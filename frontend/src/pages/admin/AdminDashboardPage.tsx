@@ -6,6 +6,7 @@ import {
   UserPlus,
   Users,
   UsersRound,
+  Wallet,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
@@ -22,6 +23,7 @@ import SectionCard from "../../components/ui/SectionCard";
 import StatCard from "../../components/ui/StatCard";
 import StatusBadge from "../../components/ui/StatusBadge";
 import type { AdminDashboardData } from "../../types/dashboard";
+import { formatPeriod, formatSen } from "../../types/payroll";
 import type { LeaveType } from "../../types/leave";
 import { formatDate } from "../../utils/datetime";
 import {
@@ -58,6 +60,15 @@ const barToneStyles: Record<StatusTone, string> = {
   primary: "bg-primary",
   neutral: "bg-fg-subtle",
 };
+
+/** Same tones the payroll page uses, so a period reads consistently. */
+function payrollTone(status: string | undefined) {
+  if (status === "paid") return "primary" as const;
+  if (status === "approved") return "success" as const;
+  if (status === "reviewed") return "warning" as const;
+  if (status === "calculated") return "info" as const;
+  return "neutral" as const;
+}
 
 export default function AdminDashboardPage() {
   const [dashboard, setDashboard] = useState<AdminDashboardData | null>(null);
@@ -201,6 +212,46 @@ export default function AdminDashboardPage() {
               : "Nothing awaiting a decision"
           }
           to="/admin/leave"
+        />
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <StatCard
+          label="On leave today"
+          value={dashboard.onLeaveToday}
+          icon={CalendarDays}
+          tone={dashboard.onLeaveToday > 0 ? "info" : "neutral"}
+          hint={`Approved leave covering ${dashboard.today}`}
+          to="/admin/leave"
+        />
+
+        <StatCard
+          label="Not clocked in"
+          value={dashboard.notClockedIn}
+          icon={Clock3}
+          tone={dashboard.notClockedIn > 0 ? "warning" : "success"}
+          hint="Employed, no record today, not on approved leave"
+          to="/admin/attendance"
+        />
+
+        <StatCard
+          label="Current payroll"
+          value={
+            dashboard.payrollStatus
+              ? formatPeriod(
+                  dashboard.payrollStatus.periodYear,
+                  dashboard.payrollStatus.periodMonth,
+                )
+              : "No period"
+          }
+          icon={Wallet}
+          tone={payrollTone(dashboard.payrollStatus?.status)}
+          hint={
+            dashboard.payrollStatus
+              ? `${dashboard.payrollStatus.status} · ${dashboard.payrollStatus.records} employees · net ${formatSen(dashboard.payrollStatus.netSen)}`
+              : "Open a payroll period to begin"
+          }
+          to="/admin/payroll"
         />
       </div>
 

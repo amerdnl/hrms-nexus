@@ -48,6 +48,21 @@ export interface AdminDashboardData {
 
   pendingLeaves: number;
 
+  /** The company's own calendar date, not the browser's or the server's. */
+  today: string;
+  /** Approved leave covering today, which usually has no attendance row at all. */
+  onLeaveToday: number;
+  /** Employed, no attendance record today, and not on approved leave. */
+  notClockedIn: number;
+  payrollStatus: {
+    id: string;
+    periodYear: number;
+    periodMonth: number;
+    status: string;
+    records: number;
+    netSen: string;
+  } | null;
+
   recentEmployees: Array<{
     id: number;
     employeeNumber: string;

@@ -10,6 +10,7 @@ import {
   UserRound,
   Wallet,
   Users,
+  BarChart3,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const adminNavigation: NavigationItem[] = [
   { label: "Attendance", to: "/admin/attendance", icon: Clock3 },
   { label: "Leave", to: "/admin/leave", icon: CalendarDays },
   { label: "Payroll", to: "/admin/payroll", icon: Wallet },
+  { label: "Reports", to: "/admin/reports", icon: BarChart3 },
   { label: "Import", to: "/admin/import", icon: Upload },
   { label: "Settings", to: "/admin/settings", icon: Settings },
 ];
