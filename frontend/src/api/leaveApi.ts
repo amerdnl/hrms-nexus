@@ -1,9 +1,13 @@
 import apiClient from "./axios";
 import type {
   CreateLeaveRequestInput,
+  LeaveBalance,
+  LeaveEntitlement,
+  LeavePolicy,
   LeaveRequest,
   LeaveStatus,
   LeaveType,
+  SetEntitlementInput,
   UpdateLeaveStatusInput,
 } from "../types/leave";
 
@@ -20,6 +24,9 @@ interface ApiLeaveRequest {
   admin_comment: string | null;
   reviewed_by: number | null;
   reviewed_at: string | null;
+  working_days: string | number | null;
+  leave_year: number | null;
+  cancelled_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -54,6 +61,10 @@ function mapLeaveRequest(leave: ApiLeaveRequest): LeaveRequest {
     adminComment: leave.admin_comment,
     reviewedBy: leave.reviewed_by,
     reviewedAt: leave.reviewed_at,
+    workingDays: leave.working_days === null || leave.working_days === undefined
+      ? null : Number(leave.working_days),
+    leaveYear: leave.leave_year ?? null,
+    cancelledAt: leave.cancelled_at ?? null,
     createdAt: leave.created_at,
     updatedAt: leave.updated_at,
   };
@@ -99,4 +110,55 @@ export async function updateLeaveStatus(
   );
 
   return mapLeaveRequest(response.data.data.leave);
+}
+
+/** The signed-in employee's own balances for a leave year. */
+export async function getMyLeaveBalances(
+  year?: number,
+): Promise<{ leaveYear: number; balances: LeaveBalance[] }> {
+  const response = await apiClient.get<{
+    data: { leaveYear: number; balances: LeaveBalance[] };
+  }>("/leaves/me/balances", { params: year ? { year } : undefined });
+
+  return response.data.data;
+}
+
+/** Cancels a request, releasing its days. Employees may cancel only their own. */
+export async function cancelLeaveRequest(id: number): Promise<LeaveRequest> {
+  const response = await apiClient.post<LeaveApiResponse>(`/leaves/${id}/cancel`, {});
+  return mapLeaveRequest(response.data.data.leave);
+}
+
+export async function getLeavePolicies(): Promise<LeavePolicy[]> {
+  const response = await apiClient.get<{ data: { policies: LeavePolicy[] } }>("/leaves/policies");
+  return response.data.data.policies;
+}
+
+export async function updateLeavePolicy(
+  leaveType: LeaveType,
+  defaultAnnualDays: number,
+): Promise<LeavePolicy> {
+  const response = await apiClient.put<{ data: { policy: LeavePolicy } }>(
+    `/leaves/policies/${leaveType}`,
+    { defaultAnnualDays },
+  );
+  return response.data.data.policy;
+}
+
+export async function getEmployeeLeaveBalances(
+  employeeId: number,
+  year?: number,
+): Promise<{ leaveYear: number; balances: LeaveBalance[]; entitlements: LeaveEntitlement[] }> {
+  const response = await apiClient.get<{
+    data: { leaveYear: number; balances: LeaveBalance[]; entitlements: LeaveEntitlement[] };
+  }>(`/leaves/employees/${employeeId}/balances`, { params: year ? { year } : undefined });
+
+  return response.data.data;
+}
+
+export async function setEmployeeEntitlement(
+  employeeId: number,
+  input: SetEntitlementInput,
+): Promise<void> {
+  await apiClient.put(`/leaves/employees/${employeeId}/entitlements`, input);
 }

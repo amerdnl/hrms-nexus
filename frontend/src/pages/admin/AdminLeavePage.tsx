@@ -10,6 +10,8 @@ import FilterPanel from "../../components/ui/FilterPanel";
 import FormField from "../../components/ui/FormField";
 import { fieldDescribedBy } from "../../components/ui/fieldStyles";
 import Modal from "../../components/ui/Modal";
+import { getEmployeeLookup } from "../../api/employeeApi";
+import EmployeeEntitlementPanel from "../../components/leave/EmployeeEntitlementPanel";
 import PageHeader from "../../components/ui/PageHeader";
 import Pagination from "../../components/ui/Pagination";
 import SecondaryButton from "../../components/ui/SecondaryButton";
@@ -18,6 +20,7 @@ import StatusBadge from "../../components/ui/StatusBadge";
 import TextArea from "../../components/ui/TextArea";
 import TextInput from "../../components/ui/TextInput";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import type { EmployeeLookupEntry } from "../../types/employee";
 import type { LeaveRequest, LeaveStatus, LeaveType } from "../../types/leave";
 import { formatDate, formatDateTime, toIsoDate } from "../../utils/datetime";
 import { formatLeaveDaysBetween } from "../../utils/leave";
@@ -42,6 +45,14 @@ const tableHeaders = [
 
 export default function AdminLeavePage() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [employees, setEmployees] = useState<EmployeeLookupEntry[]>([]);
+  const [directoryFailed, setDirectoryFailed] = useState(false);
+
+  // Isolated from the request list: if the directory fails, only the balance
+  // panel is unavailable and leave review still works.
+  useEffect(() => {
+    getEmployeeLookup().then(setEmployees).catch(() => setDirectoryFailed(true));
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -140,6 +151,7 @@ export default function AdminLeavePage() {
       pending: 0,
       approved: 0,
       rejected: 0,
+      cancelled: 0,
     };
 
     for (const leave of visibleLeaves) {
@@ -232,6 +244,8 @@ export default function AdminLeavePage() {
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
+
+      <EmployeeEntitlementPanel employees={employees} directoryFailed={directoryFailed} />
 
       <FilterPanel
         columns={3}

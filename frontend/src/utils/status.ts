@@ -42,6 +42,7 @@ const leaveStatusMap: Record<LeaveStatus, StatusMeta> = {
   approved: { label: "Approved", tone: "success", icon: CircleCheck },
   pending: { label: "Pending", tone: "warning", icon: Clock3 },
   rejected: { label: "Rejected", tone: "danger", icon: CircleX },
+  cancelled: { label: "Cancelled", tone: "neutral", icon: CircleMinus },
 };
 
 const leaveTypeMap: Record<LeaveType, StatusMeta> = {

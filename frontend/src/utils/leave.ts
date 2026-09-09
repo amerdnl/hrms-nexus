@@ -5,13 +5,12 @@ import { toIsoDate } from "./datetime";
  * Inclusive number of calendar days covered by a leave request, or null when
  * the dates are missing, malformed, or reversed.
  *
- * INFORMATIONAL ONLY. This project intentionally has no leave balance system:
- * nothing is deducted, accrued, or validated against an entitlement. This
- * exists purely so the UI can show "Total days: 3" next to a date range.
+ * FALLBACK ONLY. Leave balances are now server-side: a request carries the
+ * working days it actually consumed, snapshotted at submission from the
+ * configured working week. Use that figure wherever it exists.
  *
- * Counts every calendar day, including weekends and public holidays, because
- * the backend stores only start_date and end_date and has no working-calendar
- * concept to consult.
+ * This counts every calendar day, weekends included, so it is only correct for
+ * records written before balances existed, which have no snapshot to show.
  */
 export function calcLeaveDays(
   startDate: string | null | undefined,

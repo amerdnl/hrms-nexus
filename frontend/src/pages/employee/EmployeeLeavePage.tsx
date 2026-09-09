@@ -1,7 +1,12 @@
 import { CalendarOff, CalendarPlus, CalendarRange } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { getApiErrorMessage } from "../../api/axios";
-import { createLeaveRequest, getMyLeaveRequests } from "../../api/leaveApi";
+import {
+  cancelLeaveRequest,
+  createLeaveRequest,
+  getMyLeaveBalances,
+  getMyLeaveRequests,
+} from "../../api/leaveApi";
 import Alert from "../../components/ui/Alert";
 import Button from "../../components/ui/Button";
 import DataTable from "../../components/ui/DataTable";
@@ -10,6 +15,7 @@ import FormField from "../../components/ui/FormField";
 import PageHeader from "../../components/ui/PageHeader";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import SectionCard from "../../components/ui/SectionCard";
+import LeaveBalanceCards from "../../components/leave/LeaveBalanceCards";
 import SelectInput from "../../components/ui/SelectInput";
 import StatusBadge from "../../components/ui/StatusBadge";
 import Tabs, { type TabItem } from "../../components/ui/Tabs";
@@ -17,6 +23,7 @@ import TextArea from "../../components/ui/TextArea";
 import TextInput from "../../components/ui/TextInput";
 import type {
   CreateLeaveRequestInput,
+  LeaveBalance,
   LeaveRequest,
   LeaveType,
 } from "../../types/leave";
@@ -50,6 +57,7 @@ const tableHeaders = [
   "Status",
   "Admin comment",
   "Applied on",
+  "Action",
 ];
 
 export default function EmployeeLeavePage() {
@@ -60,23 +68,54 @@ export default function EmployeeLeavePage() {
   const [isLoadingLeaves, setIsLoadingLeaves] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState(APPLY_TAB);
+  const [balances, setBalances] = useState<LeaveBalance[]>([]);
+  const [leaveYear, setLeaveYear] = useState(new Date().getFullYear());
+  const [isLoadingBalances, setIsLoadingBalances] = useState(true);
+  const [balancesFailed, setBalancesFailed] = useState(false);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    async function loadLeaveHistory() {
-      try {
-        const data = await getMyLeaveRequests();
-        setLeaves(data);
-      } catch (requestError) {
-        setError(
-          getApiErrorMessage(requestError, "Unable to load leave history."),
-        );
-      } finally {
-        setIsLoadingLeaves(false);
-      }
+  const reload = useCallback(async () => {
+    try {
+      setLeaves(await getMyLeaveRequests());
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to load leave history."));
+    } finally {
+      setIsLoadingLeaves(false);
     }
 
-    void loadLeaveHistory();
+    // Balances are loaded separately: if they fail the page still works and the
+    // server remains the authority when a request is submitted.
+    try {
+      const result = await getMyLeaveBalances();
+      setBalances(result.balances);
+      setLeaveYear(result.leaveYear);
+      setBalancesFailed(false);
+    } catch {
+      setBalancesFailed(true);
+    } finally {
+      setIsLoadingBalances(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  async function handleCancel(id: number) {
+    setError("");
+    setSuccess("");
+    setCancellingId(id);
+
+    try {
+      await cancelLeaveRequest(id);
+      setSuccess("Leave request cancelled. Those days are available again.");
+      await reload();
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to cancel that request."));
+    } finally {
+      setCancellingId(null);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -135,6 +174,15 @@ export default function EmployeeLeavePage() {
           switches to History, and the confirmation has to survive that. */}
       {error && <Alert tone="danger">{error}</Alert>}
       {success && <Alert tone="success">{success}</Alert>}
+
+      <SectionCard title="Your leave balances" icon={CalendarRange}>
+        <LeaveBalanceCards
+          balances={balances}
+          leaveYear={leaveYear}
+          isLoading={isLoadingBalances}
+          failed={balancesFailed}
+        />
+      </SectionCard>
 
       <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
@@ -281,8 +329,12 @@ export default function EmployeeLeavePage() {
                 {formatDate(leave.endDate)}
               </td>
 
+              {/* The server's snapshot, in working days. Older records that
+                  predate balances fall back to the calendar-day estimate. */}
               <td className="px-5 py-4 text-fg-muted">
-                {formatLeaveDaysBetween(leave.startDate, leave.endDate)}
+                {leave.workingDays === null
+                  ? formatLeaveDaysBetween(leave.startDate, leave.endDate)
+                  : `${leave.workingDays} working day${leave.workingDays === 1 ? "" : "s"}`}
               </td>
 
               <td className="max-w-56 px-5 py-4 text-fg-muted">
@@ -299,6 +351,25 @@ export default function EmployeeLeavePage() {
 
               <td className="px-5 py-4 text-fg-muted">
                 {formatDateTime(leave.createdAt)}
+              </td>
+
+              {/* Only leave that has not started can be withdrawn; anything else
+                  needs an administrator correction, so no button is offered. */}
+              <td className="px-5 py-4">
+                {(leave.status === "pending" || leave.status === "approved") &&
+                leave.startDate > new Date().toISOString().slice(0, 10) ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    isLoading={cancellingId === leave.id}
+                    loadingLabel="Cancelling..."
+                    onClick={() => void handleCancel(leave.id)}
+                  >
+                    Cancel
+                  </Button>
+                ) : (
+                  <span className="text-fg-subtle">—</span>
+                )}
               </td>
             </tr>
           ))}
