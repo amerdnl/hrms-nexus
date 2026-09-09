@@ -1,7 +1,5 @@
 import type { Request, Response } from "express";
 import {
-  createCheckIn,
-  createCheckOut,
   getEmployeeAttendanceHistory,
   getTodayAttendance,
 } from "../services/attendanceService.js";
@@ -25,12 +23,6 @@ function getEmployeeId(request: Request): number | null {
   }
 
   return employeeId;
-}
-
-function isPostgresError(
-  error: unknown,
-): error is { code?: string; message?: string } {
-  return typeof error === "object" && error !== null;
 }
 
 /**

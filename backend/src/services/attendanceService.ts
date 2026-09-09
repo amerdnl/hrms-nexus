@@ -5,7 +5,6 @@ import type {
   AttendanceFilters,
   AttendanceRecord,
   AttendanceStatistics,
-  AttendanceStatus,
   ManualAttendanceInput,
   UpdateAttendanceInput,
 } from "../types/attendance.js";
@@ -53,61 +52,6 @@ export function mapAttendanceRow(row: AttendanceDatabaseRow): AttendanceRecord {
       lateMinutes: toNumber(row.late_minutes),
     },
   };
-}
-
-export async function createCheckIn(
-  employeeId: number,
-  attendanceDate: string,
-  checkInTime: string,
-  status: AttendanceStatus,
-): Promise<AttendanceRecord> {
-  const result = await pool.query<AttendanceDatabaseRow>(
-    `
-      INSERT INTO attendance (
-        employee_id,
-        attendance_date,
-        check_in_time,
-        status,
-        is_manual
-      )
-      VALUES ($1, $2, $3, $4, FALSE)
-      RETURNING *
-    `,
-    [employeeId, attendanceDate, checkInTime, status],
-  );
-
-  const row = result.rows[0];
-
-  if (!row) {
-    throw new Error("Unable to create attendance record");
-  }
-
-  return mapAttendanceRow(row);
-}
-
-export async function createCheckOut(
-  employeeId: number,
-  attendanceDate: string,
-  checkOutTime: string,
-): Promise<AttendanceRecord | null> {
-  const result = await pool.query<AttendanceDatabaseRow>(
-    `
-      UPDATE attendance
-      SET
-        check_out_time = $1,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE employee_id = $2
-        AND attendance_date = $3
-        AND check_in_time IS NOT NULL
-        AND check_out_time IS NULL
-      RETURNING *
-    `,
-    [checkOutTime, employeeId, attendanceDate],
-  );
-
-  const row = result.rows[0];
-
-  return row ? mapAttendanceRow(row) : null;
 }
 
 export async function getTodayAttendance(
