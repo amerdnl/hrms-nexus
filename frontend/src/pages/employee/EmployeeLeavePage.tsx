@@ -60,6 +60,23 @@ const tableHeaders = [
   "Action",
 ];
 
+/**
+ * Turns a rejected submission into something actionable.
+ *
+ * The server names the exact problem per field in `errors`; showing only the
+ * summary ("Check the highlighted leave details") leaves the employee guessing.
+ */
+function describeLeaveError(error: unknown, fallback: string): string {
+  const details = (error as { response?: { data?: { errors?: Record<string, string> } } })
+    .response?.data?.errors;
+
+  const summary = getApiErrorMessage(error, fallback);
+  if (!details || typeof details !== "object") return summary;
+
+  const messages = Object.values(details).filter((value): value is string => typeof value === "string");
+  return messages.length > 0 ? messages.join(" ") : summary;
+}
+
 export default function EmployeeLeavePage() {
   const [form, setForm] = useState<CreateLeaveRequestInput>(initialForm);
   const [error, setError] = useState("");
@@ -141,13 +158,12 @@ export default function EmployeeLeavePage() {
       setLeaves((currentLeaves) => [newLeave, ...currentLeaves]);
       setSuccess("Leave request submitted successfully.");
       setForm(initialForm);
+      void reload();
       // The new row lands in the other panel, so move to it - otherwise the
       // confirmation points at something the user cannot see.
       setActiveTab(HISTORY_TAB);
     } catch (requestError) {
-      setError(
-        getApiErrorMessage(requestError, "Unable to submit leave request."),
-      );
+      setError(describeLeaveError(requestError, "Unable to submit leave request."));
     } finally {
       setIsSubmitting(false);
     }
