@@ -22,6 +22,7 @@ import EmployeeFormPage from "./pages/admin/EmployeeFormPage";
 import CompanySettingsPage from "./pages/admin/CompanySettingsPage";
 import ImportPage from "./pages/admin/ImportPage";
 import AdminPayrollPage from "./pages/admin/AdminPayrollPage";
+import AdminAuditPage from "./pages/admin/AdminAuditPage";
 import AdminReportsPage from "./pages/admin/AdminReportsPage";
 import EmployeePayslipsPage from "./pages/employee/EmployeePayslipsPage";
 
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="/admin/import" element={<ImportPage />} />
           <Route path="/admin/payroll" element={<AdminPayrollPage />} />
           <Route path="/admin/reports" element={<AdminReportsPage />} />
+          <Route path="/admin/audit" element={<AdminAuditPage />} />
           <Route path="/admin/settings" element={<CompanySettingsPage />} />
         </Route>
       </Route>
