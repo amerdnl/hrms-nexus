@@ -20,6 +20,7 @@ import EmployeeDetailsPage from "./pages/admin/EmployeeDetailsPage";
 import EmployeeEditPage from "./pages/admin/EmployeeEditPage";
 import EmployeeFormPage from "./pages/admin/EmployeeFormPage";
 import CompanySettingsPage from "./pages/admin/CompanySettingsPage";
+import ImportPage from "./pages/admin/ImportPage";
 
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
@@ -69,6 +70,7 @@ export default function App() {
           />
           <Route path="/admin/attendance" element={<AdminAttendancePage />} />
           <Route path="/admin/leave" element={<AdminLeavePage />} />
+          <Route path="/admin/import" element={<ImportPage />} />
           <Route path="/admin/settings" element={<CompanySettingsPage />} />
         </Route>
       </Route>

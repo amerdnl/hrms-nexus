@@ -6,6 +6,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  Upload,
   UserRound,
   Users,
   X,
@@ -31,6 +32,7 @@ const adminNavigation: NavigationItem[] = [
   { label: "Departments", to: "/admin/departments", icon: Building2 },
   { label: "Attendance", to: "/admin/attendance", icon: Clock3 },
   { label: "Leave", to: "/admin/leave", icon: CalendarDays },
+  { label: "Import", to: "/admin/import", icon: Upload },
   { label: "Settings", to: "/admin/settings", icon: Settings },
 ];
 
