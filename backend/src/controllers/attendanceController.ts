@@ -5,10 +5,13 @@ import {
   getEmployeeAttendanceHistory,
   getTodayAttendance,
 } from "../services/attendanceService.js";
+import { validateReportedPosition } from "../utils/attendanceVerification.js";
 import {
-  determineAttendanceStatus,
-  getMalaysiaDateTime,
-} from "../utils/attendanceTime.js";
+  currentAttendanceDate,
+  verifiedCheckIn,
+  verifiedCheckOut,
+  type VerificationOutcome,
+} from "../services/verifiedAttendanceService.js";
 
 function getEmployeeId(request: Request): number | null {
   const employeeId = request.user?.employeeId;
@@ -30,9 +33,82 @@ function isPostgresError(
   return typeof error === "object" && error !== null;
 }
 
-export async function checkIn(
+/**
+ * Maps a verification outcome to a response.
+ *
+ * Every refusal says which check failed, because "clock-in failed" is useless to
+ * an employee standing outside an office at 9am.
+ */
+function respondToFailure(
+  response: Response,
+  outcome: Extract<VerificationOutcome, { ok: false }>,
+): void {
+  switch (outcome.reason) {
+    case "settings_missing":
+    case "office_not_configured":
+      // Fail closed: an unconfigured office never means "anywhere is acceptable".
+      response.status(503).json({
+        success: false,
+        code: outcome.reason,
+        message:
+          "Attendance verification is not configured yet. Ask your administrator to set the office location in Company Settings.",
+      });
+      return;
+    case "accuracy":
+      response.status(422).json({
+        success: false,
+        code: "accuracy",
+        message:
+          "Your device could not determine your location precisely enough. Move somewhere with a clearer signal and try again.",
+      });
+      return;
+    case "outside":
+      response.status(403).json({
+        success: false,
+        code: "outside",
+        message: `You are about ${outcome.distanceMeters} m from the office, outside the approved ${outcome.radiusMeters} m radius.`,
+      });
+      return;
+    case "invalid":
+      response.status(400).json({
+        success: false,
+        code: "invalid_code",
+        message: "That code was not recognised. Scan the current QR code shown at the office.",
+      });
+      return;
+    case "expired":
+      response.status(410).json({
+        success: false,
+        code: "expired_code",
+        message: "That code has expired. Scan the current QR code and try again.",
+      });
+      return;
+    case "replayed":
+      response.status(409).json({
+        success: false,
+        code: "replayed_code",
+        message: "That code has already been used for this action. Scan the current QR code.",
+      });
+      return;
+    case "already_checked_in":
+      response.status(409).json({ success: false, code: outcome.reason, message: "You have already checked in today" });
+      return;
+    case "already_checked_out":
+      response.status(409).json({ success: false, code: outcome.reason, message: "You have already checked out today" });
+      return;
+    case "not_checked_in":
+      response.status(404).json({ success: false, code: outcome.reason, message: "You must check in before checking out" });
+      return;
+  }
+}
+
+/** Shared body handling: an authenticated employee, a code and one position. */
+async function handleClockAction(
   request: Request,
   response: Response,
+  action: (employeeId: number, token: string, position: ReturnType<typeof validateReportedPosition>["position"] & object) => Promise<VerificationOutcome>,
+  successMessage: string,
+  successStatus: number,
 ): Promise<void> {
   const employeeId = getEmployeeId(request);
 
@@ -44,103 +120,62 @@ export async function checkIn(
     return;
   }
 
-  const { date, time } = getMalaysiaDateTime();
-  const status = determineAttendanceStatus(time);
+  const body = (request.body ?? {}) as Record<string, unknown>;
+  const token = typeof body.token === "string" ? body.token : "";
+
+  if (!token.trim()) {
+    response.status(400).json({
+      success: false,
+      code: "missing_code",
+      message: "Scan the QR code shown at the office to record attendance.",
+    });
+    return;
+  }
+
+  const position = validateReportedPosition(body.position);
+  if (!position.valid || !position.position) {
+    response.status(400).json({
+      success: false,
+      code: "missing_location",
+      message: "Allow location access so your attendance can be verified.",
+      errors: position.errors,
+    });
+    return;
+  }
 
   try {
-    const existingRecord = await getTodayAttendance(employeeId, date);
+    const outcome = await action(employeeId, token, position.position);
 
-    if (existingRecord) {
-      response.status(409).json({
-        success: false,
-        message: "You have already checked in today",
-      });
+    if (!outcome.ok) {
+      respondToFailure(response, outcome);
       return;
     }
 
-    const attendance = await createCheckIn(employeeId, date, time, status);
-
-    response.status(201).json({
+    response.status(successStatus).json({
       success: true,
-      message: "Check-in recorded successfully",
-      data: attendance,
+      message: successMessage,
+      data: outcome.record,
     });
   } catch (error) {
-    if (isPostgresError(error) && error.code === "23505") {
-      response.status(409).json({
-        success: false,
-        message: "You have already checked in today",
-      });
-      return;
-    }
-
-    console.error("Check-in error:", error);
-
+    // Never log the submitted code or coordinates.
+    console.error("Attendance verification error:", error);
     response.status(500).json({
       success: false,
-      message: "Unable to record check-in",
+      message: "Unable to record attendance. Please try again.",
     });
   }
 }
 
-export async function checkOut(
-  request: Request,
-  response: Response,
-): Promise<void> {
-  const employeeId = getEmployeeId(request);
+export async function checkIn(request: Request, response: Response): Promise<void> {
+  await handleClockAction(
+    request, response, verifiedCheckIn, "Check-in recorded successfully", 201,
+  );
+}
 
-  if (!employeeId) {
-    response.status(401).json({
-      success: false,
-      message: "Authenticated employee account is required",
-    });
-    return;
-  }
-
-  const { date, time } = getMalaysiaDateTime();
-
-  try {
-    const existingRecord = await getTodayAttendance(employeeId, date);
-
-    if (!existingRecord) {
-      response.status(404).json({
-        success: false,
-        message: "You must check in before checking out",
-      });
-      return;
-    }
-
-    if (existingRecord.checkOutTime) {
-      response.status(409).json({
-        success: false,
-        message: "You have already checked out today",
-      });
-      return;
-    }
-
-    const attendance = await createCheckOut(employeeId, date, time);
-
-    if (!attendance) {
-      response.status(409).json({
-        success: false,
-        message: "Unable to record check-out",
-      });
-      return;
-    }
-
-    response.status(200).json({
-      success: true,
-      message: "Check-out recorded successfully",
-      data: attendance,
-    });
-  } catch (error) {
-    console.error("Check-out error:", error);
-
-    response.status(500).json({
-      success: false,
-      message: "Unable to record check-out",
-    });
-  }
+export async function checkOut(request: Request, response: Response): Promise<void> {
+  await handleClockAction(
+    request, response, verifiedCheckOut, "Check-out recorded successfully", 200,
+  );
 }
 
 export async function getToday(
@@ -157,9 +192,8 @@ export async function getToday(
     return;
   }
 
-  const { date } = getMalaysiaDateTime();
-
   try {
+    const date = await currentAttendanceDate();
     const attendance = await getTodayAttendance(employeeId, date);
 
     response.status(200).json({

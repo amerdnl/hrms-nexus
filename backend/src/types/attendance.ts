@@ -1,5 +1,22 @@
 export type AttendanceStatus = "present" | "late" | "absent" | "on_leave";
 
+export type VerificationStatus = "verified" | "manual" | "exception";
+
+/** Location and method metadata captured when a record is verified. */
+export interface AttendanceVerification {
+  checkInLatitude: number | null;
+  checkInLongitude: number | null;
+  checkInAccuracyMeters: number | null;
+  checkInDistanceMeters: number | null;
+  checkOutLatitude: number | null;
+  checkOutLongitude: number | null;
+  checkOutAccuracyMeters: number | null;
+  checkOutDistanceMeters: number | null;
+  verificationMethod: string | null;
+  verificationStatus: VerificationStatus | null;
+  lateMinutes: number | null;
+}
+
 export interface AttendanceRecord {
   id: number;
   employeeId: number;
@@ -11,6 +28,7 @@ export interface AttendanceRecord {
   adminNote: string | null;
   createdAt: string;
   updatedAt: string;
+  verification: AttendanceVerification;
 }
 
 export interface AttendanceDatabaseRow {
@@ -24,6 +42,17 @@ export interface AttendanceDatabaseRow {
   admin_note: string | null;
   created_at: string | Date;
   updated_at: string | Date;
+  check_in_latitude?: number | null;
+  check_in_longitude?: number | null;
+  check_in_accuracy_meters?: number | null;
+  check_in_distance_meters?: number | null;
+  check_out_latitude?: number | null;
+  check_out_longitude?: number | null;
+  check_out_accuracy_meters?: number | null;
+  check_out_distance_meters?: number | null;
+  verification_method?: string | null;
+  verification_status?: VerificationStatus | null;
+  late_minutes?: number | null;
 }
 
 export interface ManualAttendanceInput {
@@ -33,6 +62,7 @@ export interface ManualAttendanceInput {
   checkOutTime?: string | null;
   status: AttendanceStatus;
   adminNote?: string | null;
+  verificationMethod?: string;
 }
 
 export interface UpdateAttendanceInput {

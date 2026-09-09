@@ -32,6 +32,8 @@ const queryMock = mock.method(pool, "query", async (sql: string, values: unknown
       ? [{ id: 100, employee_id: "10", reason: "Own leave" }] : [];
   } else if (normalized.includes("FROM leave_requests WHERE employee_id = $1")) {
     rows = [{ id: 100, employee_id: String(values[0]) }];
+  } else if (normalized.includes("FROM public.company_settings WHERE id = 1")) {
+    rows = [{ timezone: "Asia/Kuala_Lumpur", office_latitude: null, office_longitude: null }];
   } else if (normalized.includes("FROM attendance WHERE employee_id = $1")) {
     rows = [];
   } else if (normalized.includes("FROM employees e LEFT JOIN departments") ||

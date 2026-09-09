@@ -25,22 +25,61 @@ test("Company Settings PostgreSQL upgrade and authenticated API", {
     await admin.query(`CREATE DATABASE "${database}" TEMPLATE hr_nexus_v2_settings_baseline`);
     pool = new pg.Pool({ host, user: "postgres", database });
     const db = pool;
+    // Columns present when the baseline was taken. Later reviewed migrations may
+    // add columns; this suite proves the values it already knew about are intact,
+    // not that the schema is frozen forever.
+    let baseline: Record<string, string[]> | null = null;
+    let baselineSequences: string[] | null = null;
+    let baselineConstraints: string[] | null = null;
     async function business() {
       const data: Record<string, unknown> = {};
-      for (const table of ["departments", "employees", "users", "leave_requests", "attendance"]) {
-        data[table] = (await db.query(`SELECT count(*)::integer, md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY id)::text,'[]')) AS digest FROM public.${table} t`)).rows;
+      const tables = ["departments", "employees", "users", "leave_requests", "attendance"];
+      if (!baseline) {
+        baseline = {};
+        for (const table of tables) {
+          baseline[table] = (await db.query(
+            "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1",
+            [table],
+          )).rows.map((row) => row.column_name);
+        }
+      }
+      for (const table of tables) {
+        const present = (await db.query(
+          "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1",
+          [table],
+        )).rows.map((row) => row.column_name);
+        const added = present.filter((column) => !baseline![table]!.includes(column));
+        data[table] = (await db.query(
+          `SELECT count(*)::integer, md5(COALESCE(jsonb_agg(to_jsonb(t) - $1::text[] ORDER BY id)::text,'[]')) AS digest FROM public.${table} t`,
+          [added],
+        )).rows;
       }
       data.columns = (await db.query(`SELECT table_name,column_name,data_type,column_default,is_nullable FROM information_schema.columns
-        WHERE table_schema='public' AND table_name IN ('departments','employees','users','leave_requests','attendance') ORDER BY table_name,ordinal_position`)).rows;
+        WHERE table_schema='public' AND table_name IN ('departments','employees','users','leave_requests','attendance')
+          AND column_name = ANY($1::text[]) ORDER BY table_name,ordinal_position`,
+        [Object.values(baseline).flat()])).rows;
+      // Sequences and constraints are compared by the names that existed at
+      // baseline; later reviewed migrations legitimately add their own.
+      if (!baselineSequences) {
+        baselineSequences = (await db.query(
+          "SELECT sequencename FROM pg_sequences WHERE schemaname='public'",
+        )).rows.map((row) => row.sequencename as string);
+      }
+      if (!baselineConstraints) {
+        baselineConstraints = (await db.query(
+          "SELECT conname FROM pg_constraint WHERE connamespace='public'::regnamespace",
+        )).rows.map((row) => row.conname as string);
+      }
       data.sequences = (await db.query(
         `SELECT * FROM pg_sequences WHERE schemaname='public'
-           AND sequencename NOT LIKE 'import%' ORDER BY sequencename`,
+           AND sequencename = ANY($1::text[]) ORDER BY sequencename`,
+        [baselineSequences],
       )).rows;
-      data.constraints = (await db.query(`SELECT conrelid::regclass::text,conname,convalidated,pg_get_constraintdef(oid) FROM pg_constraint
-        WHERE connamespace='public'::regnamespace
-          AND conrelid NOT IN (SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE n.nspname='public' AND (c.relname='company_settings' OR c.relname LIKE 'import%'))
-        ORDER BY 1,2`)).rows;
+      data.constraints = (await db.query(
+        `SELECT conrelid::regclass::text,conname,convalidated,pg_get_constraintdef(oid) FROM pg_constraint
+         WHERE connamespace='public'::regnamespace AND conname = ANY($1::text[]) ORDER BY 1,2`,
+        [baselineConstraints],
+      )).rows;
       data.orphans = (await db.query("SELECT id, md5((to_jsonb(a)-'integrity_issue')::text) AS digest FROM attendance_integrity_exceptions a ORDER BY id")).rows;
       return data;
     }

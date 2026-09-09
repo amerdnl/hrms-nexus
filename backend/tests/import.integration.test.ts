@@ -25,21 +25,42 @@ test("Company import: migration 0004 and the authenticated import workflow", {
     pool = new pg.Pool({ host, user: "postgres", database });
     const db = pool;
 
+    // Columns known at baseline; later migrations may add more without meaning
+    // that existing business data changed.
+    let baseline: Record<string, string[]> | null = null;
+    let baselineSequences: string[] | null = null;
     async function fingerprint() {
       const data: Record<string, unknown> = {};
-      for (const table of ["departments", "employees", "users", "leave_requests", "attendance"]) {
+      const tables = ["departments", "employees", "users", "leave_requests", "attendance"];
+      const columnsOf = async (table: string) => (await db.query(
+        "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1",
+        [table],
+      )).rows.map((row) => row.column_name as string);
+      if (!baseline) {
+        baseline = {};
+        for (const table of tables) baseline[table] = await columnsOf(table);
+      }
+      for (const table of tables) {
+        const added = (await columnsOf(table)).filter((column) => !baseline![table]!.includes(column));
         data[table] = (await db.query(
-          `SELECT count(*)::integer, md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY id)::text,'[]')) AS digest FROM public.${table} t`,
+          `SELECT count(*)::integer, md5(COALESCE(jsonb_agg(to_jsonb(t) - $1::text[] ORDER BY id)::text,'[]')) AS digest FROM public.${table} t`,
+          [added],
         )).rows;
       }
       data.orphans = (await db.query(
         "SELECT id, employee_id FROM public.attendance a WHERE NOT EXISTS (SELECT 1 FROM public.employees e WHERE e.id = a.employee_id) ORDER BY id",
       )).rows;
-      // Scoped to the pre-existing business sequences: 0004 legitimately adds its
-      // own, and those must not make this comparison look like business drift.
+      // Compared by the names that existed at baseline, so a later migration
+      // adding its own sequences cannot look like business drift.
+      if (!baselineSequences) {
+        baselineSequences = (await db.query(
+          "SELECT sequencename FROM pg_sequences WHERE schemaname='public'",
+        )).rows.map((row) => row.sequencename as string);
+      }
       data.sequences = (await db.query(
         `SELECT * FROM pg_sequences WHERE schemaname='public'
-           AND sequencename NOT LIKE 'import%' ORDER BY sequencename`,
+           AND sequencename = ANY($1::text[]) ORDER BY sequencename`,
+        [baselineSequences],
       )).rows;
       return data;
     }
@@ -52,8 +73,9 @@ test("Company import: migration 0004 and the authenticated import workflow", {
     const earlierLedger = (await db.query("SELECT * FROM schema_migrations WHERE version='0001'")).rows;
 
     await t.test("0004 applies additively and leaves business data untouched", async () => {
+      // This milestone's slice; later reviewed migrations may follow 0004.
       assert.deepEqual(
-        (await runMigrations(db, { mode: "apply", database })).newlyApplied,
+        (await runMigrations(db, { mode: "apply", database })).newlyApplied.slice(0, 3),
         ["0002", "0003", "0004"],
       );
 

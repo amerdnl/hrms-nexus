@@ -1,4 +1,5 @@
 import pool from "../config/db.js";
+import { statusForMethod, type VerificationMethod } from "../utils/attendanceVerification.js";
 import type {
   AttendanceDatabaseRow,
   AttendanceFilters,
@@ -23,7 +24,10 @@ function normalizeDatabaseDate(value: string | Date): string {
   return `${match[1]}-${match[2]}-${match[3]}`;
 }
 
-function mapAttendanceRow(row: AttendanceDatabaseRow): AttendanceRecord {
+const toNumber = (value: unknown): number | null =>
+  value === null || value === undefined ? null : Number(value);
+
+export function mapAttendanceRow(row: AttendanceDatabaseRow): AttendanceRecord {
   return {
     id: Number(row.id),
     employeeId: Number(row.employee_id),
@@ -35,6 +39,19 @@ function mapAttendanceRow(row: AttendanceDatabaseRow): AttendanceRecord {
     adminNote: row.admin_note,
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
+    verification: {
+      checkInLatitude: toNumber(row.check_in_latitude),
+      checkInLongitude: toNumber(row.check_in_longitude),
+      checkInAccuracyMeters: toNumber(row.check_in_accuracy_meters),
+      checkInDistanceMeters: toNumber(row.check_in_distance_meters),
+      checkOutLatitude: toNumber(row.check_out_latitude),
+      checkOutLongitude: toNumber(row.check_out_longitude),
+      checkOutAccuracyMeters: toNumber(row.check_out_accuracy_meters),
+      checkOutDistanceMeters: toNumber(row.check_out_distance_meters),
+      verificationMethod: row.verification_method ?? null,
+      verificationStatus: row.verification_status ?? null,
+      lateMinutes: toNumber(row.late_minutes),
+    },
   };
 }
 
@@ -155,9 +172,11 @@ export async function createManualAttendance(
         check_out_time,
         status,
         is_manual,
-        admin_note
+        admin_note,
+        verification_method,
+        verification_status
       )
-      VALUES ($1, $2, $3, $4, $5, TRUE, $6)
+      VALUES ($1, $2, $3, $4, $5, TRUE, $6, $7, $8)
       RETURNING *
     `,
     [
@@ -167,6 +186,8 @@ export async function createManualAttendance(
       input.checkOutTime ?? null,
       input.status,
       input.adminNote ?? null,
+      input.verificationMethod ?? "ADMIN_OVERRIDE",
+      statusForMethod((input.verificationMethod ?? "ADMIN_OVERRIDE") as VerificationMethod),
     ],
   );
 

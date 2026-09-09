@@ -31,17 +31,39 @@ test("Employee/department stability: migration 0003 and authenticated lifecycle 
     const db = pool;
 
     /** Row counts, digests, schema, sequences and the protected orphan rows. */
+    // Columns known at baseline; later migrations may add more without meaning
+    // that existing business data changed.
+    let baseline: Record<string, string[]> | null = null;
+    let baselineSequences: string[] | null = null;
     async function business() {
       const data: Record<string, unknown> = {};
-      for (const table of ["departments", "employees", "users", "leave_requests", "attendance"]) {
+      const tables = ["departments", "employees", "users", "leave_requests", "attendance"];
+      const columnsOf = async (table: string) => (await db.query(
+        "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1",
+        [table],
+      )).rows.map((row) => row.column_name as string);
+      if (!baseline) {
+        baseline = {};
+        for (const table of tables) baseline[table] = await columnsOf(table);
+      }
+      for (const table of tables) {
+        const added = (await columnsOf(table)).filter((column) => !baseline![table]!.includes(column));
         data[table] = (await db.query(
-          `SELECT count(*)::integer, md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY id)::text,'[]')) AS digest FROM public.${table} t`,
+          `SELECT count(*)::integer, md5(COALESCE(jsonb_agg(to_jsonb(t) - $1::text[] ORDER BY id)::text,'[]')) AS digest FROM public.${table} t`,
+          [added],
         )).rows;
       }
-      // Scoped to business sequences; later migrations legitimately add their own.
+      // Compared by the names that existed at baseline, so a later migration
+      // adding its own sequences cannot look like business drift.
+      if (!baselineSequences) {
+        baselineSequences = (await db.query(
+          "SELECT sequencename FROM pg_sequences WHERE schemaname='public'",
+        )).rows.map((row) => row.sequencename as string);
+      }
       data.sequences = (await db.query(
         `SELECT * FROM pg_sequences WHERE schemaname='public'
-           AND sequencename NOT LIKE 'import%' ORDER BY sequencename`,
+           AND sequencename = ANY($1::text[]) ORDER BY sequencename`,
+        [baselineSequences],
       )).rows;
       data.orphans = (await db.query(
         "SELECT id, md5((to_jsonb(a)-'integrity_issue')::text) AS digest FROM attendance_integrity_exceptions a ORDER BY id",

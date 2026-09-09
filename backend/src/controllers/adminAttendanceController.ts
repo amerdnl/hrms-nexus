@@ -11,7 +11,11 @@ import type {
   ManualAttendanceInput,
   UpdateAttendanceInput,
 } from "../types/attendance.js";
-import { getMalaysiaDateTime } from "../utils/attendanceTime.js";
+import { currentAttendanceDate } from "../services/verifiedAttendanceService.js";
+import {
+  verificationMethods,
+  type VerificationMethod,
+} from "../utils/attendanceVerification.js";
 
 const validStatuses: AttendanceStatus[] = [
   "present",
@@ -50,6 +54,7 @@ export async function createManualAttendance(
     checkOutTime,
     status,
     adminNote,
+    verificationMethod,
   } = request.body as Partial<ManualAttendanceInput>;
 
   if (!Number.isInteger(employeeId) || Number(employeeId) <= 0) {
@@ -64,6 +69,19 @@ export async function createManualAttendance(
     response.status(400).json({
       success: false,
       message: "Attendance date must use YYYY-MM-DD format",
+    });
+    return;
+  }
+
+  // An administrator record is never "verified"; it is declared, and which kind of
+  // declaration it is must be explicit and auditable.
+  const method: VerificationMethod =
+    verificationMethod === undefined ? "ADMIN_OVERRIDE" : (verificationMethod as VerificationMethod);
+
+  if (!verificationMethods.includes(method) || method === "QR_LOCATION") {
+    response.status(400).json({
+      success: false,
+      message: `Verification method must be one of: ${verificationMethods.filter((m) => m !== "QR_LOCATION").join(", ")}.`,
     });
     return;
   }
@@ -116,6 +134,7 @@ export async function createManualAttendance(
       checkOutTime: checkOutTime ?? null,
       status,
       adminNote: adminNote ?? null,
+      verificationMethod: method,
     });
 
     response.status(201).json({
@@ -322,7 +341,7 @@ export async function getStatistics(
   request: Request,
   response: Response,
 ): Promise<void> {
-  const today = getMalaysiaDateTime().date;
+  const today = await currentAttendanceDate();
   const requestedDate = request.query.date;
   const attendanceDate = requestedDate === undefined ? today : requestedDate;
 
