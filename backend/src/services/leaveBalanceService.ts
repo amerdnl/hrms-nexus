@@ -205,26 +205,43 @@ export async function upsertEntitlement(
 }
 
 /**
- * Unpaid leave actually taken in a period, for payroll to consume later.
+ * Unpaid leave actually taken within a period, for payroll to consume.
  *
  * Reads only approved requests of types the policy marks unpaid, so payroll never
  * has to reimplement which leave costs money.
+ *
+ * Counts only the working days that fall INSIDE the window. Summing each
+ * request's stored total would charge a leave spanning two months in full to both
+ * of them. The working-week pattern is supplied by the caller -- payroll passes
+ * the pattern snapshotted onto its period -- so a later change to Company
+ * Settings cannot restate a finished payroll.
  */
 export async function getUnpaidLeaveDays(
   db: Pick<PoolClient, "query">,
   employeeId: number,
   startDate: string,
   endDate: string,
+  workingDaysPattern: readonly number[],
 ): Promise<number> {
+  if (workingDaysPattern.length === 0) return 0;
+
   const result = await db.query<{ days: string }>(
-    `SELECT COALESCE(SUM(r.working_days), 0) AS days
+    `SELECT COALESCE(SUM((
+       SELECT count(*)
+       FROM generate_series(
+         GREATEST(r.start_date, $2::date),
+         LEAST(r.end_date, $3::date),
+         INTERVAL '1 day'
+       ) AS day
+       WHERE EXTRACT(ISODOW FROM day)::int = ANY($4::int[])
+     )), 0) AS days
      FROM public.leave_requests r
      JOIN public.leave_policies p ON p.leave_type = r.leave_type
      WHERE r.employee_id = $1
        AND r.status = 'approved'
        AND p.is_paid = FALSE
        AND r.start_date <= $3::date AND r.end_date >= $2::date`,
-    [employeeId, startDate, endDate],
+    [employeeId, startDate, endDate, [...workingDaysPattern]],
   );
   return round1(num(result.rows[0]?.days));
 }

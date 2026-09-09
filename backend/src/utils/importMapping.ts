@@ -23,6 +23,9 @@ export const importFields = [
   "opening_annual_days",
   "opening_medical_days",
   "opening_emergency_days",
+  "basic_salary",
+  "allowance",
+  "overtime_rate",
 ] as const;
 
 export type ImportField = (typeof importFields)[number];
@@ -52,6 +55,9 @@ export const importFieldLabels: Record<ImportField, string> = {
   opening_annual_days: "Opening annual leave balance",
   opening_medical_days: "Opening medical leave balance",
   opening_emergency_days: "Opening emergency leave balance",
+  basic_salary: "Basic salary",
+  allowance: "Allowances",
+  overtime_rate: "Overtime rate per hour",
 };
 
 /**
@@ -117,6 +123,18 @@ const aliases: Record<ImportField, string[]> = {
   opening_emergency_days: [
     "opening emergency leave balance", "emergency leave balance", "emergency balance",
     "el balance", "emergency leave remaining", "opening emergency",
+  ],
+  basic_salary: [
+    "basic salary", "salary", "monthly salary", "basic pay", "base salary",
+    "basic", "gross salary", "monthly basic",
+  ],
+  allowance: [
+    "allowance", "allowances", "fixed allowance", "monthly allowance",
+    "total allowance", "other allowance",
+  ],
+  overtime_rate: [
+    "overtime rate", "ot rate", "overtime hourly rate", "hourly overtime rate",
+    "overtime per hour",
   ],
 };
 

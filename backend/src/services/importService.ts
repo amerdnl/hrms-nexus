@@ -8,6 +8,7 @@ import {
   type ColumnMapping,
   type ImportField,
 } from "../utils/importMapping.js";
+import { setCompensation } from "./payrollService.js";
 import {
   classifyRows,
   normalizeEmail,
@@ -177,6 +178,8 @@ export interface ApplyResult {
   createdDepartments: string[];
   /** Entitlement rows written from mapped opening-balance columns. */
   openingBalanceGrants: number;
+  /** New salary rows opened from mapped compensation columns. */
+  compensationRecords: number;
 }
 
 export interface ApplyOptions {
@@ -184,7 +187,13 @@ export interface ApplyOptions {
   createMissingDepartments: boolean;
 }
 
-const updatableColumns: Array<Exclude<ImportField, "employee_number" | "email" | "department">> = [
+/** Employee columns an update may write. Money and leave live in their own tables. */
+type UpdatableEmployeeColumn =
+  | "full_name" | "job_title" | "employment_status" | "employment_date"
+  | "date_of_birth" | "gender" | "phone" | "address"
+  | "emergency_contact_name" | "emergency_contact_phone";
+
+const updatableColumns: UpdatableEmployeeColumn[] = [
   "full_name", "job_title", "employment_status", "employment_date",
   "date_of_birth", "gender", "phone", "address",
   "emergency_contact_name", "emergency_contact_phone",
@@ -354,6 +363,66 @@ export async function applyImport(
     }
   }
 
+  // Compensation from a file opens a NEW salary row rather than editing history.
+  // A row is written only when the file actually maps a money column and the
+  // amounts differ from what is already effective, so re-importing an unchanged
+  // spreadsheet never disturbs salary history.
+  const mapsCompensation = mapping.basic_salary !== undefined
+    || mapping.allowance !== undefined
+    || mapping.overtime_rate !== undefined;
+  let compensationRecords = 0;
+
+  if (mapsCompensation) {
+    const today = (await client.query<{ today: string }>(
+      `SELECT to_char(CURRENT_TIMESTAMP AT TIME ZONE COALESCE(
+         (SELECT timezone FROM public.company_settings WHERE id = 1), 'UTC'), 'YYYY-MM-DD') AS today`,
+    )).rows[0]!.today;
+
+    for (const result of [...toCreate, ...toUpdate]) {
+      if (result.employeeId === null || result.values === null) continue;
+      const values = result.values;
+      if (values.basic_salary_sen === null
+        && values.allowance_sen === null
+        && values.overtime_rate_sen === null) continue;
+
+      const current = (await client.query<{
+        basic_salary_sen: string; allowance_sen: string; overtime_rate_sen: string;
+      }>(
+        `SELECT basic_salary_sen, allowance_sen, overtime_rate_sen
+         FROM public.employee_compensation
+         WHERE employee_id = $1 AND effective_from <= $2::date
+           AND (effective_to IS NULL OR effective_to >= $2::date)
+         ORDER BY effective_from DESC LIMIT 1`,
+        [result.employeeId, today],
+      )).rows[0];
+
+      // Unmapped columns keep whatever is already in force.
+      const basic = values.basic_salary_sen ?? Number(current?.basic_salary_sen ?? 0);
+      const allowance = values.allowance_sen ?? Number(current?.allowance_sen ?? 0);
+      const overtime = values.overtime_rate_sen ?? Number(current?.overtime_rate_sen ?? 0);
+
+      const unchanged = current
+        && Number(current.basic_salary_sen) === basic
+        && Number(current.allowance_sen) === allowance
+        && Number(current.overtime_rate_sen) === overtime;
+      if (unchanged) continue;
+
+      // A new hire's salary starts on their employment date where known.
+      const effectiveFrom = !current && values.employment_date ? values.employment_date : today;
+
+      await setCompensation(client, {
+        employeeId: result.employeeId,
+        basicSalarySen: basic,
+        allowanceSen: allowance,
+        overtimeRateSen: overtime,
+        effectiveFrom,
+        note: "Imported from a workforce file",
+        createdBy: job.initiated_by,
+      });
+      compensationRecords += 1;
+    }
+  }
+
   const applied = new Set([...toCreate, ...toUpdate].map((result) => result.rowNumber));
   await persistRows(client, job.id, results);
   if (applied.size > 0) {
@@ -383,6 +452,7 @@ export async function applyImport(
     credentials,
     createdDepartments,
     openingBalanceGrants,
+    compensationRecords,
   };
 }
 
@@ -400,6 +470,9 @@ export function buildTemplateCsv(): string {
     gender: "Female",
     phone: "+60 12-345 6789",
     address: "12 Jalan Example, Kuala Lumpur",
+    basic_salary: "3500.00",
+    allowance: "250.00",
+    overtime_rate: "20.00",
     opening_annual_days: "8",
     opening_medical_days: "10",
     opening_emergency_days: "2",

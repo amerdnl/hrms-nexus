@@ -34,9 +34,9 @@ test("Leave balances: migration 0006 and the authenticated leave workflow", {
     assert.equal(sixth.filename, "0006_leave_balances.sql");
 
     await t.test("0006 applies additively and leaves existing data untouched", async () => {
-      assert.deepEqual(
-        (await runMigrations(db, { mode: "apply", database })).newlyApplied.slice(-1),
-        ["0006"],
+      // This milestone's own step; later reviewed migrations may follow 0006.
+      assert.ok(
+        (await runMigrations(db, { mode: "apply", database })).newlyApplied.includes("0006"),
       );
 
       assert.deepEqual(

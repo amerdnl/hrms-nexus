@@ -856,7 +856,11 @@ export async function getUnpaidLeaveSummary(
   }
 
   try {
-    const days = await getUnpaidLeaveDays(pool, employeeId, startDate, endDate);
+    // The configured working week decides which days inside the window count.
+    const settings = await loadLeaveSettings(pool);
+    const days = await getUnpaidLeaveDays(
+      pool, employeeId, startDate, endDate, settings?.working_days ?? [1, 2, 3, 4, 5],
+    );
     response.status(200).json({
       success: true,
       data: { employeeId, startDate, endDate, unpaidLeaveDays: days },

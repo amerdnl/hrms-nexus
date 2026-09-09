@@ -2,6 +2,7 @@ import {
   employmentStatuses,
   type EmploymentStatus,
 } from "./employeeValidation.js";
+import { parseMoneyToSen } from "./payrollMoney.js";
 import {
   importFieldLabels,
   readRow,
@@ -43,6 +44,10 @@ export interface EmployeeValues {
   opening_annual_days: number | null;
   opening_medical_days: number | null;
   opening_emergency_days: number | null;
+  /** Money in sen. Absent when the column is unmapped. */
+  basic_salary_sen: number | null;
+  allowance_sen: number | null;
+  overtime_rate_sen: number | null;
 }
 
 export interface ExistingEmployee {
@@ -287,6 +292,26 @@ export function classifyRows(
       openingDays[field] = Math.round(parsed * 10) / 10;
     }
 
+    // Compensation, parsed to exact sen. A spreadsheet decimal never becomes a
+    // JavaScript float on its way into payroll.
+    const money: Record<string, number | null> = {
+      basic_salary_sen: null, allowance_sen: null, overtime_rate_sen: null,
+    };
+    for (const [field, target] of [
+      ["basic_salary", "basic_salary_sen"],
+      ["allowance", "allowance_sen"],
+      ["overtime_rate", "overtime_rate_sen"],
+    ] as const) {
+      const value = raw[field];
+      if (value === undefined) continue;
+      const parsed = parseMoneyToSen(value.replace(/[, ]/g, ""));
+      if (!parsed.ok) {
+        error(field, `${importFieldLabels[field]} must be an amount such as 3500.00.`);
+        continue;
+      }
+      money[target] = parsed.sen;
+    }
+
     // Duplicates inside the file itself, before comparing against the database.
     const numberKey = raw.employee_number ? normalizeKey(raw.employee_number) : "";
     if (numberKey) {
@@ -348,6 +373,9 @@ export function classifyRows(
       opening_annual_days: openingDays.opening_annual_days ?? null,
       opening_medical_days: openingDays.opening_medical_days ?? null,
       opening_emergency_days: openingDays.opening_emergency_days ?? null,
+      basic_salary_sen: money.basic_salary_sen ?? null,
+      allowance_sen: money.allowance_sen ?? null,
+      overtime_rate_sen: money.overtime_rate_sen ?? null,
     };
 
     if (!existing) {
@@ -378,6 +406,16 @@ export function classifyRows(
     }
     if (mapping.email !== undefined && normalizeEmail(values.email) !== normalizeEmail(existing.email ?? "")) {
       changedFields.push("email");
+    }
+    // Compensation lives in its own history table, so it cannot be compared here.
+    // A mapped money column marks the row as an update and lets the apply step
+    // decide whether the amounts actually differ from what is in force.
+    for (const [field, value] of [
+      ["basic_salary", values.basic_salary_sen],
+      ["allowance", values.allowance_sen],
+      ["overtime_rate", values.overtime_rate_sen],
+    ] as const) {
+      if (mapping[field] !== undefined && value !== null) changedFields.push(field);
     }
 
     results.push({

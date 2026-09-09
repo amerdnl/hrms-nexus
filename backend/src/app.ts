@@ -15,6 +15,7 @@ import leaveRoutes from "./routes/leaveRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import companySettingsRoutes from "./routes/companySettingsRoutes.js";
 import importRoutes from "./routes/importRoutes.js";
+import payrollRoutes from "./routes/payrollRoutes.js";
 
 import { authenticateToken } from "./middleware/authMiddleware.js";
 import { authorizeRoles } from "./middleware/roleMiddleware.js";
@@ -45,6 +46,7 @@ app.use("/api/leaves", leaveRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/settings", companySettingsRoutes);
 app.use("/api/import", importRoutes);
+app.use("/api/payroll", payrollRoutes);
 
 app.use(
   "/api/attendance",
