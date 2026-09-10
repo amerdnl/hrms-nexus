@@ -15,6 +15,7 @@ import {
 import PayslipView from "../../components/payroll/PayslipView";
 import Alert from "../../components/ui/Alert";
 import Button from "../../components/ui/Button";
+import Checkbox from "../../components/ui/Checkbox";
 import DataTable from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import FormField from "../../components/ui/FormField";
@@ -380,21 +381,12 @@ export default function AdminPayrollPage() {
                   </div>
                 </div>
 
-                <label className="flex items-start gap-3 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={itemStatutory}
-                    onChange={(event) => setItemStatutory(event.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-line-strong accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                  />
-                  <span className="text-fg">
-                    This is a statutory amount I have calculated myself
-                    <span className="block text-xs text-fg-muted">
-                      HR Nexus does not compute EPF, SOCSO, EIS or PCB and makes no
-                      compliance claim about the figure you enter.
-                    </span>
-                  </span>
-                </label>
+                <Checkbox
+                  checked={itemStatutory}
+                  onChange={(event) => setItemStatutory(event.target.checked)}
+                  label="This is a statutory amount I have calculated myself"
+                  description="HR Nexus does not compute EPF, SOCSO, EIS or PCB and makes no compliance claim about the figure you enter."
+                />
 
                 <div className="space-y-1">
                   {detail.items.filter((item) => item.is_manual).map((item) => (

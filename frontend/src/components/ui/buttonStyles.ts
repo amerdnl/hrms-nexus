@@ -1,6 +1,11 @@
 import { cn } from "../../utils/cn";
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "danger"
+  | "ghost"
+  | "danger-ghost";
 export type ButtonSize = "sm" | "md";
 
 /**
@@ -27,6 +32,11 @@ const variants: Record<ButtonVariant, string> = {
   danger:
     "bg-danger-solid text-danger-solid-fg hover:bg-danger-solid-hover",
   ghost: "text-fg-muted hover:bg-surface-muted hover:text-fg",
+  // Low-emphasis destructive. Added because ProfilePage had to drop the
+  // primitive entirely for "Remove photo": overriding ghost's text colour
+  // would be a class conflict cn() cannot resolve without tailwind-merge,
+  // so the honest fix is a variant rather than a bespoke button.
+  "danger-ghost": "text-danger-fg hover:bg-danger-soft",
 };
 
 const sizes: Record<ButtonSize, string> = {

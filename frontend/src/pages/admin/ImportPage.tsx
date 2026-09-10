@@ -21,6 +21,8 @@ import {
 } from "../../api/importApi";
 import Alert from "../../components/ui/Alert";
 import Button from "../../components/ui/Button";
+import Checkbox from "../../components/ui/Checkbox";
+import FileInput from "../../components/ui/FileInput";
 import DataTable from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import FormField from "../../components/ui/FormField";
@@ -303,17 +305,15 @@ export default function ImportPage() {
               label="Workforce file"
               hint="Columns are matched automatically; you can correct them in the next step."
             >
-              <input
+              <FileInput
                 id="import-file"
                 ref={fileInput}
-                type="file"
                 accept=".csv,.xlsx"
                 disabled={isBusy}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) void handleUpload(file);
                 }}
-                className="block w-full cursor-pointer rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-fg file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-fg hover:file:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               />
             </FormField>
 
@@ -572,42 +572,23 @@ export default function ImportPage() {
           <SectionCard title="Confirm import" icon={Upload}>
             <div className="space-y-4">
               {summary.update > 0 && (
-                <label className="flex items-start gap-3 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={applyUpdates}
-                    disabled={isBusy}
-                    onChange={(event) => setApplyUpdates(event.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-line-strong accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                  />
-                  <span className="text-fg">
-                    Update {summary.update} existing employee
-                    {summary.update === 1 ? "" : "s"}
-                    <span className="block text-xs text-fg-muted">
-                      Without this, existing records are left exactly as they are.
-                    </span>
-                  </span>
-                </label>
+                <Checkbox
+                  checked={applyUpdates}
+                  disabled={isBusy}
+                  onChange={(event) => setApplyUpdates(event.target.checked)}
+                  label={`Update ${summary.update} existing employee${summary.update === 1 ? "" : "s"}`}
+                  description="Without this, existing records are left exactly as they are."
+                />
               )}
 
               {(validation?.missing_departments.length ?? 0) > 0 && (
-                <label className="flex items-start gap-3 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={createDepartments}
-                    disabled={isBusy}
-                    onChange={(event) => setCreateDepartments(event.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-line-strong accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                  />
-                  <span className="text-fg">
-                    Create {validation!.missing_departments.length} missing department
-                    {validation!.missing_departments.length === 1 ? "" : "s"}
-                    <span className="block text-xs text-fg-muted">
-                      {validation!.missing_departments.join(", ")}. Rows referencing them stay
-                      invalid until the departments exist.
-                    </span>
-                  </span>
-                </label>
+                <Checkbox
+                  checked={createDepartments}
+                  disabled={isBusy}
+                  onChange={(event) => setCreateDepartments(event.target.checked)}
+                  label={`Create ${validation!.missing_departments.length} missing department${validation!.missing_departments.length === 1 ? "" : "s"}`}
+                  description={`${validation!.missing_departments.join(", ")}. Rows referencing them stay invalid until the departments exist.`}
+                />
               )}
 
               <p className="text-sm text-fg-muted">

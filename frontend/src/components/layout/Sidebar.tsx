@@ -16,12 +16,13 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { resolveProfileImageUrl } from "../../api/axios";
 import { useAuth } from "../../context/useAuth";
 import { useTheme } from "../../context/useTheme";
 import { cn } from "../../utils/cn";
+import Avatar from "../ui/Avatar";
 import LogoutConfirmationModal from "../common/LogoutConfirmationModal";
 import ThemeToggle from "../ui/ThemeToggle";
 
@@ -79,15 +80,6 @@ const navigationItemBase =
 const sidebarPanel =
   "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-sidebar text-sidebar-fg transition-[transform,visibility] md:sticky md:top-0 md:h-screen md:translate-x-0 md:visible";
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
-
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const { resolvedTheme } = useTheme();
@@ -95,11 +87,6 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [profileImageFailed, setProfileImageFailed] = useState(false);
-
-  useEffect(() => {
-    setProfileImageFailed(false);
-  }, [user?.employee?.profileImage]);
 
   if (!user) return null;
 
@@ -221,18 +208,7 @@ export default function Sidebar() {
 
         <div className="border-t border-sidebar-line p-4">
           <div className="mb-3 flex items-center gap-3 rounded-lg bg-sidebar-hover p-3">
-            {profileImageUrl && !profileImageFailed ? (
-              <img
-                className="h-10 w-10 shrink-0 rounded-full object-cover"
-                src={profileImageUrl}
-                alt=""
-                onError={() => setProfileImageFailed(true)}
-              />
-            ) : (
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold text-primary-fg">
-                {getInitials(name)}
-              </div>
-            )}
+            <Avatar name={name} src={profileImageUrl} size="md" />
 
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-sidebar-fg-strong">{name}</p>

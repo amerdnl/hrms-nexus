@@ -16,6 +16,7 @@ import {
 } from "../../api/profile";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import Alert from "../../components/ui/Alert";
+import Button from "../../components/ui/Button";
 import FormField from "../../components/ui/FormField";
 import PageHeader from "../../components/ui/PageHeader";
 import PrimaryButton from "../../components/ui/PrimaryButton";
@@ -264,18 +265,18 @@ export default function ProfilePage() {
             </PrimaryButton>
 
             {employee.profileImage && (
-              // Deliberately not the Button primitive: a low-emphasis
-              // destructive action is not one of its four closed variants, and
-              // overriding `ghost`'s text colour would be a class conflict that
-              // cn() cannot resolve without tailwind-merge.
-              <button
-                type="button"
+              // Uses the danger-ghost variant added for exactly this case; it
+              // previously had to bypass the primitive because low-emphasis
+              // destructive was not one of its variants.
+              <Button
+                variant="danger-ghost"
+                size="sm"
+                icon={Trash2}
                 onClick={() => setIsRemovePhotoModalOpen(true)}
                 disabled={isPhotoBusy}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-danger-fg transition-colors hover:bg-danger-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Trash2 size={15} aria-hidden="true" /> Remove photo
-              </button>
+                Remove photo
+              </Button>
             )}
           </div>
 

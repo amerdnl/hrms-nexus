@@ -4,6 +4,8 @@ import { cn } from "../../utils/cn";
 
 export type ModalTone = "primary" | "danger";
 export type ModalSize = "sm" | "md" | "lg" | "xl";
+/** "center" is the desktop dialog; "sheet" rises from the bottom edge. */
+export type ModalPlacement = "center" | "sheet";
 
 interface ModalProps {
   isOpen: boolean;
@@ -13,6 +15,7 @@ interface ModalProps {
   icon?: ReactNode;
   tone?: ModalTone;
   size?: ModalSize;
+  placement?: ModalPlacement;
   /** Blocks Escape while an action is in flight, so a submit cannot be orphaned. */
   isDismissDisabled?: boolean;
   /** Receives focus on open. Defaults to the first focusable element. */
@@ -56,6 +59,7 @@ export default function Modal({
   icon,
   tone = "primary",
   size = "md",
+  placement = "center",
   isDismissDisabled = false,
   initialFocusRef,
   footer,
@@ -164,7 +168,14 @@ export default function Modal({
   return createPortal(
     // Portalled to <body> so the overlay can never be clipped or re-stacked by
     // a transformed ancestor in the page tree.
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-backdrop px-4 py-6">
+    <div
+      className={cn(
+        "fixed inset-0 z-[70] flex bg-backdrop",
+        placement === "sheet"
+          ? "items-end justify-center"
+          : "items-center justify-center px-4 py-6",
+      )}
+    >
       <div
         ref={dialogRef}
         role="dialog"
@@ -172,10 +183,23 @@ export default function Modal({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         className={cn(
-          "max-h-full w-full overflow-y-auto rounded-2xl bg-elevated p-6 shadow-panel",
-          sizeStyles[size],
+          "w-full overflow-y-auto bg-elevated p-6 shadow-panel",
+          placement === "sheet"
+            ? // Capped below full height so the backdrop stays tappable above
+              // it, and padded for the home indicator on a notched phone.
+              "max-h-[85vh] rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+            : cn("max-h-full rounded-2xl", sizeStyles[size]),
         )}
       >
+        {placement === "sheet" && (
+          // Grab handle. Purely a visual affordance - dragging is not wired
+          // up, so it is hidden rather than suggesting a gesture to a screen
+          // reader that does not exist.
+          <div
+            aria-hidden="true"
+            className="mx-auto mb-4 h-1 w-10 rounded-full bg-line-strong"
+          />
+        )}
         {icon && (
           <div
             className={cn(
