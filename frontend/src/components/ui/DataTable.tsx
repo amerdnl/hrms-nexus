@@ -14,6 +14,20 @@ interface DataTableProps {
   minWidthClass?: string;
   /** Screen-reader description of the table's contents. */
   caption?: string;
+  /**
+   * The same records rendered as cards, shown below `md` INSTEAD of the table.
+   *
+   * Supplied as already-rendered nodes rather than a render prop over a row
+   * list, because a row and a card are genuinely different documents: a card
+   * promotes two or three fields and drops the rest, which no automatic
+   * transform of <td>s can decide. The caller maps its data twice, and the
+   * duplication is the point - it is where that editorial choice lives.
+   *
+   * Omit it and the table keeps its previous behaviour exactly: one scroll
+   * region at every width. That is deliberate, so the tables not yet converted
+   * are untouched.
+   */
+  mobileCards?: ReactNode;
   className?: string;
 }
 
@@ -32,8 +46,20 @@ export default function DataTable({
   emptyState,
   minWidthClass = "min-w-full",
   caption,
+  mobileCards,
   className,
 }: DataTableProps) {
+  // Coerced once. `mobileCards` is a ReactNode, so a bare `mobileCards &&`
+  // would both widen the class-name type and render a literal 0 for a caller
+  // that passed an empty count.
+  const hasCards = Boolean(mobileCards);
+
+  const fallback = emptyState ?? (
+    <p className="px-5 py-10 text-center text-sm text-fg-muted">
+      No records found.
+    </p>
+  );
+
   return (
     <div
       className={cn(
@@ -41,12 +67,37 @@ export default function DataTable({
         className,
       )}
     >
+      {hasCards && (
+        <div className="md:hidden">
+          {isLoading ? (
+            <p
+              className="px-5 py-10 text-center text-sm text-fg-muted"
+              aria-live="polite"
+            >
+              {loadingLabel}
+            </p>
+          ) : isEmpty ? (
+            fallback
+          ) : (
+            // A list, not a stack of divs: these are the same records the
+            // table states in <tr>s, so the count is worth announcing.
+            <ul className="divide-y divide-line">{mobileCards}</ul>
+          )}
+        </div>
+      )}
+
       {/* Focusable so the horizontal scroll is reachable by keyboard: a
           pointer user can drag a wide table sideways, and without a tab stop
           nobody else can. Labelled from `caption` so the stop is not a
-          nameless box. */}
+          nameless box.
+          When cards are supplied this is display:none below md, which takes
+          the tab stop and the whole table out with it - so a phone user never
+          reaches a scroll region they cannot see. */}
       <div
-        className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+        className={cn(
+          "overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+          hasCards && "hidden md:block",
+        )}
         tabIndex={0}
         role="group"
         aria-label={caption}
@@ -85,11 +136,7 @@ export default function DataTable({
             ) : isEmpty ? (
               <tr>
                 <td colSpan={headers.length} className="p-0">
-                  {emptyState ?? (
-                    <p className="px-5 py-10 text-center text-sm text-fg-muted">
-                      No records found.
-                    </p>
-                  )}
+                  {fallback}
                 </td>
               </tr>
             ) : (
