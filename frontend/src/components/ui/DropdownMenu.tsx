@@ -18,6 +18,14 @@ export interface MenuItem {
   /** Renders in the destructive tone. Does not imply a confirmation step. */
   tone?: "default" | "danger";
   disabled?: boolean;
+  /** Right-aligned adornment, e.g. a tick on the selected option. */
+  trailing?: ReactNode;
+  /**
+   * Marks the item as one of a set of mutually exclusive choices. Switches the
+   * role to menuitemradio and exposes aria-checked, which is what tells a
+   * screen reader "3 of 3, selected" rather than reading a plain command.
+   */
+  checked?: boolean;
 }
 
 interface DropdownMenuProps {
@@ -192,7 +200,8 @@ export default function DropdownMenu({
               <button
                 key={item.key}
                 type="button"
-                role="menuitem"
+                role={item.checked === undefined ? "menuitem" : "menuitemradio"}
+                aria-checked={item.checked}
                 tabIndex={-1}
                 onClick={() => {
                   close();
@@ -207,7 +216,8 @@ export default function DropdownMenu({
                 )}
               >
                 {item.icon}
-                {item.label}
+                <span className="flex-1 truncate">{item.label}</span>
+                {item.trailing}
               </button>
             ))}
           </div>,

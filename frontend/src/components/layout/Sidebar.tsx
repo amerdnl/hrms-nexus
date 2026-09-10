@@ -4,7 +4,6 @@ import {
   Clock3,
   DatabaseBackup,
   LayoutDashboard,
-  LogOut,
   Menu,
   Settings,
   Upload,
@@ -17,13 +16,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { resolveProfileImageUrl } from "../../api/axios";
+import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import { useTheme } from "../../context/useTheme";
 import { cn } from "../../utils/cn";
-import Avatar from "../ui/Avatar";
-import LogoutConfirmationModal from "../common/LogoutConfirmationModal";
 import ThemeToggle from "../ui/ThemeToggle";
 
 interface NavigationItem {
@@ -81,30 +77,14 @@ const sidebarPanel =
   "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-sidebar text-sidebar-fg transition-[transform,visibility] md:sticky md:top-0 md:h-screen md:translate-x-0 md:visible";
 
 export default function Sidebar() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { resolvedTheme } = useTheme();
-  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   if (!user) return null;
 
-  const name = user.employee?.fullName ?? (user.role === "admin" ? "Administrator" : "Employee");
   const navigation = user.role === "admin" ? adminNavigation : employeeNavigation;
   const portalLabel = user.role === "admin" ? "Admin portal" : "Employee portal";
-  const profileImageUrl = resolveProfileImageUrl(user.employee?.profileImage ?? null);
-
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await logout();
-      navigate("/login", { replace: true });
-    } finally {
-      setIsLoggingOut(false);
-      setIsLogoutModalOpen(false);
-    }
-  };
 
   return (
     <>
@@ -206,34 +186,15 @@ export default function Sidebar() {
           ))}
         </nav>
 
+        {/* The account block and sign-out used to live here. They moved to
+            AppHeader, which the references show and which keeps them reachable
+            once this panel stops rendering below md. The theme control stays,
+            as the references place it. */}
         <div className="border-t border-sidebar-line p-4">
-          <div className="mb-3 flex items-center gap-3 rounded-lg bg-sidebar-hover p-3">
-            <Avatar name={name} src={profileImageUrl} size="md" />
-
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-sidebar-fg-strong">{name}</p>
-              <p className="truncate text-xs text-sidebar-fg">{user.email}</p>
-            </div>
-          </div>
-
           <ThemeToggle className="text-sidebar-fg hover:bg-sidebar-hover hover:text-sidebar-fg-strong" />
-
-          <button
-            className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-sidebar-fg transition hover:bg-sidebar-danger-soft hover:text-sidebar-danger-fg"
-            type="button"
-            onClick={() => setIsLogoutModalOpen(true)}
-          >
-            <LogOut size={18} aria-hidden="true" /> Logout
-          </button>
         </div>
       </aside>
 
-      <LogoutConfirmationModal
-        isOpen={isLogoutModalOpen}
-        isLoggingOut={isLoggingOut}
-        onCancel={() => setIsLogoutModalOpen(false)}
-        onConfirm={() => void handleLogout()}
-      />
     </>
   );
 }
