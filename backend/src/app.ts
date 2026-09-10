@@ -18,6 +18,7 @@ import importRoutes from "./routes/importRoutes.js";
 import payrollRoutes from "./routes/payrollRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
+import exportRoutes from "./routes/exportRoutes.js";
 
 import { authenticateToken } from "./middleware/authMiddleware.js";
 import { authorizeRoles } from "./middleware/roleMiddleware.js";
@@ -57,6 +58,7 @@ app.use("/api/import", importRoutes);
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/audit", auditRoutes);
+app.use("/api/export", exportRoutes);
 
 app.use(
   "/api/attendance",

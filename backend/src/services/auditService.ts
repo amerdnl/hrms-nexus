@@ -60,13 +60,14 @@ export const auditActions = [
   "PAYROLL_PAID",
   "PAYROLL_LINE_ADDED",
   "PAYROLL_LINE_REMOVED",
+  "DATA_EXPORTED",
 ] as const;
 
 export type AuditAction = (typeof auditActions)[number];
 
 export const auditEntityTypes = [
   "auth", "employee", "department", "settings", "import",
-  "attendance", "leave", "leave_policy", "compensation", "payroll",
+  "attendance", "leave", "leave_policy", "compensation", "payroll", "export",
 ] as const;
 
 export type AuditEntityType = (typeof auditEntityTypes)[number];

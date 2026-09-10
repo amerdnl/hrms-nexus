@@ -24,7 +24,26 @@ const formulaLeaders = new Set(["=", "+", "-", "@", "\t", "\r"]);
 const plainNumber = /^-?\d+(?:\.\d+)?$/;
 
 /**
- * Renders one value as a CSV field.
+ * Makes one piece of text safe to place in a spreadsheet cell, without quoting.
+ *
+ * Exported because XLSX needs exactly this rule and nothing else: a workbook
+ * cell has no RFC 4180 quoting, but it has the same formula problem. Keeping the
+ * decision in one place means a CSV export and an XLSX export cannot disagree
+ * about what counts as dangerous.
+ */
+export function neutralizeFormula(text: string): string {
+  // A formula can also be hidden behind leading whitespace, so the check looks
+  // at the first non-space character rather than only at index 0.
+  const firstMeaningful = text.trimStart().charAt(0);
+  if (formulaLeaders.has(firstMeaningful) && !plainNumber.test(text)) {
+    // A leading apostrophe is the spreadsheet convention for "this is text".
+    return `'${text}`;
+  }
+  return text;
+}
+
+/**
+ * Renders one value as a CSV field: neutralised, then quoted if it needs it.
  *
  * A leading "-" is only dangerous when it is not simply a negative number, so
  * "-272.73" is written as-is and "-2+3+cmd|' /C calc'!A0" is neutralised. That
@@ -37,13 +56,7 @@ export function csvField(value: unknown): string {
   let text = typeof value === "string" ? value : String(value);
   if (text === "") return "";
 
-  // A formula can also be hidden behind leading whitespace, so the check looks
-  // at the first non-space character rather than only at index 0.
-  const firstMeaningful = text.trimStart().charAt(0);
-  if (formulaLeaders.has(firstMeaningful) && !plainNumber.test(text)) {
-    // A leading apostrophe is the spreadsheet convention for "this is text".
-    text = `'${text}`;
-  }
+  text = neutralizeFormula(text);
 
   const needsQuotes = /[",\r\n]/.test(text) || text !== text.trim();
   if (!needsQuotes) return text;
