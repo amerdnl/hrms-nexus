@@ -14,7 +14,8 @@ test("session lookup against PostgreSQL with isolated temporary tables", {
     await client.query(`
       CREATE TEMP TABLE employees (id BIGINT PRIMARY KEY, employment_status TEXT);
       CREATE TEMP TABLE users (
-        id BIGINT PRIMARY KEY, employee_id BIGINT, email TEXT, role TEXT, is_active BOOLEAN
+        id BIGINT PRIMARY KEY, employee_id BIGINT, email TEXT, role TEXT, is_active BOOLEAN,
+        must_change_password BOOLEAN NOT NULL DEFAULT FALSE
       );
       INSERT INTO employees VALUES (10, 'active'), (20, 'inactive'), (30, 'probation');
       INSERT INTO users VALUES
@@ -28,23 +29,33 @@ test("session lookup against PostgreSQL with isolated temporary tables", {
     `);
     mock.method(pool, "query", client.query.bind(client));
     assert.deepEqual(await findSessionUserById(1),
-      { id: 1, employeeId: null, role: "admin", email: "one@example.invalid" });
+      { id: 1, employeeId: null, role: "admin", email: "one@example.invalid",
+        mustChangePassword: false });
     assert.deepEqual(await findSessionUserById(2),
-      { id: 2, employeeId: 10, role: "employee", email: "two@example.invalid" });
+      { id: 2, employeeId: 10, role: "employee", email: "two@example.invalid",
+        mustChangePassword: false });
     for (const id of [3, 4, 5, 6, 999]) assert.equal(await findSessionUserById(id), null);
     assert.deepEqual(await findSessionUserById(7),
-      { id: 7, employeeId: 30, role: "employee", email: "seven@example.invalid" });
+      { id: 7, employeeId: 30, role: "employee", email: "seven@example.invalid",
+        mustChangePassword: false });
     await client.query("UPDATE users SET is_active = FALSE WHERE id = 2");
     assert.equal(await findSessionUserById(2), null);
     await client.query("UPDATE users SET role = 'employee', employee_id = 10 WHERE id = 1");
     assert.deepEqual(await findSessionUserById(1),
-      { id: 1, employeeId: 10, role: "employee", email: "one@example.invalid" });
+      { id: 1, employeeId: 10, role: "employee", email: "one@example.invalid",
+        mustChangePassword: false });
     // The session user feeds every authorization decision. It carries an email
     // for the audit log and nothing else about the account.
     const session = await findSessionUserById(1);
     assert.deepEqual(
-      Object.keys(session!).sort(), ["email", "employeeId", "id", "role"],
+      Object.keys(session!).sort(),
+      ["email", "employeeId", "id", "mustChangePassword", "role"],
     );
+
+    // The forced-change state is read from the column on every lookup, so a
+    // change made after the session began is seen immediately.
+    await client.query("UPDATE users SET must_change_password = TRUE WHERE id = 1");
+    assert.equal((await findSessionUserById(1))!.mustChangePassword, true);
   } finally {
     mock.restoreAll();
     await client.query("ROLLBACK");

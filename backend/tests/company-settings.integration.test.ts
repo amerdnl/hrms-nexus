@@ -181,6 +181,18 @@ test("Company Settings PostgreSQL upgrade and authenticated API", {
       } finally { await failure.end(); }
     });
 
+    /*
+     * The migration assertions above are complete, so the scoped 0001-0002 chain
+     * has served its purpose. The rest of this suite exercises the real
+     * application over HTTP, and the application requires its real schema: the
+     * session lookup reads users.must_change_password, which arrives in 0009.
+     * Applying the full chain here is what lets those two needs coexist.
+     *
+     * `business()` subtracts columns added after its baseline before digesting a
+     * row, so the fingerprint comparison later in this suite is unaffected.
+     */
+    assert.ok((await runMigrations(db, { mode: "apply", database })).newlyApplied.includes("0009"));
+
     // Authentication fixtures exist only in this disposable clone, never the source.
     await db.query(`INSERT INTO employees (id,employee_number,full_name) VALUES (9000,'SETTINGS-LAB','Settings Lab Employee');
       INSERT INTO users (id,employee_id,email,password_hash,role) VALUES

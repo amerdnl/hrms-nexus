@@ -264,7 +264,21 @@ test("isolated PostgreSQL migration rehearsal", {
 
     await t.test("actual admin API preserves history through 409, deactivation and reactivation", async () => {
       const db = await database("workflow", "hr_nexus_v2_upgrade");
-      await runMigrations(db.pool, { mode: "apply", database: db.name });
+      /*
+       * The real migration chain, not this suite's 0001-scoped one.
+       *
+       * Every other subtest here is about the migration mechanism and is
+       * deliberately confined to 0001 so later migrations cannot look like
+       * drift. This subtest is different: it drives the actual application over
+       * HTTP, and the application requires its actual schema — the session
+       * lookup reads users.must_change_password, which arrives in 0009. Running
+       * the scoped chain here would test the app against a database no
+       * deployment will ever have.
+       */
+      assert.deepEqual(
+        (await runVersionedMigrations(db.pool, { mode: "apply", database: db.name })).newlyApplied,
+        ["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009"],
+      );
       // Synthetic accounts only in this isolated copy; never use source account credentials.
       await db.pool.query(`INSERT INTO employees (id,employee_number,full_name) VALUES (1000,'LAB-LIFECYCLE','Isolated Lifecycle Fixture');
         INSERT INTO users (id,employee_id,email,password_hash,role) VALUES
