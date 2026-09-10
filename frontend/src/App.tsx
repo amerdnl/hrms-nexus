@@ -1,9 +1,11 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/layout/AppLayout";
 import { useAuth } from "./context/useAuth";
+import ForcedPasswordChangePage from "./pages/auth/ForcedPasswordChangePage";
 import LoginPage from "./pages/auth/LoginPage";
 import ProfilePage from "./pages/employee/ProfilePage";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import { FORCED_PASSWORD_PATH } from "./routes/forcedPassword";
 import { roleDashboard } from "./routes/roleDashboard";
 import EmployeeLeavePage from "./pages/employee/EmployeeLeavePage";
 import AdminLeavePage from "./pages/admin/AdminLeavePage";
@@ -38,13 +40,44 @@ function HomeRedirect() {
     );
   }
 
-  return <Navigate to={user ? roleDashboard(user.role) : "/login"} replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  // Catches every unmatched path too, since "*" renders this component: an
+  // address typed by hand leads to the same place as everything else.
+  if (user.mustChangePassword) return <Navigate to={FORCED_PASSWORD_PATH} replace />;
+
+  return <Navigate to={roleDashboard(user.role)} replace />;
+}
+
+/**
+ * The forced password change route.
+ *
+ * Rendered outside AppLayout on purpose: there is no sidebar here, so there are
+ * no navigation links to click past it. An account that no longer owes a change
+ * is bounced back to its dashboard, so the screen cannot be revisited or
+ * bookmarked into existence.
+ */
+function ForcedPasswordChangeRoute() {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-canvas text-sm text-fg-muted">
+        Restoring your session…
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
+  if (!user.mustChangePassword) return <Navigate to={roleDashboard(user.role)} replace />;
+
+  return <ForcedPasswordChangePage />;
 }
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path={FORCED_PASSWORD_PATH} element={<ForcedPasswordChangeRoute />} />
       <Route path="/" element={<HomeRedirect />} />
 
       <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>

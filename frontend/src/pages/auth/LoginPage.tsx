@@ -10,6 +10,7 @@ import PrimaryButton from "../../components/ui/PrimaryButton";
 import TextInput from "../../components/ui/TextInput";
 import { useAuth } from "../../context/useAuth";
 import { useTheme } from "../../context/useTheme";
+import { FORCED_PASSWORD_PATH } from "../../routes/forcedPassword";
 import { roleDashboard } from "../../routes/roleDashboard";
 
 /**
@@ -70,7 +71,12 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   if (!isLoading && isAuthenticated && user) {
-    return <Navigate to={roleDashboard(user.role)} replace />;
+    return (
+      <Navigate
+        to={user.mustChangePassword ? FORCED_PASSWORD_PATH : roleDashboard(user.role)}
+        replace
+      />
+    );
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -84,11 +90,16 @@ export default function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      const role = await login(email.trim(), password);
+      const signedIn = await login(email.trim(), password);
       // Only on success, so a typo is never remembered. This runs before
       // navigate() because navigating unmounts this component.
       writeRememberedEmail(rememberMe ? email.trim() : null);
-      navigate(roleDashboard(role), { replace: true });
+      // Sign-in succeeds for an account holding a temporary password; it simply
+      // does not lead to the dashboard.
+      navigate(
+        signedIn.mustChangePassword ? FORCED_PASSWORD_PATH : roleDashboard(signedIn.role),
+        { replace: true },
+      );
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Unable to sign in. Please try again."));
     } finally {

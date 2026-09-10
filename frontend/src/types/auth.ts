@@ -22,6 +22,14 @@ export interface CurrentUser {
   email: string;
   role: UserRole;
   isActive: boolean;
+  /**
+   * True while the account still holds a temporary password.
+   *
+   * Advisory only. It tells this client where to send the user; it is not what
+   * enforces the restriction. The server refuses every protected route for such
+   * an account regardless of what the browser believes or is made to believe.
+   */
+  mustChangePassword: boolean;
   employee: EmployeeProfile | null;
 }
 
