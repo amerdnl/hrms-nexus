@@ -14,27 +14,37 @@ test("session lookup against PostgreSQL with isolated temporary tables", {
     await client.query(`
       CREATE TEMP TABLE employees (id BIGINT PRIMARY KEY, employment_status TEXT);
       CREATE TEMP TABLE users (
-        id BIGINT PRIMARY KEY, employee_id BIGINT, role TEXT, is_active BOOLEAN
+        id BIGINT PRIMARY KEY, employee_id BIGINT, email TEXT, role TEXT, is_active BOOLEAN
       );
       INSERT INTO employees VALUES (10, 'active'), (20, 'inactive'), (30, 'probation');
       INSERT INTO users VALUES
-        (1, NULL, 'admin', TRUE),
-        (2, 10, 'employee', TRUE),
-        (3, 20, 'employee', TRUE),
-        (4, 999, 'employee', TRUE),
-        (5, 10, 'employee', FALSE),
-        (6, NULL, 'employee', TRUE),
-        (7, 30, 'employee', TRUE);
+        (1, NULL, 'one@example.invalid', 'admin', TRUE),
+        (2, 10, 'two@example.invalid', 'employee', TRUE),
+        (3, 20, 'three@example.invalid', 'employee', TRUE),
+        (4, 999, 'four@example.invalid', 'employee', TRUE),
+        (5, 10, 'five@example.invalid', 'employee', FALSE),
+        (6, NULL, 'six@example.invalid', 'employee', TRUE),
+        (7, 30, 'seven@example.invalid', 'employee', TRUE);
     `);
     mock.method(pool, "query", client.query.bind(client));
-    assert.deepEqual(await findSessionUserById(1), { id: 1, employeeId: null, role: "admin" });
-    assert.deepEqual(await findSessionUserById(2), { id: 2, employeeId: 10, role: "employee" });
+    assert.deepEqual(await findSessionUserById(1),
+      { id: 1, employeeId: null, role: "admin", email: "one@example.invalid" });
+    assert.deepEqual(await findSessionUserById(2),
+      { id: 2, employeeId: 10, role: "employee", email: "two@example.invalid" });
     for (const id of [3, 4, 5, 6, 999]) assert.equal(await findSessionUserById(id), null);
-    assert.deepEqual(await findSessionUserById(7), { id: 7, employeeId: 30, role: "employee" });
+    assert.deepEqual(await findSessionUserById(7),
+      { id: 7, employeeId: 30, role: "employee", email: "seven@example.invalid" });
     await client.query("UPDATE users SET is_active = FALSE WHERE id = 2");
     assert.equal(await findSessionUserById(2), null);
     await client.query("UPDATE users SET role = 'employee', employee_id = 10 WHERE id = 1");
-    assert.deepEqual(await findSessionUserById(1), { id: 1, employeeId: 10, role: "employee" });
+    assert.deepEqual(await findSessionUserById(1),
+      { id: 1, employeeId: 10, role: "employee", email: "one@example.invalid" });
+    // The session user feeds every authorization decision. It carries an email
+    // for the audit log and nothing else about the account.
+    const session = await findSessionUserById(1);
+    assert.deepEqual(
+      Object.keys(session!).sort(), ["email", "employeeId", "id", "role"],
+    );
   } finally {
     mock.restoreAll();
     await client.query("ROLLBACK");
