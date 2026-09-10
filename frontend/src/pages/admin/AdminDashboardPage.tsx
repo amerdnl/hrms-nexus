@@ -13,13 +13,17 @@ import { getApiErrorMessage } from "../../api/axios";
 import { getAdminDashboard } from "../../api/dashboardApi";
 import { getAllLeaveRequests } from "../../api/leaveApi";
 import Alert from "../../components/ui/Alert";
-import DonutChart, {
-  type DonutSegment,
-} from "../../components/ui/DonutChart";
+import Avatar from "../../components/ui/Avatar";
+import ErrorState from "../../components/ui/ErrorState";
 import EmptyState from "../../components/ui/EmptyState";
 import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
+import ProgressBar from "../../components/ui/ProgressBar";
+import SegmentedBar, {
+  type BarSegment,
+} from "../../components/ui/SegmentedBar";
 import SectionCard from "../../components/ui/SectionCard";
+import Skeleton, { SkeletonText } from "../../components/ui/Skeleton";
 import StatCard from "../../components/ui/StatCard";
 import StatusBadge from "../../components/ui/StatusBadge";
 import type { AdminDashboardData } from "../../types/dashboard";
@@ -30,7 +34,6 @@ import {
   attendanceStatusMeta,
   leaveStatusMeta,
   leaveTypeMeta,
-  type StatusTone,
 } from "../../utils/status";
 
 type LeaveSummaryState = "loading" | "ready" | "failed";
@@ -50,16 +53,6 @@ const leaveTypeOrder: LeaveType[] = [
   "emergency",
   "unpaid",
 ];
-
-/** Solid fills for the proportion bars, matching StatusBadge's tone roles. */
-const barToneStyles: Record<StatusTone, string> = {
-  success: "bg-success",
-  warning: "bg-warning",
-  danger: "bg-danger",
-  info: "bg-info",
-  primary: "bg-primary",
-  neutral: "bg-fg-subtle",
-};
 
 /** Same tones the payroll page uses, so a period reads consistently. */
 function payrollTone(status: string | undefined) {
@@ -128,16 +121,64 @@ export default function AdminDashboardPage() {
     void loadLeaveSummary();
   }, [loadLeaveSummary]);
 
+  // The page keeps its header and its grid while loading. Blanking to a line
+  // of text made every visit flash an empty screen before the tiles appeared.
   if (isLoading) {
-    return <p className="text-sm text-fg-muted">Loading dashboard...</p>;
+    return (
+      <section className="mx-auto max-w-7xl space-y-6">
+        <PageHeader
+          title="Admin dashboard"
+          description="Overview of employees, attendance, and leave activity."
+        />
+        <div
+          className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4"
+          aria-busy="true"
+        >
+          {/* One live message for the whole region. The skeletons themselves
+              are aria-hidden, so this is what a screen reader hears. */}
+          <p className="sr-only" aria-live="polite">
+            Loading dashboard
+          </p>
+          {Array.from({ length: 4 }, (_, index) => (
+            <div
+              key={index}
+              className="rounded-card border border-line bg-surface p-5 shadow-card"
+            >
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="mt-4 h-8 w-16" />
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-5 lg:grid-cols-2">
+          {Array.from({ length: 2 }, (_, index) => (
+            <div
+              key={index}
+              className="rounded-card border border-line bg-surface p-5 shadow-card"
+            >
+              <Skeleton className="h-4 w-40" />
+              <SkeletonText lines={4} className="mt-5" />
+            </div>
+          ))}
+        </div>
+      </section>
+    );
   }
 
-  if (error) {
-    return <Alert tone="danger">{error}</Alert>;
-  }
-
-  if (!dashboard) {
-    return null;
+  if (error || !dashboard) {
+    return (
+      <section className="mx-auto max-w-7xl space-y-6">
+        <PageHeader
+          title="Admin dashboard"
+          description="Overview of employees, attendance, and leave activity."
+        />
+        <SectionCard>
+          <ErrorState
+            title="The dashboard could not be loaded"
+            description={error || "No dashboard data was returned."}
+          />
+        </SectionCard>
+      </section>
+    );
   }
 
   const { attendanceToday, recentEmployees, recentAttendance, recentLeaves } =
@@ -145,7 +186,7 @@ export default function AdminDashboardPage() {
 
   // Ordered so green and red are never adjacent on the ring, which is what
   // makes the segments distinguishable with red-green colour blindness.
-  const attendanceSegments: DonutSegment[] = [
+  const attendanceSegments: BarSegment[] = [
     {
       key: "present",
       value: attendanceToday.present,
@@ -190,6 +231,26 @@ export default function AdminDashboardPage() {
           value={dashboard.activeEmployees}
           icon={UsersRound}
           tone="success"
+          hint={
+            dashboard.totalEmployees > 0
+              ? `${Math.round((dashboard.activeEmployees / dashboard.totalEmployees) * 100)}% of ${dashboard.totalEmployees}`
+              : undefined
+          }
+          // Both figures come from the payload, so this is a measured share
+          // rather than a trend - the references show deltas against last
+          // month, which nothing here reports.
+          footer={
+            dashboard.totalEmployees > 0 ? (
+              <ProgressBar
+                size="sm"
+                tone="success"
+                value={dashboard.activeEmployees}
+                max={dashboard.totalEmployees}
+                label={`${dashboard.activeEmployees} of ${dashboard.totalEmployees} employees active`}
+                isDecorative
+              />
+            ) : undefined
+          }
           to="/admin/employees"
         />
 
@@ -265,9 +326,9 @@ export default function AdminDashboardPage() {
             </LinkButton>
           }
         >
-          <DonutChart
+          <SegmentedBar
             title="Today's attendance by status"
-            centerCaption="records"
+            unit="records recorded today"
             segments={attendanceSegments}
           />
         </SectionCard>
@@ -317,15 +378,15 @@ export default function AdminDashboardPage() {
 
                     {/* Decoration only - the count and percentage above are
                         the actual figures, so this carries no unique meaning. */}
-                    <div
-                      className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted"
-                      aria-hidden="true"
-                    >
-                      <div
-                        className={`h-full rounded-full ${barToneStyles[meta.tone]}`}
-                        style={{ width: `${share}%` }}
-                      />
-                    </div>
+                    <ProgressBar
+                      className="mt-2"
+                      size="sm"
+                      tone={meta.tone}
+                      value={count}
+                      max={totalLeaves}
+                      label={`${count} ${meta.label} requests of ${totalLeaves}`}
+                      isDecorative
+                    />
                   </li>
                 );
               })}
@@ -352,16 +413,22 @@ export default function AdminDashboardPage() {
               {recentEmployees.map((employee) => (
                 <li
                   key={employee.id}
-                  className="border-b border-line pb-3 last:border-0 last:pb-0"
+                  className="flex items-center gap-3 border-b border-line pb-3 last:border-0 last:pb-0"
                 >
-                  <p className="truncate text-sm font-medium text-fg">
-                    {employee.fullName}
-                  </p>
+                  {/* The dashboard payload carries no profile image, so this
+                      is always initials - real data rather than a stand-in. */}
+                  <Avatar name={employee.fullName} size="sm" />
 
-                  <p className="mt-0.5 truncate text-xs text-fg-subtle">
-                    {employee.employeeNumber}
-                    {employee.jobTitle ? ` · ${employee.jobTitle}` : ""}
-                  </p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-fg">
+                      {employee.fullName}
+                    </p>
+
+                    <p className="mt-0.5 truncate text-xs text-fg-subtle">
+                      {employee.employeeNumber}
+                      {employee.jobTitle ? ` · ${employee.jobTitle}` : ""}
+                    </p>
+                  </div>
                 </li>
               ))}
             </ul>
