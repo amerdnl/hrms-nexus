@@ -39,6 +39,21 @@ interface DropdownMenuProps {
 }
 
 const MENU_WIDTH = 224;
+/** Gap between the trigger and the menu, and the minimum margin to any edge. */
+const GAP = 6;
+const EDGE = 8;
+/**
+ * Used only for the very first layout pass, before the menu has been measured.
+ * Any value works: place() re-runs with the real height in the same commit.
+ */
+const ESTIMATED_MENU_HEIGHT = 160;
+/**
+ * Both roles, because an item is a menuitemradio when it is checkable and a
+ * plain menuitem otherwise. Matching only the latter silently broke arrow-key
+ * navigation in every checkable menu - the theme picker, whose items are all
+ * radios, had no working arrow keys at all.
+ */
+const ITEM_SELECTOR = "[role='menuitem'],[role='menuitemradio']";
 
 /**
  * A menu button following the ARIA menu-button pattern.
@@ -70,19 +85,44 @@ export default function DropdownMenu({
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const left =
-      align === "end" ? rect.right - MENU_WIDTH : rect.left;
+    const viewportHeight = window.innerHeight;
+    const menuHeight = menuRef.current?.offsetHeight ?? ESTIMATED_MENU_HEIGHT;
+
+    /*
+     * Flip above the trigger when there is no room below it.
+     *
+     * This is not a nicety. A trigger sitting at the bottom of a full-height
+     * column - the theme control in the sidebar footer is exactly that - has
+     * only a few pixels beneath it, and because the menu is `fixed` the page
+     * cannot be scrolled to reveal what hangs off the bottom. Opening downward
+     * there put all but the first few pixels of the menu out of reach.
+     */
+    const roomBelow = viewportHeight - rect.bottom - GAP;
+    const roomAbove = rect.top - GAP;
+    const openUpward = roomBelow < menuHeight && roomAbove > roomBelow;
+
+    const top = openUpward ? rect.top - GAP - menuHeight : rect.bottom + GAP;
+    const left = align === "end" ? rect.right - MENU_WIDTH : rect.left;
 
     setPosition({
-      top: rect.bottom + 6,
+      // Final clamp, so a menu taller than the viewport is pinned to the top
+      // edge and stays partly reachable rather than being centred out of view.
+      top: Math.max(EDGE, Math.min(top, viewportHeight - menuHeight - EDGE)),
       // Kept inside the viewport, which matters most at 375px where an
       // end-aligned menu would otherwise hang off the left edge.
-      left: Math.max(8, Math.min(left, window.innerWidth - MENU_WIDTH - 8)),
+      left: Math.max(EDGE, Math.min(left, window.innerWidth - MENU_WIDTH - EDGE)),
     });
   }, [align]);
 
   useLayoutEffect(() => {
-    if (isOpen) place();
+    if (!isOpen) return;
+
+    // Twice on purpose. The first call positions the menu so it can be laid
+    // out and measured; the second re-runs with menuRef's real offsetHeight,
+    // which is what the upward flip depends on. Both happen before paint, so
+    // nothing is visible in the interim position.
+    place();
+    place();
   }, [isOpen, place]);
 
   // Reposition rather than close: closing on scroll would dismiss the menu
@@ -159,7 +199,7 @@ export default function DropdownMenu({
   useEffect(() => {
     if (!isOpen) return;
     menuRef.current
-      ?.querySelectorAll<HTMLButtonElement>("[role='menuitem']")
+      ?.querySelectorAll<HTMLButtonElement>(ITEM_SELECTOR)
       ?.[activeIndex]?.focus();
   }, [isOpen, activeIndex]);
 

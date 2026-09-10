@@ -7,6 +7,7 @@ import { breadcrumbsFor, pageTitleFor } from "../../routes/breadcrumbs";
 import Avatar from "../ui/Avatar";
 import Breadcrumbs from "../ui/Breadcrumbs";
 import DropdownMenu from "../ui/DropdownMenu";
+import ThemeToggle from "../ui/ThemeToggle";
 import LogoutConfirmationModal from "../common/LogoutConfirmationModal";
 
 /**
@@ -59,7 +60,20 @@ export default function AppHeader() {
           {pageTitleFor(pathname)}
         </h2>
 
-        <DropdownMenu
+        <div className="flex shrink-0 items-center gap-1">
+          {/*
+            The theme control's home is the sidebar footer, which the
+            references show and which is where it stays from md up. But the
+            sidebar does not render below md, so without this there is no way
+            to change theme on a phone at all - the control went out with the
+            drawer it used to live in. md:hidden, so the two never both show.
+          */}
+          <ThemeToggle
+            compact
+            className="text-fg-muted hover:bg-surface-muted hover:text-fg md:hidden"
+          />
+
+          <DropdownMenu
           label={`Account menu for ${name}`}
           align="end"
           className="shrink-0 gap-2 py-1 pl-1 pr-2"
@@ -99,7 +113,8 @@ export default function AppHeader() {
               onSelect: () => setIsLogoutModalOpen(true),
             },
           ]}
-        />
+          />
+        </div>
       </header>
 
       <LogoutConfirmationModal
