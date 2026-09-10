@@ -11,6 +11,13 @@ interface StatCardProps {
   tone?: StatusTone;
   /** Secondary line, e.g. a percentage or "of 128 employees". */
   hint?: string;
+  /**
+   * Puts the icon beside the label instead of opposite it, which reads better
+   * in a narrow tile and is what the references show on the dashboard.
+   */
+  iconPlacement?: "trailing" | "leading";
+  /** Rendered under the value, e.g. a ProgressBar. */
+  footer?: ReactNode;
   /** Turns the whole card into a navigation target. */
   to?: string;
   isLoading?: boolean;
@@ -32,25 +39,35 @@ export default function StatCard({
   icon: Icon,
   tone = "neutral",
   hint,
+  iconPlacement = "trailing",
+  footer,
   to,
   isLoading = false,
   className,
 }: StatCardProps) {
+  const iconTile = Icon && (
+    <span
+      className={cn(
+        "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
+        toneStyles[tone],
+      )}
+      aria-hidden="true"
+    >
+      <Icon size={18} />
+    </span>
+  );
+
   const content = (
     <>
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-fg-muted">{label}</p>
-        {Icon && (
-          <span
-            className={cn(
-              "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
-              toneStyles[tone],
-            )}
-            aria-hidden="true"
-          >
-            <Icon size={18} />
-          </span>
+      <div
+        className={cn(
+          "flex items-start gap-3",
+          iconPlacement === "leading" ? "justify-start" : "justify-between",
         )}
+      >
+        {iconPlacement === "leading" && iconTile}
+        <p className="min-w-0 text-sm font-medium text-fg-muted">{label}</p>
+        {iconPlacement === "trailing" && iconTile}
       </div>
 
       <p className="mt-3 text-3xl font-bold tracking-tight text-fg">
@@ -62,6 +79,8 @@ export default function StatCard({
       {hint && !isLoading && (
         <p className="mt-1 text-xs text-fg-subtle">{hint}</p>
       )}
+
+      {footer && !isLoading && <div className="mt-3">{footer}</div>}
     </>
   );
 
