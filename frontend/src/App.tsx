@@ -3,6 +3,7 @@ import AppLayout from "./components/layout/AppLayout";
 import { useAuth } from "./context/useAuth";
 import ForcedPasswordChangePage from "./pages/auth/ForcedPasswordChangePage";
 import LoginPage from "./pages/auth/LoginPage";
+import NotFoundPage from "./pages/NotFoundPage";
 import ProfilePage from "./pages/employee/ProfilePage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import { FORCED_PASSWORD_PATH } from "./routes/forcedPassword";
@@ -41,8 +42,6 @@ function HomeRedirect() {
   }
 
   if (!user) return <Navigate to="/login" replace />;
-  // Catches every unmatched path too, since "*" renders this component: an
-  // address typed by hand leads to the same place as everything else.
   if (user.mustChangePassword) return <Navigate to={FORCED_PASSWORD_PATH} replace />;
 
   return <Navigate to={roleDashboard(user.role)} replace />;
@@ -136,7 +135,10 @@ export default function App() {
         </Route>
       </Route>
 
-      <Route path="*" element={<HomeRedirect />} />
+      {/* NotFoundPage repeats HomeRedirect's signed-out and
+          must-change-password redirects on purpose - this route used to be
+          where those were enforced for an unknown address. */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
