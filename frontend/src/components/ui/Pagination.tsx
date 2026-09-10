@@ -26,7 +26,8 @@ export default function Pagination({
   const last = Math.min(page * pageSize, totalItems);
 
   const buttonClass =
-    "grid h-9 w-9 place-items-center rounded-lg border border-line-strong bg-surface text-fg-muted transition-colors hover:bg-surface-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+    // Icon-only, so the boundary is the whole affordance - see --control-border.
+    "grid h-9 w-9 place-items-center rounded-lg border border-control-border bg-surface text-fg-muted transition-colors hover:bg-surface-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
   return (
     <nav

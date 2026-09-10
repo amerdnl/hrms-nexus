@@ -27,8 +27,11 @@ const base = cn(
 
 const variants: Record<ButtonVariant, string> = {
   primary: "bg-primary text-primary-fg hover:bg-primary-hover",
+  // --control-border, not --line-strong: on a white card this button's fill
+  // matches its background, so the border is the only thing that says it is a
+  // control rather than text.
   secondary:
-    "border border-line-strong bg-surface text-fg-muted hover:bg-surface-muted hover:text-fg",
+    "border border-control-border bg-surface text-fg-muted hover:bg-surface-muted hover:text-fg",
   danger:
     "bg-danger-solid text-danger-solid-fg hover:bg-danger-solid-hover",
   ghost: "text-fg-muted hover:bg-surface-muted hover:text-fg",

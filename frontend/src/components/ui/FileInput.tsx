@@ -36,7 +36,7 @@ export default function FileInput({
       aria-invalid={invalid || undefined}
       className={cn(
         "block w-full cursor-pointer rounded-lg border bg-surface px-3 py-2 text-sm text-fg",
-        invalid ? "border-danger" : "border-line-strong",
+        invalid ? "border-danger" : "border-control-border",
         "file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5",
         "file:text-sm file:font-semibold file:text-primary-fg",
         "hover:file:bg-primary-hover",

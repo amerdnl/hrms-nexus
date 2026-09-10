@@ -81,9 +81,22 @@
      near-miss. This reads 5.12:1 on --surface and 4.57:1 on --canvas. */
   --fg-subtle: #606f83;
 
-  /* Lines */
+  /* Lines.
+     --line-strong is for STRUCTURE (dividers, rules). It measures 1.48:1 on
+     --surface, which is fine for a divider and short of the 3:1 that WCAG
+     1.4.11 asks of anything required to identify a CONTROL. Rather than
+     darken it globally and make every rule in the app heavier, interactive
+     boundaries get their own token below. */
   --line: #e2e8f0;          /* default border */
-  --line-strong: #cbd5e1;   /* input borders, dividers needing weight */
+  --line-strong: #cbd5e1;   /* dividers and rules needing weight */
+
+  /* The boundary that says "this is a control": text/select/textarea/file
+     inputs, the secondary button, the pagination arrows. Only those.
+     3.43:1 on --surface, 3.06:1 on --canvas, 3.23:1 on --surface-muted.
+     The neighbouring value #8695a6 clears --surface at 3.06 but drops to
+     2.73 on --canvas, so this is the first grey that passes every surface a
+     control actually sits on. */
+  --control-border: #7d8ca0;
 
   /* Interactive.
      brand-700 rather than a mid-teal because --primary is used BOTH as a
@@ -163,6 +176,11 @@
 
   --line: #24323d;
   --line-strong: #33454f;
+  /* 3.65:1 on --surface, 4.01:1 on --canvas, 3.22:1 on --surface-muted,
+     3.41:1 on --elevated. #556b7a clears --surface at 3.10 but falls to 2.74
+     on --surface-muted, so it is not enough for a control inside a table
+     header or an inset tile. */
+  --control-border: #5f7688;
 
   --primary: #2dd4bf;       /* 9.28:1 as text on --surface */
   --primary-hover: #5eead4; /* hover LIGHTENS here, unlike light mode */
@@ -220,6 +238,7 @@
 
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-control-border: var(--control-border);
 
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);

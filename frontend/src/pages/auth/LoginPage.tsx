@@ -226,7 +226,7 @@ export default function LoginPage() {
             <label className="flex w-fit cursor-pointer items-center gap-2.5 text-sm text-fg-muted">
               <input
                 type="checkbox"
-                className="h-4 w-4 shrink-0 cursor-pointer rounded border-line-strong accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="h-4 w-4 shrink-0 cursor-pointer rounded accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 checked={rememberMe}
                 onChange={(event) => setRememberMe(event.target.checked)}
               />

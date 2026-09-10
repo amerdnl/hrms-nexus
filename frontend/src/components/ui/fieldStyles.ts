@@ -29,7 +29,7 @@ export function fieldClass(invalid = false, className?: string): string {
     base,
     // Border carries the error, but never alone - FormField also renders the
     // message as text and sets aria-invalid.
-    invalid ? "border-danger" : "border-line-strong",
+    invalid ? "border-danger" : "border-control-border",
     className,
   );
 }

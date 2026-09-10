@@ -38,7 +38,11 @@ export default function Checkbox({
         type="checkbox"
         aria-describedby={descriptionId}
         className={cn(
-          "mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-line-strong accent-primary",
+          // No border utility here. On an `appearance: auto` checkbox the
+          // browser draws its own box and border-width computes to 0px even
+          // when set explicitly, so a border class is dead styling. The box
+          // takes its colours from color-scheme, which index.css sets.
+          "mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded accent-primary",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
           "disabled:cursor-not-allowed disabled:opacity-60",
         )}
