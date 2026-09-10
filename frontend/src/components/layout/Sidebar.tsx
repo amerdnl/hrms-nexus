@@ -2,6 +2,7 @@ import {
   Building2,
   CalendarDays,
   Clock3,
+  DatabaseBackup,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -38,6 +39,7 @@ const adminNavigation: NavigationItem[] = [
   { label: "Payroll", to: "/admin/payroll", icon: Wallet },
   { label: "Reports", to: "/admin/reports", icon: BarChart3 },
   { label: "Audit log", to: "/admin/audit", icon: ScrollText },
+  { label: "Data export", to: "/admin/export", icon: DatabaseBackup },
   { label: "Import", to: "/admin/import", icon: Upload },
   { label: "Settings", to: "/admin/settings", icon: Settings },
 ];
