@@ -313,7 +313,7 @@ export default function ImportPage() {
                   const file = event.target.files?.[0];
                   if (file) void handleUpload(file);
                 }}
-                className="block w-full cursor-pointer rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-fg file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="block w-full cursor-pointer rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-fg file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-fg hover:file:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               />
             </FormField>
 
@@ -578,7 +578,7 @@ export default function ImportPage() {
                     checked={applyUpdates}
                     disabled={isBusy}
                     onChange={(event) => setApplyUpdates(event.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-line-strong text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    className="mt-0.5 h-4 w-4 rounded border-line-strong accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   />
                   <span className="text-fg">
                     Update {summary.update} existing employee
@@ -597,7 +597,7 @@ export default function ImportPage() {
                     checked={createDepartments}
                     disabled={isBusy}
                     onChange={(event) => setCreateDepartments(event.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-line-strong text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    className="mt-0.5 h-4 w-4 rounded border-line-strong accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   />
                   <span className="text-fg">
                     Create {validation!.missing_departments.length} missing department

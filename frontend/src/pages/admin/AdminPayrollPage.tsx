@@ -385,7 +385,7 @@ export default function AdminPayrollPage() {
                     type="checkbox"
                     checked={itemStatutory}
                     onChange={(event) => setItemStatutory(event.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-line-strong text-primary"
+                    className="mt-0.5 h-4 w-4 rounded border-line-strong accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   />
                   <span className="text-fg">
                     This is a statutory amount I have calculated myself
