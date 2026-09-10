@@ -5,8 +5,17 @@ import { navigationFor } from "../../routes/navigation";
 import { cn } from "../../utils/cn";
 import ThemeToggle from "../ui/ThemeToggle";
 
+/*
+ * The active item is a filled pill. It used to ALSO carry a 4px rail pinned to
+ * the panel's left edge, as a second, non-colour cue. That was the right call
+ * when the sidebar was dark chrome and the active state was close to a hue
+ * change; against a light panel it reads as a stray tick rather than a rail,
+ * and the references show no such mark. The cue is not lost: a filled pill
+ * against a transparent row is itself a shape difference, and NavLink sets
+ * aria-current regardless.
+ */
 const navigationItemBase =
-  "relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors";
+  "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors";
 
 /**
  * The desktop sidebar.
@@ -76,21 +85,8 @@ export default function Sidebar() {
               )
             }
           >
-            {({ isActive }) => (
-              <>
-                {/* Shape, not just hue: the active item also carries a rail
-                    flush with the sidebar edge. NavLink sets aria-current
-                    itself, so assistive tech is covered separately. */}
-                {isActive && (
-                  <span
-                    className="absolute -left-4 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary"
-                    aria-hidden="true"
-                  />
-                )}
-                <Icon size={19} aria-hidden="true" />
-                {label}
-              </>
-            )}
+            <Icon size={19} aria-hidden="true" />
+            {label}
           </NavLink>
         ))}
       </nav>

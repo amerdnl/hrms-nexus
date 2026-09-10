@@ -58,21 +58,43 @@ export function navigationFor(role: UserRole): NavigationItem[] {
 }
 
 /**
- * How many destinations reach the bottom bar directly.
+ * Which destinations reach the bottom bar directly.
  *
- * An employee has exactly five, so all five fit and there is no overflow.
- * An administrator has eleven, so four are promoted and the rest move behind
- * "More" - four plus More, never five plus More, because the bar has five
- * slots in total.
+ * Named explicitly rather than taken as the first N of the sidebar list. That
+ * shortcut looked equivalent and was not: it silently promoted Departments and
+ * demoted Leave, because bar membership is about what people reach daily and
+ * sidebar order is about how the sections group. Tying one to the other means
+ * reordering the sidebar quietly reorganises the phone.
+ *
+ * An employee has exactly five destinations, so all five are direct and there
+ * is no overflow. An administrator has eleven, so four are direct and the rest
+ * move behind "More" - four plus More, never five plus More, because the bar
+ * has five slots in total.
  */
-const MOBILE_PRIMARY_ADMIN = 4;
+const ADMIN_MOBILE_PRIMARY = [
+  "/admin/dashboard",
+  "/admin/employees",
+  "/admin/attendance",
+  "/admin/leave",
+];
 
 export function mobilePrimaryFor(role: UserRole): NavigationItem[] {
   const all = navigationFor(role);
-  return role === "admin" ? all.slice(0, MOBILE_PRIMARY_ADMIN) : all;
+  if (role !== "admin") return all;
+
+  // Mapped from the named paths rather than filtered, so the bar keeps the
+  // order above rather than inheriting the sidebar's.
+  return ADMIN_MOBILE_PRIMARY.map((path) => {
+    const item = all.find((candidate) => candidate.to === path);
+    if (!item) throw new Error(`Bottom navigation names an unknown route: ${path}`);
+    return item;
+  });
 }
 
 /** The destinations behind "More". Empty for an employee. */
 export function mobileOverflowFor(role: UserRole): NavigationItem[] {
-  return role === "admin" ? navigationFor(role).slice(MOBILE_PRIMARY_ADMIN) : [];
+  if (role !== "admin") return [];
+  return navigationFor(role).filter(
+    (item) => !ADMIN_MOBILE_PRIMARY.includes(item.to),
+  );
 }
