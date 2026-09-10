@@ -2,18 +2,9 @@ import apiClient from "./axios";
 import type {
   AdminDashboardData,
   DashboardAttendance,
-  DashboardEmployee,
   DashboardLeave,
   EmployeeDashboardData,
 } from "../types/dashboard";
-
-interface ApiDashboardEmployee {
-  id: number;
-  full_name: string;
-  employee_number: string;
-  job_title: string | null;
-  department_name: string | null;
-}
 
 interface ApiDashboardAttendance {
   id: number;
@@ -34,18 +25,6 @@ interface ApiDashboardLeave {
   reviewed_at?: string | null;
   created_at: string;
   employee_name?: string;
-}
-
-interface EmployeeDashboardApiResponse {
-  success: boolean;
-  message: string;
-  data: {
-    employee: ApiDashboardEmployee;
-    todayAttendance: ApiDashboardAttendance | null;
-    recentAttendance: ApiDashboardAttendance[];
-    pendingLeaves: number;
-    recentLeaves: ApiDashboardLeave[];
-  };
 }
 
 interface AdminDashboardApiResponse {
@@ -86,16 +65,6 @@ interface AdminDashboardApiResponse {
   };
 }
 
-function mapEmployee(employee: ApiDashboardEmployee): DashboardEmployee {
-  return {
-    id: employee.id,
-    fullName: employee.full_name,
-    employeeNumber: employee.employee_number,
-    jobTitle: employee.job_title,
-    departmentName: employee.department_name,
-  };
-}
-
 function mapAttendance(
   attendance: ApiDashboardAttendance,
 ): DashboardAttendance {
@@ -122,20 +91,19 @@ function mapLeave(leave: ApiDashboardLeave): DashboardLeave {
   };
 }
 
+/**
+ * The employee dashboard is assembled by the server and already uses the
+ * client's own field names, so there is nothing to translate here. Every value
+ * on it is derived from the session; no employee identifier is sent.
+ */
 export async function getEmployeeDashboard(): Promise<EmployeeDashboardData> {
-  const response = await apiClient.get<EmployeeDashboardApiResponse>(
-    "/dashboard/employee",
-  );
+  const response = await apiClient.get<{
+    success: boolean;
+    message: string;
+    data: EmployeeDashboardData;
+  }>("/dashboard/employee");
 
-  return {
-    employee: mapEmployee(response.data.data.employee),
-    todayAttendance: response.data.data.todayAttendance
-      ? mapAttendance(response.data.data.todayAttendance)
-      : null,
-    recentAttendance: response.data.data.recentAttendance.map(mapAttendance),
-    pendingLeaves: response.data.data.pendingLeaves,
-    recentLeaves: response.data.data.recentLeaves.map(mapLeave),
-  };
+  return response.data.data;
 }
 
 export async function getAdminDashboard(): Promise<AdminDashboardData> {
