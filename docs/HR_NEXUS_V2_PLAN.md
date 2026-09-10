@@ -21,6 +21,7 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | 9 | Reports/export and dashboards | Complete; no migration needed, 314 tests passed, 33/33 authenticated browser smoke on 9 September 2026 |
 | 10 | Audit and demo data | Complete; 0008 applied, 358 tests passed, 24/24 authenticated browser smoke on 9 September 2026 |
 | 11 | Employee Dashboard V2 | Complete; no migration needed, 375 tests passed, 30/30 authenticated browser smoke at desktop and mobile widths on 10 September 2026 |
+| 12 | Company data export and XLSX export | Complete; no migration needed, 409 tests passed, 28/28 authenticated admin browser smoke with real downloads on 10 September 2026 |
 
 ## First security increment
 
@@ -434,6 +435,37 @@ not be read says so rather than rendering as zero.
 
 See [the milestone record](HR_NEXUS_V2_EMPLOYEE_DASHBOARD.md).
 
+## Company data export and XLSX export increment
+
+Delivered against master §42. No database migration was needed and none was made; the
+ledger is unchanged at `0001-0008`. The new `DATA_EXPORTED` audit action and `export`
+entity type are a code change only: `audit_events.action` and `entity_type` carry no
+CHECK constraint, and both values fit their columns.
+
+Fifteen datasets are exportable individually as CSV or together as one XLSX workbook,
+covering employees, departments, company settings, user accounts, attendance, leave
+requests, entitlements, balances and policies, compensation, payroll periods, records and
+line items, audit events and import history.
+
+Authorization is applied to the whole router, so a route added later cannot be published
+without it, and the download route was measured against the listing route for the same
+employee token to confirm it is not a weaker door. Nothing accepts a target identifier;
+the dataset key indexes a fixed map, so `users`, `audit_events` and a path traversal are
+all simply not found.
+
+The XLSX writer imports the CSV formula-neutralisation rule rather than restating it. The
+downloaded workbook contains zero formula cells and no hidden sheets. Money is rendered
+from integer sen via BigInt and written as text, never as a JavaScript number.
+
+Row limits are enforced twice — per dataset and per workbook — because fifteen sheets can
+each be under the first ceiling and still be too large together. Both refuse rather than
+truncate.
+
+The only write these endpoints perform is the audit entry recording that an export
+happened; it stores counts and dataset names, never the exported content.
+
+See [the milestone record](HR_NEXUS_V2_DATA_EXPORT.md).
+
 ## Remaining blockers / release gates
 
 - Migration 0001 and its browser gate are complete and accepted. Migrations 0002 and
@@ -457,15 +489,11 @@ See [the milestone record](HR_NEXUS_V2_EMPLOYEE_DASHBOARD.md).
   recreated with an 8 GB tmpfs and both documented baselines rebuilt from retained
   backups; a full run now settles at 118 MB. The source database was unaffected
   throughout and verified byte-identical to its recorded baseline.
-- Active P0: Employee Dashboard V2 is complete. Three P0 items from the master remain
-  outstanding and are listed below; P0 is NOT feature-complete.
-- **Remaining P0 scope, none of it started:**
-  1. Company-wide Data Export (master §42) - employees, departments, attendance, leave and
-     payroll, so a company can retrieve its own data.
-  2. XLSX export - exports are CSV only; the exceljs dependency added for import is not
-     reused for output yet.
-  3. Forced first-login password change - the release/security blocker below.
-  P0 must not be declared feature-complete until these are resolved or explicitly
+- Active P0: company data export and XLSX export are complete. One P0 item from the
+  master remains outstanding; P0 is NOT feature-complete.
+- **Remaining P0 scope, not started:**
+  1. Forced first-login password change - the release/security blocker below.
+  P0 must not be declared feature-complete until this is resolved or explicitly
   deferred with the user's approval.
 - Observed intermittent, seen twice and never reproduced on demand: a full-suite run has
   once reported a process-level failure in the Company Settings suite, and once in the
@@ -541,7 +569,7 @@ docker run --rm --volumes-from hr-nexus-backend:ro \
   -e HR_NEXUS_ATTENDANCE_LAB=1 -e HR_NEXUS_LEAVE_LAB=1 \
   -e HR_NEXUS_PAYROLL_LAB=1 -e HR_NEXUS_REPORTS_LAB=1 \
   -e HR_NEXUS_AUDIT_LAB=1 -e HR_NEXUS_DEMO_LAB=1 \
-  -e HR_NEXUS_DASHBOARD_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
+  -e HR_NEXUS_DASHBOARD_LAB=1 -e HR_NEXUS_EXPORT_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
   -e DATABASE_URL=postgresql://postgres@hr-nexus-v2-migration-lab/postgres \
   --mount "type=bind,src=$PWD/database,dst=/database,readonly" \
   --mount "type=bind,src=$PWD/docs,dst=/docs,readonly" \

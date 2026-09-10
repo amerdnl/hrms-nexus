@@ -157,6 +157,18 @@ the browser, where it had been computed against the device clock. 375 tests pass
 skips and a 30-check authenticated browser smoke passed at desktop and mobile widths.
 See `HR_NEXUS_V2_EMPLOYEE_DASHBOARD.md`.
 
+Company data export and XLSX export are complete with no migration; the ledger stays at
+`0001-0008`. Fifteen datasets go out as CSV individually or as one workbook, administrator
+-only with the guard on the router rather than per route, and with no target identifier to
+substitute. Password hashes, QR token hashes, attendance coordinates, the office geofence
+position and the raw contents of uploaded import files are all excluded by name, and a
+deliberately hostile lab fixture asserts each is absent. The XLSX writer reuses the CSV
+neutralisation rule; the downloaded workbook was opened and confirmed to hold zero formula
+cells, no hidden sheets and 243 money cells all exact text from integer sen. Every export
+is audited with counts only, and a fingerprint over eight tables is unchanged by exporting
+everything. 409 tests pass with no skips and a 28-check authenticated admin browser smoke
+passed with real downloads. See `HR_NEXUS_V2_DATA_EXPORT.md`.
+
 ## Architecture and versions
 
 React SPA → Axios Bearer requests → Express routes/controllers → parameterized
@@ -253,10 +265,10 @@ zoned clock built from Company Settings.
 
 ## P0 gaps
 
-Company-wide data export (master §42) and XLSX export remain outstanding, alongside the
-forced first-login password change release blocker. The migration mechanism, company
-settings, import workflow, attendance verification, leave balances, payroll, reporting,
-the audit log, demo data and Employee Dashboard V2 are now in place. The dashboard was
+The forced first-login password change release blocker is the only outstanding P0 item.
+The migration mechanism, company settings, import workflow, attendance verification,
+leave balances, payroll, reporting, the audit log, demo data, Employee Dashboard V2 and
+the company data export are now in place. The dashboard was
 extended rather than rebuilt, as recorded at baseline: it already used real SQL and there
 was no mock data to replace.
 Demo data is insufficient (one active employee found in the live aggregate).
