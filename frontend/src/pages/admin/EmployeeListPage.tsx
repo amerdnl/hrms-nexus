@@ -1,6 +1,14 @@
-import { Plus, UserCheck, UserMinus, Users } from "lucide-react";
+import {
+  Ellipsis,
+  Eye,
+  Pencil,
+  Plus,
+  UserCheck,
+  UserMinus,
+  Users,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { getApiErrorMessage } from "../../api/axios";
+import { getApiErrorMessage, resolveProfileImageUrl } from "../../api/axios";
 import { getDepartments, type Department } from "../../api/departmentApi";
 import {
   deleteEmployee,
@@ -10,18 +18,23 @@ import {
 } from "../../api/employeeApi";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import Alert from "../../components/ui/Alert";
+import Avatar from "../../components/ui/Avatar";
 import Button from "../../components/ui/Button";
 import DataTable from "../../components/ui/DataTable";
+import DropdownMenu from "../../components/ui/DropdownMenu";
 import EmptyState from "../../components/ui/EmptyState";
 import FilterPanel from "../../components/ui/FilterPanel";
 import FormField from "../../components/ui/FormField";
 import { fieldDescribedBy } from "../../components/ui/fieldStyles";
 import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
+import RecordCard from "../../components/ui/RecordCard";
 import Pagination from "../../components/ui/Pagination";
 import SelectInput from "../../components/ui/SelectInput";
+import Skeleton from "../../components/ui/Skeleton";
 import StatusBadge from "../../components/ui/StatusBadge";
 import TextInput from "../../components/ui/TextInput";
+import { useNavigate } from "react-router-dom";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import {
   employmentStatusLabels,
@@ -38,8 +51,14 @@ const tableHeaders = [
   "Job title",
   "Department",
   "Status",
-  "Actions",
+  // Right-aligned single control rather than three buttons - see the row menu.
+  <span key="actions" className="sr-only">
+    Actions
+  </span>,
 ];
+
+/** Placeholder rows, so a slow list keeps the table's shape instead of collapsing. */
+const SKELETON_ROWS = 6;
 
 type PendingActionType = "deactivate" | "reactivate";
 
@@ -81,6 +100,7 @@ const actionCopy: Record<
 };
 
 export default function EmployeeListPage() {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [total, setTotal] = useState(0);
   const [pageCount, setPageCount] = useState(1);
@@ -242,6 +262,53 @@ export default function EmployeeListPage() {
     }
   }
 
+  /**
+   * The row actions, defined once and rendered by both the table row and the
+   * mobile card. Three side-by-side buttons per row was the widest thing on
+   * this page and the reason it needed 1000px; a menu also matches the
+   * references' overflow control.
+   */
+  function rowActions(employee: Employee) {
+    const isActive =
+      employee.employmentStatus === "active" ||
+      employee.employmentStatus === "probation";
+
+    return (
+      <DropdownMenu
+        label={`Actions for ${employee.fullName}`}
+        className="h-9 w-9"
+        trigger={<Ellipsis size={18} aria-hidden="true" />}
+        items={[
+          {
+            key: "view",
+            label: "View details",
+            icon: <Eye size={16} aria-hidden="true" />,
+            onSelect: () => navigate(`/admin/employees/${employee.id}`),
+          },
+          {
+            key: "edit",
+            label: "Edit employee",
+            icon: <Pencil size={16} aria-hidden="true" />,
+            onSelect: () => navigate(`/admin/employees/${employee.id}/edit`),
+          },
+          {
+            key: "status",
+            label: isActive ? "Deactivate" : "Reactivate",
+            icon: isActive
+              ? <UserMinus size={16} aria-hidden="true" />
+              : <UserCheck size={16} aria-hidden="true" />,
+            tone: isActive ? ("danger" as const) : ("default" as const),
+            onSelect: () =>
+              setPendingAction({
+                type: isActive ? "deactivate" : "reactivate",
+                employee,
+              }),
+          },
+        ]}
+      />
+    );
+  }
+
   const pendingCopy = pendingAction ? actionCopy[pendingAction.type] : null;
 
   return (
@@ -363,10 +430,50 @@ export default function EmployeeListPage() {
         <DataTable
           headers={tableHeaders}
           caption="Employees matching the current filters"
-          minWidthClass="min-w-250"
+          // Was min-w-250 to fit three action buttons per row. The row menu
+          // replaced them, so the table now fits the 1280 content column
+          // without scrolling.
+          minWidthClass="min-w-200"
           isLoading={isLoading}
           loadingLabel="Loading employees..."
           isEmpty={employees.length === 0}
+          mobileCards={
+            isLoading
+              ? Array.from({ length: SKELETON_ROWS }, (_, index) => (
+                  <li key={index} className="flex items-center gap-3 px-4 py-4">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Skeleton className="h-3.5 w-40" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </li>
+                ))
+              : employees.map((employee) => (
+                  <RecordCard
+                    key={employee.id}
+                    to={`/admin/employees/${employee.id}`}
+                    leading={
+                      <Avatar
+                        name={employee.fullName}
+                        src={resolveProfileImageUrl(employee.profileImage)}
+                        size="md"
+                      />
+                    }
+                    title={employee.fullName}
+                    subtitle={employee.employeeNumber}
+                    badge={
+                      <StatusBadge
+                        {...employmentStatusMeta(employee.employmentStatus)}
+                      />
+                    }
+                    meta={[
+                      { label: "Job title", value: employee.jobTitle ?? "\u2014" },
+                      { label: "Department", value: employee.departmentName ?? "\u2014" },
+                    ]}
+                    actions={rowActions(employee)}
+                  />
+                ))
+          }
           emptyState={
             activeFilterCount > 0 ? (
               <EmptyState
@@ -398,69 +505,45 @@ export default function EmployeeListPage() {
             )
           }
         >
-          {employees.map((employee) => {
-            const isActive =
-              employee.employmentStatus === "active" ||
-              employee.employmentStatus === "probation";
-
-            return (
-              <tr key={employee.id}>
-                <td className="px-5 py-4">
-                  <p className="font-medium text-fg">{employee.fullName}</p>
-                  <p className="mt-0.5 text-xs text-fg-subtle">
-                    {employee.employeeNumber}
-                  </p>
-                </td>
-
-                <td className="px-5 py-4 text-fg-muted">
-                  {employee.jobTitle ?? "—"}
-                </td>
-
-                <td className="px-5 py-4 text-fg-muted">
-                  {employee.departmentName ?? "—"}
-                </td>
-
-                <td className="px-5 py-4">
-                  <StatusBadge
-                    {...employmentStatusMeta(employee.employmentStatus)}
+          {employees.map((employee) => (
+            <tr key={employee.id} className="transition-colors hover:bg-surface-muted">
+              <td className="px-5 py-3">
+                <div className="flex items-center gap-3">
+                  <Avatar
+                    name={employee.fullName}
+                    src={resolveProfileImageUrl(employee.profileImage)}
+                    size="sm"
                   />
-                </td>
-
-                <td className="px-5 py-4">
-                  <div className="flex flex-wrap gap-2">
-                    <LinkButton
-                      to={`/admin/employees/${employee.id}`}
-                      variant="secondary"
-                      size="sm"
-                    >
-                      View
-                    </LinkButton>
-
-                    <LinkButton
-                      to={`/admin/employees/${employee.id}/edit`}
-                      variant="secondary"
-                      size="sm"
-                    >
-                      Edit
-                    </LinkButton>
-
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() =>
-                        setPendingAction({
-                          type: isActive ? "deactivate" : "reactivate",
-                          employee,
-                        })
-                      }
-                    >
-                      {isActive ? "Deactivate" : "Reactivate"}
-                    </Button>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-fg">
+                      {employee.fullName}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-fg-subtle">
+                      {employee.employeeNumber}
+                    </p>
                   </div>
-                </td>
-              </tr>
-            );
-          })}
+                </div>
+              </td>
+
+              <td className="px-5 py-3 text-fg-muted">
+                {employee.jobTitle ?? "\u2014"}
+              </td>
+
+              <td className="px-5 py-3 text-fg-muted">
+                {employee.departmentName ?? "\u2014"}
+              </td>
+
+              <td className="px-5 py-3">
+                <StatusBadge
+                  {...employmentStatusMeta(employee.employmentStatus)}
+                />
+              </td>
+
+              <td className="px-5 py-3">
+                <div className="flex justify-end">{rowActions(employee)}</div>
+              </td>
+            </tr>
+          ))}
         </DataTable>
 
         <Pagination
