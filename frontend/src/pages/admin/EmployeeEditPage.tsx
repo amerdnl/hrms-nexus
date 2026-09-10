@@ -11,6 +11,11 @@ import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import SectionCard from "../../components/ui/SectionCard";
+import {
+  accountSection,
+  employmentSection,
+  personalSection,
+} from "./employeeFormSections";
 import SelectInput from "../../components/ui/SelectInput";
 import TextArea from "../../components/ui/TextArea";
 import TextInput from "../../components/ui/TextInput";
@@ -157,7 +162,11 @@ export default function EmployeeEditPage() {
       {error && <Alert tone="danger">{error}</Alert>}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <SectionCard title="Employee details">
+        <SectionCard
+          title={accountSection.title}
+          description={accountSection.description}
+          icon={accountSection.icon}
+        >
           <div className="grid gap-5 md:grid-cols-2">
             <FormField id="full-name" label="Full name">
               <TextInput
@@ -198,17 +207,15 @@ export default function EmployeeEditPage() {
                 disabled={isSubmitting}
               />
             </FormField>
+          </div>
+        </SectionCard>
 
-            <FormField id="phone" label="Phone">
-              <TextInput
-                id="phone"
-                type="text"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                disabled={isSubmitting}
-              />
-            </FormField>
-
+        <SectionCard
+          title={employmentSection.title}
+          description={employmentSection.description}
+          icon={employmentSection.icon}
+        >
+          <div className="grid gap-5 md:grid-cols-2">
             <FormField id="job-title" label="Job title">
               <TextInput
                 id="job-title"
@@ -262,6 +269,24 @@ export default function EmployeeEditPage() {
                 type="date"
                 value={employmentDate}
                 onChange={(event) => setEmploymentDate(event.target.value)}
+                disabled={isSubmitting}
+              />
+            </FormField>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title={personalSection.title}
+          description={personalSection.description}
+          icon={personalSection.icon}
+        >
+          <div className="grid gap-5 md:grid-cols-2">
+            <FormField id="phone" label="Phone">
+              <TextInput
+                id="phone"
+                type="text"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
                 disabled={isSubmitting}
               />
             </FormField>

@@ -1,4 +1,3 @@
-import { UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,6 +12,11 @@ import PageHeader from "../../components/ui/PageHeader";
 import PasswordInput from "../../components/ui/PasswordInput";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import SectionCard from "../../components/ui/SectionCard";
+import {
+  accountSection,
+  employmentSection,
+  personalSection,
+} from "./employeeFormSections";
 import SelectInput from "../../components/ui/SelectInput";
 import TextArea from "../../components/ui/TextArea";
 import TextInput from "../../components/ui/TextInput";
@@ -128,9 +132,9 @@ export default function EmployeeFormPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <SectionCard
-          title="Account"
+          title={accountSection.title}
           description="Used to create the employee's sign-in."
-          icon={UserPlus}
+          icon={accountSection.icon}
         >
           <div className="grid gap-5 md:grid-cols-2">
             <FormField id="employee-number" label="Employee number" required>
@@ -182,7 +186,11 @@ export default function EmployeeFormPage() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Employment">
+        <SectionCard
+          title={employmentSection.title}
+          description={employmentSection.description}
+          icon={employmentSection.icon}
+        >
           <div className="grid gap-5 md:grid-cols-2">
             <FormField id="job-title" label="Job title">
               <TextInput
@@ -244,7 +252,11 @@ export default function EmployeeFormPage() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Personal and contact">
+        <SectionCard
+          title={personalSection.title}
+          description={personalSection.description}
+          icon={personalSection.icon}
+        >
           <div className="grid gap-5 md:grid-cols-2">
             <FormField id="phone" label="Phone">
               <TextInput
