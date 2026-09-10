@@ -295,6 +295,23 @@
     outline-offset: 2px;
   }
 
+  /* Motion is opt-out globally rather than per component. Several things in
+     this app animate - the skeleton pulse, colour transitions, the progress
+     bar's width - and honouring the preference one utility at a time is the
+     kind of rule that is right on the day it is written and wrong six
+     components later. Near-zero rather than `none` so transitionend and
+     animationend still fire and no state machine waiting on them stalls. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   /* Edge (and legacy IE) inject their own reveal eye and clear cross inside a
      password field. Next to PasswordInput's own toggle that renders as two
      eyes, one of them unlabelled and outside our focus/ARIA handling.

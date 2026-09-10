@@ -39,9 +39,19 @@ const variants: Record<ButtonVariant, string> = {
   "danger-ghost": "text-danger-fg hover:bg-danger-soft",
 };
 
+/**
+ * `pointer-coarse` rather than a breakpoint: the thing that decides whether a
+ * target is big enough is the input device, not the viewport width. A phone in
+ * landscape is still a finger, and a small window on a laptop is still a mouse.
+ *
+ * md reaches the 44px of WCAG 2.5.5 on touch. sm reaches 36px rather than 44:
+ * it is the size used inside dense table rows, where 44px per control would
+ * push the row past a phone screen, and 36 is comfortably clear of the 24px
+ * that 2.5.8 requires at AA.
+ */
 const sizes: Record<ButtonSize, string> = {
-  sm: "px-3 py-1.5 text-xs",
-  md: "px-4 py-2.5 text-sm",
+  sm: "px-3 py-1.5 text-xs pointer-coarse:min-h-9",
+  md: "px-4 py-2.5 text-sm pointer-coarse:min-h-11",
 };
 
 export function buttonClass(

@@ -1,200 +1,106 @@
-import {
-  Building2,
-  CalendarDays,
-  Clock3,
-  DatabaseBackup,
-  LayoutDashboard,
-  Menu,
-  Settings,
-  Upload,
-  UserRound,
-  Wallet,
-  Users,
-  BarChart3,
-  ScrollText,
-  X,
-  type LucideIcon,
-} from "lucide-react";
-import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import { useTheme } from "../../context/useTheme";
+import { navigationFor } from "../../routes/navigation";
 import { cn } from "../../utils/cn";
 import ThemeToggle from "../ui/ThemeToggle";
 
-interface NavigationItem {
-  label: string;
-  to: string;
-  icon: LucideIcon;
-}
-
-const adminNavigation: NavigationItem[] = [
-  { label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
-  { label: "Employees", to: "/admin/employees", icon: Users },
-  { label: "Departments", to: "/admin/departments", icon: Building2 },
-  { label: "Attendance", to: "/admin/attendance", icon: Clock3 },
-  { label: "Leave", to: "/admin/leave", icon: CalendarDays },
-  { label: "Payroll", to: "/admin/payroll", icon: Wallet },
-  { label: "Reports", to: "/admin/reports", icon: BarChart3 },
-  { label: "Audit log", to: "/admin/audit", icon: ScrollText },
-  { label: "Data export", to: "/admin/export", icon: DatabaseBackup },
-  { label: "Import", to: "/admin/import", icon: Upload },
-  { label: "Settings", to: "/admin/settings", icon: Settings },
-];
-
-const employeeNavigation: NavigationItem[] = [
-  { label: "Dashboard", to: "/employee/dashboard", icon: LayoutDashboard },
-  { label: "Profile", to: "/employee/profile", icon: UserRound },
-  { label: "Attendance", to: "/employee/attendance", icon: Clock3 },
-  { label: "Leave", to: "/employee/leave", icon: CalendarDays },
-  { label: "Payslips", to: "/employee/payroll", icon: Wallet },
-];
-
 const navigationItemBase =
-  "relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition";
+  "relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors";
 
-/* The sidebar FOLLOWS the theme: light chrome in the light theme, navy in the
-   dark one. It used to be pinned dark in both, and two colours here were
-   hardcoded on that assumption - a fixed light red for the logout hover and
-   the static brand ramp for the portal badge. Once the surface went white
-   those measured 1.90:1 and 1.48:1, so both now come from dedicated
-   --sidebar-danger-* / --sidebar-badge-* tokens that flip with everything
-   else. Nothing on this surface may use a fixed colour. */
 /**
- * `visibility` is doing accessibility work here, not decoration.
+ * The desktop sidebar.
  *
- * A drawer that is merely translated off-screen keeps its links in the tab
- * order, so a keyboard user below `md` tabs through five invisible
- * destinations. `visibility: hidden` removes them from both the tab order and
- * the accessibility tree, and `md:visible` re-exposes them at the breakpoint
- * where the sidebar is permanently on screen - so desktop is untouched.
+ * Desktop only. It used to double as a slide-out drawer below md, which is
+ * why it carried a fixed hamburger, a backdrop, an open/closed transform and
+ * `visibility: hidden` to keep its links out of the tab order while
+ * off-screen. All of that is gone: below md, MobileNav is the navigation, and
+ * `hidden` here means these links are genuinely not rendered rather than
+ * merely pushed off-screen.
  *
- * visibility is included in the transition because it interpolates discretely:
- * on open it flips to visible immediately, on close it waits for the slide-out
- * to finish instead of making the panel vanish.
+ * The surface FOLLOWS the theme - light chrome in the light theme, navy in
+ * the dark one - so nothing drawn on it may use a fixed colour. See the
+ * --sidebar-* tokens in index.css.
  */
-const sidebarPanel =
-  "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-sidebar text-sidebar-fg transition-[transform,visibility] md:sticky md:top-0 md:h-screen md:translate-x-0 md:visible";
-
 export default function Sidebar() {
   const { user } = useAuth();
   const { resolvedTheme } = useTheme();
-  const [isOpen, setIsOpen] = useState(false);
 
   if (!user) return null;
 
-  const navigation = user.role === "admin" ? adminNavigation : employeeNavigation;
+  const navigation = navigationFor(user.role);
   const portalLabel = user.role === "admin" ? "Admin portal" : "Employee portal";
 
   return (
-    <>
-      <button
-        className="fixed left-4 top-4 z-40 grid h-10 w-10 place-items-center rounded-lg bg-sidebar text-sidebar-fg-strong shadow-raised md:hidden"
-        type="button"
-        onClick={() => setIsOpen(true)}
-        aria-label="Open navigation"
-        aria-expanded={isOpen}
-        aria-controls="app-sidebar"
-      >
-        <Menu size={21} />
-      </button>
-
-      {isOpen && (
-        <button
-          className="fixed inset-0 z-40 bg-backdrop md:hidden"
-          type="button"
-          onClick={() => setIsOpen(false)}
-          aria-label="Close navigation overlay"
+    <aside
+      id="app-sidebar"
+      aria-label="Sidebar"
+      className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col bg-sidebar text-sidebar-fg md:flex"
+    >
+      <div className="flex h-16 items-center gap-3 border-b border-sidebar-line px-6">
+        {/* Follows the theme, because the sidebar does: the aqua mark is drawn
+            for dark chrome and the teal one for light chrome.
+            alt="" on purpose - the "HR NEXUS" wordmark sits right beside it,
+            so naming the image would read the brand out twice. */}
+        <img
+          src={
+            resolvedTheme === "dark"
+              ? "/branding/hr-nexus-icon-light.png"
+              : "/branding/hr-nexus-icon-transparent.png"
+          }
+          alt=""
+          className="h-8 w-8 shrink-0 object-contain"
         />
-      )}
 
-      <aside
-        id="app-sidebar"
-        aria-label="Sidebar"
-        className={cn(
-          sidebarPanel,
-          isOpen ? "visible translate-x-0" : "invisible -translate-x-full",
-        )}
-      >
-        <div className="flex h-20 items-center justify-between gap-3 border-b border-sidebar-line px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            {/* Follows the theme, because the sidebar does: the aqua mark is
-                drawn for dark chrome and the teal one for light chrome.
-                alt="" on purpose - the "HR NEXUS" wordmark sits right beside
-                it, so naming the image would read the brand out twice. */}
-            <img
-              src={
-                resolvedTheme === "dark"
-                  ? "/branding/hr-nexus-icon-light.png"
-                  : "/branding/hr-nexus-icon-transparent.png"
-              }
-              alt=""
-              className="h-9 w-9 shrink-0 object-contain"
-            />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold tracking-wide text-sidebar-fg-strong">
+            HR NEXUS
+          </p>
+          <span className="mt-0.5 inline-flex items-center rounded-full bg-sidebar-badge-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-sidebar-badge-fg">
+            {portalLabel}
+          </span>
+        </div>
+      </div>
 
-            <div className="min-w-0">
-              <p className="truncate text-base font-bold tracking-wide text-sidebar-fg-strong">
-                HR NEXUS
-              </p>
-              <span className="mt-0.5 inline-flex items-center rounded-full bg-sidebar-badge-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-sidebar-badge-fg">
-                {portalLabel}
-              </span>
-            </div>
-          </div>
-
-          <button
-            className="shrink-0 rounded-lg p-1 text-sidebar-fg transition hover:text-sidebar-fg-strong md:hidden"
-            type="button"
-            onClick={() => setIsOpen(false)}
-            aria-label="Close navigation"
+      <nav aria-label="Primary" className="flex-1 space-y-1 overflow-y-auto px-4 py-6">
+        {navigation.map(({ icon: Icon, label, to }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              cn(
+                navigationItemBase,
+                isActive
+                  ? "bg-primary text-primary-fg"
+                  : "hover:bg-sidebar-hover hover:text-sidebar-fg-strong",
+              )
+            }
           >
-            <X size={22} />
-          </button>
-        </div>
+            {({ isActive }) => (
+              <>
+                {/* Shape, not just hue: the active item also carries a rail
+                    flush with the sidebar edge. NavLink sets aria-current
+                    itself, so assistive tech is covered separately. */}
+                {isActive && (
+                  <span
+                    className="absolute -left-4 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+                    aria-hidden="true"
+                  />
+                )}
+                <Icon size={19} aria-hidden="true" />
+                {label}
+              </>
+            )}
+          </NavLink>
+        ))}
+      </nav>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-6">
-          {navigation.map(({ icon: Icon, label, to }) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={() => setIsOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  navigationItemBase,
-                  isActive
-                    ? "bg-primary text-primary-fg"
-                    : "hover:bg-sidebar-hover hover:text-sidebar-fg-strong",
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {/* Shape, not just hue: the active item also carries a rail
-                      flush with the sidebar edge. NavLink sets aria-current
-                      itself, so assistive tech is covered separately. */}
-                  {isActive && (
-                    <span
-                      className="absolute -left-4 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary"
-                      aria-hidden="true"
-                    />
-                  )}
-                  <Icon size={19} aria-hidden="true" />
-                  {label}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* The account block and sign-out used to live here. They moved to
-            AppHeader, which the references show and which keeps them reachable
-            once this panel stops rendering below md. The theme control stays,
-            as the references place it. */}
-        <div className="border-t border-sidebar-line p-4">
-          <ThemeToggle className="text-sidebar-fg hover:bg-sidebar-hover hover:text-sidebar-fg-strong" />
-        </div>
-      </aside>
-
-    </>
+      {/* The account block and sign-out used to live here. They moved to
+          AppHeader, which the references show and which keeps them reachable
+          on mobile now that this panel does not render there. */}
+      <div className="border-t border-sidebar-line p-4">
+        <ThemeToggle className="text-sidebar-fg hover:bg-sidebar-hover hover:text-sidebar-fg-strong" />
+      </div>
+    </aside>
   );
 }

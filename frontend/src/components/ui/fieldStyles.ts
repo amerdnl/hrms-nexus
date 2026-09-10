@@ -10,6 +10,9 @@ import { cn } from "../../utils/cn";
  */
 const base = cn(
   "w-full rounded-lg border px-3 py-2.5 text-sm",
+  // 44px on touch, per WCAG 2.5.5. Unchanged with a mouse, where the
+  // current density is deliberate.
+  "pointer-coarse:min-h-11",
   "bg-surface text-fg placeholder:text-fg-subtle",
   "transition-colors",
   // Deliberately NO `outline-none` here. In Tailwind v4 it sets
