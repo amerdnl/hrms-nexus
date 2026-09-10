@@ -326,9 +326,15 @@ export const createEmployee = async (request: Request, response: Response) => {
 
     // Account activity is derived from employment status, so an employee created
     // as inactive/resigned/terminated does not receive a usable sign-in.
+    //
+    // must_change_password is TRUE for the same reason as the import path: the
+    // administrator chose this password and knows it, so it is a temporary
+    // credential no matter how it was typed. An administrator creating an
+    // account cannot opt out of that.
     await client.query(
-      `INSERT INTO users (employee_id, email, password_hash, role, is_active)
-       VALUES ($1,$2,$3,'employee',$4)`,
+      `INSERT INTO users
+         (employee_id, email, password_hash, role, is_active, must_change_password)
+       VALUES ($1,$2,$3,'employee',$4,TRUE)`,
       [
         record.id,
         employee.email,

@@ -19,10 +19,19 @@ function getJwtSecret(): string {
   return secret;
 }
 
-export async function authenticateToken(
+/**
+ * Verifies the bearer token and rebuilds the session from the database.
+ *
+ * `allowPasswordChange` is the ONLY difference between the two middlewares
+ * exported below. It is a parameter rather than a second implementation so the
+ * token checks cannot drift apart between the restricted and unrestricted
+ * paths.
+ */
+async function authenticate(
   request: Request,
   response: Response,
   next: NextFunction,
+  allowPasswordChange: boolean,
 ): Promise<void> {
   const authorization = request.headers.authorization;
 
@@ -106,6 +115,26 @@ export async function authenticateToken(
       return;
     }
 
+    // Default deny. Every protected router in this application reaches here,
+    // so an account owing a password change is refused everywhere except the
+    // three endpoints that deliberately opt in below. A router added later is
+    // covered without anyone remembering to cover it.
+    //
+    // The value comes from `findSessionUserById`, which reads the column on
+    // every request, so an old token cannot assert a stale answer in either
+    // direction.
+    if (currentUser.mustChangePassword && !allowPasswordChange) {
+      response.status(403).json({
+        success: false,
+        // A distinct code, so the client can route to the forced-change screen
+        // rather than treating this as an ordinary permission failure.
+        code: "PASSWORD_CHANGE_REQUIRED",
+        message:
+          "You must choose a new password before using the application.",
+      });
+      return;
+    }
+
     request.user = currentUser;
     next();
   } catch (error) {
@@ -127,4 +156,33 @@ export async function authenticateToken(
 
     next(error);
   }
+}
+
+/**
+ * The guard every protected route uses.
+ *
+ * An account still holding a temporary password is refused here, whatever its
+ * role: an administrator whose account is flagged is no more exempt than an
+ * employee.
+ */
+export async function authenticateToken(
+  request: Request,
+  response: Response,
+  next: NextFunction,
+): Promise<void> {
+  await authenticate(request, response, next, false);
+}
+
+/**
+ * The same verification, minus the forced-change refusal.
+ *
+ * Reserved for the minimum an account needs in order to get out of that state:
+ * read who it is, change its password, and sign out. Nothing else may use it.
+ */
+export async function authenticateForPasswordChange(
+  request: Request,
+  response: Response,
+  next: NextFunction,
+): Promise<void> {
+  await authenticate(request, response, next, true);
 }

@@ -10,8 +10,9 @@ export async function findSessionUserById(
     employee_id: string | null;
     role: UserRole;
     email: string;
+    must_change_password: boolean;
   }>(
-    `SELECT u.id, u.employee_id, u.role, u.email
+    `SELECT u.id, u.employee_id, u.role, u.email, u.must_change_password
      FROM users u
      LEFT JOIN employees e ON e.id = u.employee_id
      WHERE u.id = $1 AND u.is_active = TRUE
@@ -36,7 +37,10 @@ export async function findSessionUserById(
     return null;
   }
 
-  return { id, employeeId, role: row.role, email: row.email };
+  return {
+    id, employeeId, role: row.role, email: row.email,
+    mustChangePassword: row.must_change_password,
+  };
 }
 
 export interface UserRecord {
@@ -46,6 +50,7 @@ export interface UserRecord {
   password_hash: string;
   role: UserRole;
   is_active: boolean;
+  must_change_password: boolean;
 }
 
 export interface SafeUser {
@@ -54,6 +59,8 @@ export interface SafeUser {
   email: string;
   role: UserRole;
   isActive: boolean;
+  /** Tells the client to route to the forced password change and nowhere else. */
+  mustChangePassword: boolean;
   employee: {
     employeeNumber: string;
     fullName: string;
@@ -77,6 +84,7 @@ interface SafeUserRow {
   email: string;
   role: UserRole;
   is_active: boolean;
+  must_change_password: boolean;
   employee_number: string | null;
   full_name: string | null;
   phone: string | null;
@@ -100,6 +108,7 @@ const safeUserSelect = `
     u.email,
     u.role,
     u.is_active,
+    u.must_change_password,
     e.employee_number,
     e.full_name,
     e.phone,
@@ -126,6 +135,7 @@ function toSafeUser(row: SafeUserRow): SafeUser {
     email: row.email,
     role: row.role,
     isActive: row.is_active,
+    mustChangePassword: row.must_change_password,
     employee:
       row.employee_id === null || row.employee_number === null || row.full_name === null
         ? null
@@ -156,7 +166,7 @@ export async function findUserRecordByEmail(
   // Matches the users_email_normalized_key expression exactly, so sign-in resolves
   // an account by the same identity the database enforces as unique.
   const result = await pool.query<UserRecord>(
-    `SELECT id, employee_id, email, password_hash, role, is_active
+    `SELECT id, employee_id, email, password_hash, role, is_active, must_change_password
      FROM users
      WHERE lower(btrim(email)) = lower(btrim($1))
      LIMIT 1`,
@@ -170,7 +180,7 @@ export async function findUserRecordById(
   userId: number,
 ): Promise<UserRecord | null> {
   const result = await pool.query<UserRecord>(
-    `SELECT id, employee_id, email, password_hash, role, is_active
+    `SELECT id, employee_id, email, password_hash, role, is_active, must_change_password
      FROM users
      WHERE id = $1
      LIMIT 1`,

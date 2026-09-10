@@ -190,15 +190,79 @@ export async function changePassword(
   const user = await requireActiveUser(request, response);
   if (!user) return;
 
-  if (!(await bcrypt.compare(currentPassword, user.password_hash))) {
+  // Hashing happens before the transaction opens: bcrypt is deliberately slow,
+  // and holding a row lock for its duration would serialise far more than the
+  // check below needs to.
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  const wasForced = request.user?.mustChangePassword === true;
+
+  const client = await pool.connect();
+  let outcome: "ok" | "wrong-current" | "reused" | "gone";
+
+  try {
+    await client.query("BEGIN");
+
+    /*
+     * The current password is verified against a locked row, not against the
+     * copy read a moment ago.
+     *
+     * Two password changes arriving together would otherwise both compare
+     * against the same starting hash and both succeed, and the second would
+     * overwrite the first while its owner believed their new password was in
+     * force. Locking the row makes them serialise, so the second attempt is
+     * judged against the password the first one set and is correctly refused.
+     */
+    const locked = await client.query<{ password_hash: string }>(
+      "SELECT password_hash FROM users WHERE id = $1 AND is_active = TRUE FOR UPDATE",
+      [user.id],
+    );
+    const currentHash = locked.rows[0]?.password_hash;
+
+    if (currentHash === undefined) {
+      outcome = "gone";
+    } else if (!(await bcrypt.compare(currentPassword, currentHash))) {
+      outcome = "wrong-current";
+    } else if (await bcrypt.compare(newPassword, currentHash)) {
+      outcome = "reused";
+    } else {
+      // One statement writes the new hash and clears the forced-change flag, so
+      // there is no instant in which the password has been replaced but the
+      // account is still locked to the change screen, or the reverse. A failed
+      // change reaches neither, because it never gets here.
+      await client.query(
+        `UPDATE users
+         SET password_hash = $1,
+             must_change_password = FALSE,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2`,
+        [passwordHash, user.id],
+      );
+      outcome = "ok";
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  if (outcome === "gone") {
+    response.status(403).json({
+      success: false,
+      message: "The authenticated account is unavailable or inactive",
+    });
+    return;
+  }
+  if (outcome === "wrong-current") {
     response.status(400).json({
       success: false,
       message: "Current password is incorrect",
     });
     return;
   }
-
-  if (await bcrypt.compare(newPassword, user.password_hash)) {
+  if (outcome === "reused") {
     response.status(400).json({
       success: false,
       message: "New password must be different from the current password",
@@ -206,21 +270,18 @@ export async function changePassword(
     return;
   }
 
-  const passwordHash = await bcrypt.hash(newPassword, 12);
-  await pool.query(
-    `UPDATE users
-     SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
-     WHERE id = $2`,
-    [passwordHash, user.id],
-  );
-
-  // The event, never the secret: no password, no hash, and no change set at all.
+  // The event, never the secret: no password, no hash. `forced` records which
+  // kind of change this was, which is a fact about the account's state and not
+  // about the credential.
   await recordAudit({
     actor: actorFromUser(request.user, request.user?.email),
     action: "PASSWORD_CHANGED",
     entityType: "auth",
     entityId: user.id,
-    summary: "Changed their own password",
+    summary: wasForced
+      ? "Replaced a temporary password on first use"
+      : "Changed their own password",
+    changes: { forced: wasForced },
   });
 
   response.status(200).json({

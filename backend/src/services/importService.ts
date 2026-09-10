@@ -263,9 +263,13 @@ export async function applyImport(
 
     const employeeId = inserted.rows[0]!.id;
     // Account activity follows employment status, exactly as manual creation does.
+    // must_change_password is TRUE without exception: this password was generated
+    // here and handed to an administrator to pass on, so the employee has never
+    // chosen it and someone else has seen it.
     await client.query(
-      `INSERT INTO public.users (employee_id, email, password_hash, role, is_active)
-       VALUES ($1,$2,$3,'employee',$4)`,
+      `INSERT INTO public.users
+         (employee_id, email, password_hash, role, is_active, must_change_password)
+       VALUES ($1,$2,$3,'employee',$4,TRUE)`,
       [employeeId, values.email, hashes[index], isEmployeeAccountActive(values.employment_status)],
     );
 

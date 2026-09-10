@@ -206,17 +206,26 @@ async function main(): Promise<void> {
 
     // Sign-in accounts: one administrator, one employee. Everyone else is a
     // personnel record without a login, which is what a real company looks like.
+    //
+    // must_change_password is FALSE, stated rather than left to the column
+    // default so the intent is visible. These two are not temporary credentials
+    // in the sense the flag exists for: the password is chosen by whoever runs
+    // this script, through DEMO_PASSWORD, and is the password they then sign in
+    // with. Nobody is holding a credential they have never seen. Flagging them
+    // would open every demonstration with a forced password change.
     await client.query(
-      `INSERT INTO public.users (id, employee_id, email, password_hash, role, is_active)
-       VALUES ($1, NULL, $2, $3, 'admin', TRUE)`,
+      `INSERT INTO public.users
+         (id, employee_id, email, password_hash, role, is_active, must_change_password)
+       VALUES ($1, NULL, $2, $3, 'admin', TRUE, FALSE)`,
       [demoAdmin.id, demoAdmin.email, passwordHash],
     );
     await client.query(
       // An explicit id, like the administrator's: every row this script writes
       // must sit inside the reserved range, or the isolation guarantee above is
       // only true of most of them.
-      `INSERT INTO public.users (id, employee_id, email, password_hash, role, is_active)
-       VALUES ($1, $1, $2, $3, 'employee', TRUE)`,
+      `INSERT INTO public.users
+         (id, employee_id, email, password_hash, role, is_active, must_change_password)
+       VALUES ($1, $1, $2, $3, 'employee', TRUE, FALSE)`,
       [demoEmployeeAccount.id, demoEmployeeAccount.email, passwordHash],
     );
 

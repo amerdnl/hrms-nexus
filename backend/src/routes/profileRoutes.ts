@@ -6,16 +6,26 @@ import {
   uploadProfileImage,
   updateProfile,
 } from "../controllers/profileController.js";
-import { authenticateToken } from "../middleware/authMiddleware.js";
+import {
+  authenticateForPasswordChange,
+  authenticateToken,
+} from "../middleware/authMiddleware.js";
 import { acceptProfileImage } from "../middleware/profileImageUpload.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 
 const router = Router();
 
+/**
+ * Registered before the router-wide guard, and with its own, so an account still
+ * holding a temporary password can reach exactly this one route on this router
+ * and nothing else. Express matches in order, so the `router.use` below does not
+ * apply to it.
+ */
+router.put("/password", authenticateForPasswordChange, changePassword);
+
 router.use(authenticateToken);
 router.get("/", getProfile);
 router.put("/", updateProfile);
-router.put("/password", changePassword);
 router.post(
   "/image",
   authorizeRoles("employee"),
