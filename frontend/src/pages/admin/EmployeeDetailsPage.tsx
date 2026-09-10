@@ -1,34 +1,83 @@
-import { IdCard, Pencil } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { Briefcase, IdCard, Pencil, UserRound } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getApiErrorMessage } from "../../api/axios";
+import { getApiErrorMessage, resolveProfileImageUrl } from "../../api/axios";
 import { getEmployeeById } from "../../api/employeeApi";
-import Alert from "../../components/ui/Alert";
+import Avatar from "../../components/ui/Avatar";
+import DescriptionList, {
+  type DescriptionEntry,
+} from "../../components/ui/DescriptionList";
+import ErrorState from "../../components/ui/ErrorState";
 import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
 import SectionCard from "../../components/ui/SectionCard";
+import Skeleton, { SkeletonText } from "../../components/ui/Skeleton";
 import StatusBadge from "../../components/ui/StatusBadge";
+import Tabs, { type TabItem } from "../../components/ui/Tabs";
 import type { Employee } from "../../types/employee";
 import { formatDate } from "../../utils/datetime";
 import { employmentStatusMeta } from "../../utils/status";
 
-function Detail({
-  label,
-  className,
-  children,
-}: {
-  label: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className={className}>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-        {label}
-      </dt>
-      <dd className="mt-1 text-sm font-medium text-fg">{children}</dd>
-    </div>
-  );
+/**
+ * Three tabs, matching the references.
+ *
+ * Deliberately NOT the reference's six. Documents, Leave & attendance and
+ * Payroll are all shown there; this application has no document storage, and
+ * the other two would need endpoints this page does not call. An empty tab is
+ * worse than an absent one - it reads as a broken feature rather than one that
+ * was never claimed.
+ */
+const TABS: TabItem[] = [
+  { id: "overview", label: "Overview" },
+  { id: "personal", label: "Personal" },
+  { id: "employment", label: "Employment" },
+];
+
+const TAB_ICONS = {
+  overview: IdCard,
+  personal: UserRound,
+  employment: Briefcase,
+} as const;
+
+function panelFor(employee: Employee, tab: string): DescriptionEntry[] {
+  const date = (value: string | null) => (value ? formatDate(value) : null);
+
+  if (tab === "personal") {
+    return [
+      { label: "Phone", value: employee.phone },
+      { label: "Gender", value: employee.gender },
+      { label: "Date of birth", value: date(employee.dateOfBirth) },
+      { label: "Email", value: employee.email ?? null },
+      { label: "Emergency contact", value: employee.emergencyContactName },
+      { label: "Emergency contact phone", value: employee.emergencyContactPhone },
+      { label: "Address", value: employee.address, wide: true },
+    ];
+  }
+
+  if (tab === "employment") {
+    return [
+      { label: "Employee number", value: employee.employeeNumber },
+      { label: "Job title", value: employee.jobTitle },
+      { label: "Department", value: employee.departmentName },
+      { label: "Employment date", value: date(employee.employmentDate) },
+      {
+        label: "Employment status",
+        value: <StatusBadge {...employmentStatusMeta(employee.employmentStatus)} />,
+      },
+      { label: "Record created", value: date(employee.createdAt) },
+    ];
+  }
+
+  // Overview: the handful of fields someone opening this record most likely
+  // came for, not a copy of the other two tabs.
+  return [
+    { label: "Employee number", value: employee.employeeNumber },
+    { label: "Job title", value: employee.jobTitle },
+    { label: "Department", value: employee.departmentName },
+    { label: "Employment date", value: date(employee.employmentDate) },
+    { label: "Phone", value: employee.phone },
+    { label: "Emergency contact", value: employee.emergencyContactName },
+  ];
 }
 
 export default function EmployeeDetailsPage() {
@@ -37,6 +86,7 @@ export default function EmployeeDetailsPage() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     async function loadEmployee() {
@@ -59,17 +109,53 @@ export default function EmployeeDetailsPage() {
     void loadEmployee();
   }, [id]);
 
+  // The page keeps its header and its shape while loading rather than
+  // collapsing to a line of text, so nothing jumps when the record arrives.
   if (isLoading) {
-    return <p className="text-sm text-fg-muted">Loading employee...</p>;
+    return (
+      <section className="mx-auto max-w-4xl space-y-6">
+        <PageHeader
+          title="Employee details"
+          description="View employee information."
+          backTo="/admin/employees"
+          backLabel="Back to employees"
+        />
+        <SectionCard>
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-16 w-16 rounded-full" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-5 w-56" />
+              <Skeleton className="h-3.5 w-40" />
+            </div>
+          </div>
+        </SectionCard>
+        <SectionCard>
+          <SkeletonText lines={6} />
+        </SectionCard>
+      </section>
+    );
   }
 
-  if (error) {
-    return <Alert tone="danger">{error}</Alert>;
+  if (error || !employee) {
+    return (
+      <section className="mx-auto max-w-4xl space-y-6">
+        <PageHeader
+          title="Employee details"
+          backTo="/admin/employees"
+          backLabel="Back to employees"
+        />
+        <SectionCard>
+          <ErrorState
+            title="This employee could not be loaded"
+            description={error || "The record is unavailable."}
+          />
+        </SectionCard>
+      </section>
+    );
   }
 
-  if (!employee) {
-    return null;
-  }
+  const statusMeta = employmentStatusMeta(employee.employmentStatus);
+  const PanelIcon = TAB_ICONS[activeTab as keyof typeof TAB_ICONS] ?? IdCard;
 
   return (
     <section className="mx-auto max-w-4xl space-y-6">
@@ -85,45 +171,58 @@ export default function EmployeeDetailsPage() {
         }
       />
 
-      <SectionCard title={employee.fullName} icon={IdCard}>
-        <dl className="grid gap-5 sm:grid-cols-2">
-          <Detail label="Employee number">{employee.employeeNumber}</Detail>
+      {/* Identity header. The name, face and status belong above the tabs,
+          not inside one: they are what identifies the record you are reading,
+          so switching tab must not change or hide them. */}
+      <SectionCard>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <Avatar
+            name={employee.fullName}
+            src={resolveProfileImageUrl(employee.profileImage)}
+            size="xl"
+            className="mx-auto sm:mx-0"
+          />
 
-          <Detail label="Employment status">
-            <StatusBadge {...employmentStatusMeta(employee.employmentStatus)} />
-          </Detail>
+          <div className="min-w-0 flex-1 text-center sm:text-left">
+            <h2 className="truncate text-xl font-bold tracking-tight text-fg">
+              {employee.fullName}
+            </h2>
+            <p className="mt-1 truncate text-sm text-fg-muted">
+              {[employee.jobTitle, employee.departmentName]
+                .filter(Boolean)
+                .join(" · ") || "No job title recorded"}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-fg-subtle">
+              {employee.employeeNumber}
+            </p>
+          </div>
 
-          <Detail label="Job title">{employee.jobTitle ?? "—"}</Detail>
-
-          <Detail label="Department">{employee.departmentName ?? "—"}</Detail>
-
-          <Detail label="Phone">{employee.phone ?? "—"}</Detail>
-
-          <Detail label="Gender">{employee.gender ?? "—"}</Detail>
-
-          <Detail label="Date of birth">
-            {employee.dateOfBirth ? formatDate(employee.dateOfBirth) : "—"}
-          </Detail>
-
-          <Detail label="Employment date">
-            {employee.employmentDate
-              ? formatDate(employee.employmentDate)
-              : "—"}
-          </Detail>
-
-          <Detail label="Emergency contact">
-            {employee.emergencyContactName ?? "—"}
-          </Detail>
-
-          <Detail label="Emergency contact phone">
-            {employee.emergencyContactPhone ?? "—"}
-          </Detail>
-
-          <Detail label="Address" className="sm:col-span-2">
-            {employee.address ?? "—"}
-          </Detail>
-        </dl>
+          <div className="flex justify-center sm:justify-end">
+            <StatusBadge {...statusMeta} />
+          </div>
+        </div>
       </SectionCard>
+
+      <div>
+        <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
+
+        {/* The panel half of the ARIA relationship Tabs documents. */}
+        <div
+          role="tabpanel"
+          id={`panel-${activeTab}`}
+          aria-labelledby={`tab-${activeTab}`}
+          tabIndex={0}
+          className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <SectionCard
+            className="mt-4"
+            title={TABS.find((tab) => tab.id === activeTab)?.label}
+            icon={PanelIcon}
+          >
+            <DescriptionList items={panelFor(employee, activeTab)} />
+          </SectionCard>
+        </div>
+      </div>
     </section>
   );
 }
