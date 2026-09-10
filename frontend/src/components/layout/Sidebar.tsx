@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { resolveProfileImageUrl } from "../../api/axios";
 import { useAuth } from "../../context/useAuth";
+import { useTheme } from "../../context/useTheme";
 import { cn } from "../../utils/cn";
 import LogoutConfirmationModal from "../common/LogoutConfirmationModal";
 import ThemeToggle from "../ui/ThemeToggle";
@@ -55,11 +56,13 @@ const employeeNavigation: NavigationItem[] = [
 const navigationItemBase =
   "relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition";
 
-/* The sidebar is a permanently dark surface in BOTH themes, so it uses the
-   dedicated --sidebar* tokens plus the static brand ramp. Theme-flipping
-   tokens are deliberately avoided for text here: --danger, for example, is
-   tuned for the page background and only reaches 4.06:1 on the light-theme
-   sidebar, so the logout hover keeps a fixed light red instead. */
+/* The sidebar FOLLOWS the theme: light chrome in the light theme, navy in the
+   dark one. It used to be pinned dark in both, and two colours here were
+   hardcoded on that assumption - a fixed light red for the logout hover and
+   the static brand ramp for the portal badge. Once the surface went white
+   those measured 1.90:1 and 1.48:1, so both now come from dedicated
+   --sidebar-danger-* / --sidebar-badge-* tokens that flip with everything
+   else. Nothing on this surface may use a fixed colour. */
 /**
  * `visibility` is doing accessibility work here, not decoration.
  *
@@ -87,6 +90,7 @@ function getInitials(name: string) {
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -147,12 +151,16 @@ export default function Sidebar() {
       >
         <div className="flex h-20 items-center justify-between gap-3 border-b border-sidebar-line px-6">
           <div className="flex min-w-0 items-center gap-3">
-            {/* Light variant, not the blue one: the sidebar is dark chrome in
-                BOTH themes, so this never sits on a light surface.
+            {/* Follows the theme, because the sidebar does: the aqua mark is
+                drawn for dark chrome and the teal one for light chrome.
                 alt="" on purpose - the "HR NEXUS" wordmark sits right beside
                 it, so naming the image would read the brand out twice. */}
             <img
-              src="/branding/hr-nexus-icon-light.png"
+              src={
+                resolvedTheme === "dark"
+                  ? "/branding/hr-nexus-icon-light.png"
+                  : "/branding/hr-nexus-icon-transparent.png"
+              }
               alt=""
               className="h-9 w-9 shrink-0 object-contain"
             />
@@ -161,7 +169,7 @@ export default function Sidebar() {
               <p className="truncate text-base font-bold tracking-wide text-sidebar-fg-strong">
                 HR NEXUS
               </p>
-              <span className="mt-0.5 inline-flex items-center rounded-full bg-brand-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-brand-300">
+              <span className="mt-0.5 inline-flex items-center rounded-full bg-sidebar-badge-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-sidebar-badge-fg">
                 {portalLabel}
               </span>
             </div>
@@ -235,7 +243,7 @@ export default function Sidebar() {
           <ThemeToggle className="text-sidebar-fg hover:bg-sidebar-hover hover:text-sidebar-fg-strong" />
 
           <button
-            className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-sidebar-fg transition hover:bg-red-500/10 hover:text-red-300"
+            className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-sidebar-fg transition hover:bg-sidebar-danger-soft hover:text-sidebar-danger-fg"
             type="button"
             onClick={() => setIsLogoutModalOpen(true)}
           >

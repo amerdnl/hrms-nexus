@@ -14,14 +14,12 @@ import { FORCED_PASSWORD_PATH } from "../../routes/forcedPassword";
 import { roleDashboard } from "../../routes/roleDashboard";
 
 /**
- * Two colourways of one mark, same silhouette and alpha.
- *
- * The brand panel is dark chrome in both themes so it always takes the light
- * one. The compact header above the form sits on --canvas, which flips, so it
- * picks by resolved theme rather than being pinned to either.
+ * Two colourways of one mark, same silhouette and alpha: teal for light
+ * surfaces, aqua for dark ones. Both the brand panel and the compact header
+ * sit on surfaces that flip with the theme, so both pick by resolved theme.
  */
-const BRAND_ICON_BLUE = "/branding/hr-nexus-icon-transparent.png";
-const BRAND_ICON_LIGHT = "/branding/hr-nexus-icon-light.png";
+const BRAND_ICON_ON_LIGHT = "/branding/hr-nexus-icon-transparent.png";
+const BRAND_ICON_ON_DARK = "/branding/hr-nexus-icon-light.png";
 
 /**
  * "Remember me" stores the email address only, so returning users do not
@@ -117,9 +115,12 @@ export default function LoginPage() {
       </div>
 
       {/* Brand panel. Built on --sidebar so it reads as the same chrome as the
-          app shell and stays intentional in both themes without a dark: pair
-          on every child. Decoration is two flat layers - a low-opacity brand
-          wash and one blurred bloom - rather than a full-bleed gradient. */}
+          app shell, which means it now follows the theme too. Decoration is
+          two flat layers - a low-opacity brand wash and one blurred bloom -
+          rather than a full-bleed gradient. Those two are the only static
+          brand-ramp values left on this panel, and they may stay static
+          because they are aria-hidden washes behind text rather than text;
+          everything readable here comes from a --sidebar-* token. */}
       <section className="relative hidden overflow-hidden bg-sidebar p-12 text-sidebar-fg lg:flex lg:flex-col lg:justify-between">
         <div
           className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-600/25 via-transparent to-accent-600/20"
@@ -131,10 +132,12 @@ export default function LoginPage() {
         />
 
         <div className="relative flex items-center gap-3">
-          {/* Always the light variant: this panel is bg-sidebar in both
-              themes. alt="" - the wordmark beside it announces the brand. */}
+          {/* This panel is bg-sidebar, and the sidebar now follows the theme,
+              so the mark has to as well - a white-on-dark mark would be
+              invisible on the light panel.
+              alt="" - the wordmark beside it announces the brand. */}
           <img
-            src={BRAND_ICON_LIGHT}
+            src={resolvedTheme === "dark" ? BRAND_ICON_ON_DARK : BRAND_ICON_ON_LIGHT}
             alt=""
             className="h-9 w-9 shrink-0 object-contain"
           />
@@ -144,7 +147,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative max-w-lg">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-300">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sidebar-badge-fg">
             One connected workplace
           </p>
 
@@ -162,7 +165,7 @@ export default function LoginPage() {
           <ul className="mt-10 space-y-4">
             {highlights.map(({ icon: Icon, label }) => (
               <li key={label} className="flex items-start gap-3 text-sm text-sidebar-fg">
-                <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand-500/15 text-brand-300">
+                <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-sidebar-badge-soft text-sidebar-badge-fg">
                   <Icon size={15} aria-hidden="true" />
                 </span>
                 {label}
@@ -183,7 +186,7 @@ export default function LoginPage() {
                 theme and near-navy in the dark one, so the colourway follows
                 the resolved theme instead of being fixed. */}
             <img
-              src={resolvedTheme === "dark" ? BRAND_ICON_LIGHT : BRAND_ICON_BLUE}
+              src={resolvedTheme === "dark" ? BRAND_ICON_ON_DARK : BRAND_ICON_ON_LIGHT}
               alt=""
               className="h-8 w-8 shrink-0 object-contain"
             />

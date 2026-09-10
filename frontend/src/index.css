@@ -18,6 +18,13 @@
    decision is written once and the light/dark mapping lives in one reviewable
    block. The `dark` variant below is still declared for genuine one-offs
    (gradient overlays, `dark:shadow-none`).
+
+   CONTRAST
+   Every ratio quoted in this file was measured with the WCAG 2.1 relative
+   luminance formula, not estimated. They are load-bearing: if you change a
+   value, re-measure the pairs named beside it. Targets are 4.5:1 for body
+   text (1.4.3) and 3:1 for non-text indicators such as the focus ring
+   (1.4.11).
 ========================================================================== */
 
 /* --- 1. Dark mode variant --------------------------------------------------
@@ -28,28 +35,30 @@
    Values that do not change between themes. A plain @theme block emits these
    into :root and generates utilities (bg-brand-600, rounded-card, shadow-card). */
 @theme {
-  /* Brand ramp - blue. brand-600 is the primary action colour. */
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-300: #93c5fd;
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-800: #1e40af;
-  --color-brand-900: #1e3a8a;
+  /* Brand ramp - teal. brand-700 is the primary action colour in the light
+     theme, brand-400 in the dark one. */
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
 
-  /* Indigo accent - supporting brand hue, used sparingly. */
-  --color-accent-400: #818cf8;
-  --color-accent-500: #6366f1;
-  --color-accent-600: #4f46e5;
-  --color-accent-700: #4338ca;
+  /* Cyan accent - supporting brand hue, used sparingly. Currently one
+     decorative gradient on the sign-in panel. */
+  --color-accent-400: #22d3ee;
+  --color-accent-500: #06b6d4;
+  --color-accent-600: #0891b2;
+  --color-accent-700: #0e7490;
 
   /* Shape */
   --radius-card: 0.875rem;
 
-  /* Elevation - tuned for a slate-blue ground rather than pure black. */
+  /* Elevation - tuned for a slate ground rather than pure black. */
   --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.06), 0 1px 3px 0 rgb(15 23 42 / 0.1);
   --shadow-raised: 0 4px 12px -2px rgb(15 23 42 / 0.12), 0 2px 6px -2px rgb(15 23 42 / 0.08);
   --shadow-panel: 0 10px 30px -12px rgb(15 23 42 / 0.25);
@@ -57,114 +66,139 @@
 
 /* --- 3a. Runtime tokens: LIGHT --------------------------------------------- */
 :root {
-  /* Surfaces */
-  --canvas: #f1f5f9;        /* app background (matches today's bg-slate-100) */
+  /* Surfaces. The canvas carries a faint teal cast so white cards separate
+     from it without a border doing all the work. */
+  --canvas: #eef3f2;
   --surface: #ffffff;       /* cards */
-  --surface-muted: #f8fafc; /* table headers, inset tiles */
+  --surface-muted: #f5f9f8; /* table headers, inset tiles */
   --elevated: #ffffff;      /* modals, popovers */
 
   /* Text */
-  --fg: #0f172a;            /* primary */
-  --fg-muted: #475569;      /* secondary */
-  --fg-subtle: #64748b;     /* placeholders, meta - 4.76:1 on --surface */
+  --fg: #0f172a;            /* 17.85:1 on --surface, 15.93:1 on --canvas */
+  --fg-muted: #475569;      /* 7.58:1 on --surface, 6.76:1 on --canvas */
+  /* Darker than the slate-500 this used to be. At #64748b it measured
+     4.34:1 on the old canvas and 4.25:1 on this one - a long-standing
+     near-miss. This reads 5.12:1 on --surface and 4.57:1 on --canvas. */
+  --fg-subtle: #606f83;
 
   /* Lines */
   --line: #e2e8f0;          /* default border */
   --line-strong: #cbd5e1;   /* input borders, dividers needing weight */
 
-  /* Interactive */
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
+  /* Interactive.
+     brand-700 rather than a mid-teal because --primary is used BOTH as a
+     button fill carrying white text AND as text on a white card (active tab,
+     card icons). Both directions are the same measurement, so one value has
+     to clear 4.5:1 against white: brand-600 reaches only 3.74:1, brand-700
+     reaches 5.47:1. */
+  --primary: #0f766e;       /* 5.47:1 on --surface, 4.88:1 on --canvas */
+  --primary-hover: #115e59; /* 7.58:1 with white text */
   --primary-fg: #ffffff;
-  --primary-soft: #eff6ff;  /* tinted background for primary chips */
-  --accent: #4f46e5;
-  /* Focus ring. Matches --primary rather than a pale tint: at #93c5fd the
-     ring measured 1.80:1 on --surface and 1.65:1 on --canvas, well under the
-     3:1 WCAG needs for a non-text indicator. This reads 5.17:1 / 4.72:1, and
-     3.90:1 on the sidebar. */
-  --ring: #2563eb;
+  --primary-soft: #eafaf6;  /* --primary on it: 5.08:1 */
+  --accent: #0e7490;
+  /* Focus ring. Matches --primary: measured 5.47:1 on --surface, 4.88:1 on
+     --canvas, 5.16:1 on --surface-muted and 5.47:1 on the light sidebar,
+     all well past the 3:1 a non-text indicator needs. */
+  --ring: #0f766e;
 
-  /* Status - `soft` is the badge background, `fg` the badge text. */
+  /* Status - `soft` is the badge background, `fg` the badge text.
+     Deliberately unchanged by the teal move: with a teal primary, a blue
+     --info is now genuinely distinct rather than a near-miss of it. */
   --success: #16a34a;
   --success-soft: #dcfce7;
-  --success-fg: #15803d;
+  --success-fg: #15803d;    /* 4.57:1 on --success-soft */
   --warning: #d97706;
   --warning-soft: #fef3c7;
-  --warning-fg: #b45309;
+  --warning-fg: #b45309;    /* 4.51:1 on --warning-soft */
   --danger: #dc2626;
   --danger-soft: #fee2e2;
-  --danger-fg: #b91c1c;
+  --danger-fg: #b91c1c;     /* 5.30:1 on --danger-soft */
   --info: #2563eb;
   --info-soft: #dbeafe;
-  --info-fg: #1d4ed8;
+  --info-fg: #1d4ed8;       /* 5.49:1 on --info-soft */
 
   /* Destructive fills need their own ramp: --danger is tuned for text on the
      page background, and is too light to carry white text as a solid button. */
-  --danger-solid: #dc2626;
+  --danger-solid: #dc2626;  /* 4.83:1 with white text */
   --danger-solid-hover: #b91c1c;
   --danger-solid-fg: #ffffff;
 
-  /* Sidebar - deliberately dark even in light mode (matches bg-slate-950). */
-  --sidebar: #020617;
-  --sidebar-fg: #cbd5e1;
-  --sidebar-fg-strong: #ffffff;
-  --sidebar-hover: #1e293b;
-  --sidebar-line: #1e293b;
+  /* Sidebar. This USED to be pinned dark in both themes. It now follows the
+     theme, per the approved references: light chrome in the light theme,
+     navy in the dark one. Because it flips, anything drawn on it must come
+     from a token - see --sidebar-badge-* and --sidebar-danger-* below, which
+     exist precisely because the fixed colours that used to sit here dropped
+     to 1.48:1 and 1.90:1 once the surface went white. */
+  --sidebar: #ffffff;
+  --sidebar-fg: #475569;        /* 7.58:1 on --sidebar, 6.92:1 on its hover */
+  --sidebar-fg-strong: #0f172a; /* 17.85:1 on --sidebar */
+  --sidebar-hover: #f1f5f9;
+  --sidebar-line: #e2e8f0;
+  --sidebar-badge-soft: #eafaf6;
+  --sidebar-badge-fg: #0f766e;  /* 5.08:1 on --sidebar-badge-soft */
+  --sidebar-danger-soft: #fee2e2;
+  --sidebar-danger-fg: #b91c1c; /* 6.47:1 on --sidebar, 5.30:1 on its hover */
 
   /* Overlay */
   --backdrop: rgb(2 6 23 / 0.5);
 }
 
 /* --- 3b. Runtime tokens: DARK ----------------------------------------------
-   An intentionally designed cool near-navy palette, NOT an inversion of the
-   light ramp. Two decisions worth noting:
+   An intentionally designed cool near-navy palette with a teal cast, NOT an
+   inversion of the light ramp. Three decisions worth noting:
      - The sidebar goes DARKER than the canvas so chrome still reads as chrome.
-     - Primary lifts to brand-500; #2563EB fails contrast on a #111827 card. */
+     - Primary lifts to a bright aqua; the light theme's #0f766e measures
+       1.72:1 on a #111c24 card and is unusable there.
+     - --primary-fg is DARK, because dark text on a bright aqua fill reads
+       far better than white on it (9.18:1 versus 1.61:1). */
 .dark {
-  --canvas: #0b1120;
-  --surface: #111827;
-  --surface-muted: #1a2333;
-  --elevated: #172033;      /* modals sit above surface, not level with it */
+  --canvas: #0a1117;
+  --surface: #111c24;
+  --surface-muted: #1a2731;
+  --elevated: #16222c;      /* modals sit above surface, not level with it */
 
-  --fg: #e8eef8;
-  --fg-muted: #a2b0c4;
-  --fg-subtle: #7d8ea6;     /* 5.32:1 on --surface */
+  --fg: #e8eef8;            /* 14.82:1 on --surface, 16.30:1 on --canvas */
+  --fg-muted: #a2b0c4;      /* 7.85:1 on --surface */
+  --fg-subtle: #7d8ea6;     /* 5.18:1 on --surface, 5.69:1 on --canvas */
 
-  --line: #24304a;
-  --line-strong: #33415c;
+  --line: #24323d;
+  --line-strong: #33454f;
 
-  --primary: #3b82f6;
-  --primary-hover: #60a5fa;
-  --primary-fg: #0b1120;    /* dark text on a lighter blue reads better here */
-  --primary-soft: #16233d;
-  --accent: #818cf8;
-  /* Same reasoning as light: #1d4ed8 was 2.65:1 on --surface. This is 4.82:1. */
-  --ring: #3b82f6;
+  --primary: #2dd4bf;       /* 9.28:1 as text on --surface */
+  --primary-hover: #5eead4; /* hover LIGHTENS here, unlike light mode */
+  --primary-fg: #04201d;    /* 9.18:1 on --primary, 11.55:1 on --primary-hover */
+  --primary-soft: #0d2b2b;  /* --primary on it: 8.07:1 */
+  --accent: #22d3ee;
+  --ring: #2dd4bf;          /* 9.28:1 on --surface, 10.21:1 on --canvas */
 
   --success: #4ade80;
   --success-soft: #0f2e1e;
-  --success-fg: #86efac;
+  --success-fg: #86efac;    /* 10.46:1 on --success-soft */
   --warning: #fbbf24;
   --warning-soft: #2e2410;
-  --warning-fg: #fcd34d;
+  --warning-fg: #fcd34d;    /* 10.58:1 on --warning-soft */
   --danger: #f87171;
   --danger-soft: #331717;
-  --danger-fg: #fca5a5;
+  --danger-fg: #fca5a5;     /* 8.67:1 on --danger-soft */
   --info: #60a5fa;
   --info-soft: #12233d;
-  --info-fg: #93c5fd;
+  --info-fg: #93c5fd;       /* 8.73:1 on --info-soft */
 
   /* Hover LIGHTENS here, unlike light mode, so the affordance reads on a
      dark ground. Both values carry white text above 4.5:1. */
-  --danger-solid: #b91c1c;
+  --danger-solid: #b91c1c;  /* 6.47:1 with white text */
   --danger-solid-hover: #dc2626;
   --danger-solid-fg: #ffffff;
 
-  --sidebar: #070d1a;
-  --sidebar-fg: #a2b0c4;
-  --sidebar-fg-strong: #ffffff;
-  --sidebar-hover: #172033;
-  --sidebar-line: #1c2740;
+  --sidebar: #060d12;
+  --sidebar-fg: #a2b0c4;        /* 8.89:1 on --sidebar */
+  --sidebar-fg-strong: #ffffff; /* 19.55:1 on --sidebar */
+  --sidebar-hover: #16222c;
+  --sidebar-line: #1a2832;
+  --sidebar-badge-soft: #0d2b2b;
+  --sidebar-badge-fg: #5eead4;  /* 10.16:1 on --sidebar-badge-soft */
+  --sidebar-danger-soft: #3b1a1a;
+  --sidebar-danger-fg: #fca5a5; /* 10.30:1 on --sidebar, 8.20:1 on its hover */
 
   --backdrop: rgb(2 6 23 / 0.72);
 }
@@ -215,6 +249,10 @@
   --color-sidebar-fg-strong: var(--sidebar-fg-strong);
   --color-sidebar-hover: var(--sidebar-hover);
   --color-sidebar-line: var(--sidebar-line);
+  --color-sidebar-badge-soft: var(--sidebar-badge-soft);
+  --color-sidebar-badge-fg: var(--sidebar-badge-fg);
+  --color-sidebar-danger-soft: var(--sidebar-danger-soft);
+  --color-sidebar-danger-fg: var(--sidebar-danger-fg);
 
   --color-backdrop: var(--backdrop);
 }
@@ -222,8 +260,7 @@
 /* --- 5. Base --------------------------------------------------------------- */
 @layer base {
   /* color-scheme is load-bearing, not cosmetic: it is what makes native
-     date/time pickers, select dropdowns and scrollbars render correctly.
-     Declaring `light` explicitly matches today's rendering exactly. */
+     date/time pickers, select dropdowns and scrollbars render correctly. */
   html {
     color-scheme: light;
     background-color: var(--canvas);
