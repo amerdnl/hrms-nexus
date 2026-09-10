@@ -7,10 +7,13 @@ import {
   getDepartmentEmployees,
 } from "../../api/departmentApi";
 import Alert from "../../components/ui/Alert";
+import Avatar from "../../components/ui/Avatar";
 import DataTable from "../../components/ui/DataTable";
+import DescriptionList from "../../components/ui/DescriptionList";
 import EmptyState from "../../components/ui/EmptyState";
 import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
+import RecordCard from "../../components/ui/RecordCard";
 import SectionCard from "../../components/ui/SectionCard";
 import StatusBadge from "../../components/ui/StatusBadge";
 import type { Department, DepartmentEmployee } from "../../types/department";
@@ -97,26 +100,43 @@ export default function DepartmentDetailsPage() {
         }
       />
 
-      <SectionCard title="Department information" icon={Building2}>
-        <dl className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-              Department ID
-            </dt>
-            <dd className="mt-1 text-sm font-medium text-fg">
-              {department.id}
-            </dd>
+      {/* Identity header, matching the references: the mark, the name, the
+          headcount and the description in one band above the roster. */}
+      <SectionCard>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <span
+            className="mx-auto grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary sm:mx-0"
+            aria-hidden="true"
+          >
+            <Building2 size={26} />
+          </span>
+
+          <div className="min-w-0 flex-1 text-center sm:text-left">
+            <h2 className="truncate text-xl font-bold tracking-tight text-fg">
+              {department.name}
+            </h2>
+            <p className="mt-1 text-sm text-fg-muted">
+              {department.description || "No description recorded."}
+            </p>
           </div>
 
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-              Created
-            </dt>
-            <dd className="mt-1 text-sm font-medium text-fg">
-              {formatDateTime(department.created_at)}
-            </dd>
+          <div className="text-center sm:text-right">
+            <p className="text-3xl font-bold tracking-tight text-fg">
+              {employees.length}
+            </p>
+            <p className="text-xs text-fg-subtle">
+              {employees.length === 1 ? "employee" : "employees"}
+            </p>
           </div>
-        </dl>
+        </div>
+
+        <DescriptionList
+          className="mt-5 border-t border-line pt-5"
+          items={[
+            { label: "Department ID", value: department.id },
+            { label: "Created", value: formatDateTime(department.created_at) },
+          ]}
+        />
       </SectionCard>
 
       <section className="space-y-3">
@@ -139,6 +159,20 @@ export default function DepartmentDetailsPage() {
           headers={tableHeaders}
           caption={`Employees assigned to ${department.name}`}
           isEmpty={employees.length === 0}
+          mobileCards={employees.map((employee) => (
+            <RecordCard
+              key={employee.id}
+              leading={<Avatar name={employee.full_name} size="md" />}
+              title={employee.full_name}
+              subtitle={employee.employee_number}
+              badge={
+                <StatusBadge
+                  {...employmentStatusMeta(employee.employment_status)}
+                />
+              }
+              meta={[{ label: "Job title", value: employee.job_title || "\u2014" }]}
+            />
+          ))}
           emptyState={
             <EmptyState
               icon={Users}
