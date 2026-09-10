@@ -142,6 +142,21 @@ No dependencies were upgraded. Before doing so, identify affected paths, compati
 fixed versions and regression risk. The leave filtered-empty-message issue is a minor,
 nonblocking regression/polish item in the implementation plan.
 
+Employee Dashboard V2 is complete with no migration; the ledger stays at `0001-0008`.
+`GET /api/dashboard/employee` is assembled server-side from the signed-in user's own row,
+so no endpoint on that path takes an employee identifier and there is nothing to
+substitute; the existing session check already refuses a token whose `employeeId` claim
+disagrees with the database. The dashboard's attendance queries name their columns rather
+than reusing the shared mapper, which carries latitude, longitude, accuracy and distance -
+only the coarse verification state is exposed. Payslip visibility reuses the payslip
+endpoints' own `status IN ('approved','paid')` predicate, so calculated and reviewed
+payroll stays invisible to the employee it concerns, and money remains exact integer sen
+carried as text. The same `CURRENT_DATE` defect fixed on the admin dashboard during the
+reports milestone was still present here and is now fixed; "upcoming leave" moved out of
+the browser, where it had been computed against the device clock. 375 tests pass with no
+skips and a 30-check authenticated browser smoke passed at desktop and mobile widths.
+See `HR_NEXUS_V2_EMPLOYEE_DASHBOARD.md`.
+
 ## Architecture and versions
 
 React SPA → Axios Bearer requests → Express routes/controllers → parameterized
@@ -238,11 +253,12 @@ zoned clock built from Company Settings.
 
 ## P0 gaps
 
-Employee Dashboard V2 (master §40), company-wide data export (master §42) and XLSX export
-remain outstanding. The migration mechanism, company settings, import workflow, attendance
-verification, leave balances, payroll, reporting, the audit log and demo data are now in
-place. Dashboard
-already uses real SQL; extend it instead of replacing mock data that is not present.
+Company-wide data export (master §42) and XLSX export remain outstanding, alongside the
+forced first-login password change release blocker. The migration mechanism, company
+settings, import workflow, attendance verification, leave balances, payroll, reporting,
+the audit log, demo data and Employee Dashboard V2 are now in place. The dashboard was
+extended rather than rebuilt, as recorded at baseline: it already used real SQL and there
+was no mock data to replace.
 Demo data is insufficient (one active employee found in the live aggregate).
 No automated coverage existed at baseline. Added targeted authorization tests rather
 than a new testing framework. Remaining workflow coverage follows the master plan.

@@ -6,7 +6,7 @@ Leadership demo: 16 September. Working branch: `feat/hr-nexus-v2`.
 Use High for routine work. Recommend Extra High before complex migrations, payroll
 money logic, difficult authorization/concurrency work, or complex import upserts.
 
-## Milestone status — 9 September 2026
+## Milestone status — 10 September 2026
 
 | Order | P0 milestone | Status / acceptance |
 | --- | --- | --- |
@@ -20,6 +20,7 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | 8 | Payroll and payslips | Complete; 0007 applied, 283 tests passed, 21/21 authenticated browser smoke on 9 September 2026 |
 | 9 | Reports/export and dashboards | Complete; no migration needed, 314 tests passed, 33/33 authenticated browser smoke on 9 September 2026 |
 | 10 | Audit and demo data | Complete; 0008 applied, 358 tests passed, 24/24 authenticated browser smoke on 9 September 2026 |
+| 11 | Employee Dashboard V2 | Complete; no migration needed, 375 tests passed, 30/30 authenticated browser smoke at desktop and mobile widths on 10 September 2026 |
 
 ## First security increment
 
@@ -395,6 +396,44 @@ Reports is complete; Audit log and demo data followed.
 358 tests pass (was 314). See [audit design and evidence](HR_NEXUS_V2_AUDIT_LOG.md) and
 [the demo dataset](HR_NEXUS_V2_DEMO_DATA.md).
 
+## Employee Dashboard V2 increment
+
+Delivered against master §40. No database migration was needed and none was made:
+the ledger is unchanged at `0001-0008`.
+
+`GET /api/dashboard/employee` is now assembled by `employeeDashboardService`, which
+resolves the employee from the signed-in user's own row. No endpoint on this path
+accepts an employee identifier, so there is no parameter to substitute; a token
+pairing one user with another employee's id is refused by the existing session check.
+
+The dashboard shows today's attendance and its verification state, a check-in and
+check-out entry point, leave balance, next approved leave, pending and recent leave,
+recent attendance, the latest published payslip and an employment summary.
+
+Two defects were found and fixed in the process:
+
+- Today's attendance was looked up with `CURRENT_DATE`, the database server's date,
+  while attendance judges the day by the Company Settings timezone. The admin
+  dashboard had been corrected for this during the reports milestone; the employee
+  dashboard had not. Across midnight an employee could be told they had not checked
+  in on a day they had.
+- "Upcoming leave" was computed in the browser from the device clock and a second
+  request. The rule is unchanged but now runs on the server against the company date.
+
+Reuse rather than reimplementation: `VerifiedClockPanel` is the same component the
+attendance page uses, leave balances come from `getBalances`, and payslip visibility
+is the payslip endpoints' own predicate.
+
+Exposure is narrower than the attendance page's record. These queries name their
+columns instead of selecting `*`, so latitude, longitude, accuracy and distance
+cannot reach the dashboard and a column added to `attendance` later cannot leak here
+by accident. Only the coarse verification state is carried.
+
+Loading, empty, error and unavailable are four distinct states: a section that could
+not be read says so rather than rendering as zero.
+
+See [the milestone record](HR_NEXUS_V2_EMPLOYEE_DASHBOARD.md).
+
 ## Remaining blockers / release gates
 
 - Migration 0001 and its browser gate are complete and accepted. Migrations 0002 and
@@ -418,16 +457,14 @@ Reports is complete; Audit log and demo data followed.
   recreated with an 8 GB tmpfs and both documented baselines rebuilt from retained
   backups; a full run now settles at 118 MB. The source database was unaffected
   throughout and verified byte-identical to its recorded baseline.
-- Active P0: none of the ten numbered increments remain. Four P0 items from the master
-  are still outstanding and are listed below; P0 is NOT feature-complete.
+- Active P0: Employee Dashboard V2 is complete. Three P0 items from the master remain
+  outstanding and are listed below; P0 is NOT feature-complete.
 - **Remaining P0 scope, none of it started:**
-  1. Employee Dashboard V2 (master §40) - real employee metrics: today's attendance and
-     verification state, leave balance, upcoming leave, recent attendance, latest payslip.
-  2. Company-wide Data Export (master §42) - employees, departments, attendance, leave and
+  1. Company-wide Data Export (master §42) - employees, departments, attendance, leave and
      payroll, so a company can retrieve its own data.
-  3. XLSX export - exports are CSV only; the exceljs dependency added for import is not
+  2. XLSX export - exports are CSV only; the exceljs dependency added for import is not
      reused for output yet.
-  4. Forced first-login password change - the release/security blocker below.
+  3. Forced first-login password change - the release/security blocker below.
   P0 must not be declared feature-complete until these are resolved or explicitly
   deferred with the user's approval.
 - Observed intermittent, seen twice and never reproduced on demand: a full-suite run has
@@ -436,6 +473,13 @@ Reports is complete; Audit log and demo data followed.
   and the suite passes in isolation. Most likely contention between suites concurrently
   issuing `CREATE DATABASE ... TEMPLATE hr_nexus_v2_settings_baseline`, which PostgreSQL
   refuses while the template is in use. Recorded rather than treated as fixed.
+- The `session-database` suite is gated behind `HR_NEXUS_DB_TESTS` and that gate was not
+  set during the audit milestone's full runs, so it was reported as skipped rather than
+  failing. It had in fact been broken since `findSessionUserById` began selecting
+  `u.email` for the audit actor label: the suite's temporary `users` table had no such
+  column and the query failed with 42703. The production query was always correct against
+  the real schema. Fixed in `5df8ce5`, and the gate is now part of the documented full-run
+  command so a skip cannot hide a break again.
 - Payroll V1 selects every employee who has compensation in force, regardless of
   employment status, so an inactive or resigned employee with a compensation record would
   appear on a payroll run. Found while building demo data; Payroll is accepted as complete
@@ -494,7 +538,10 @@ docker run --rm --volumes-from hr-nexus-backend:ro \
   --network hr-nexus-v2-migration-lab \
   -e HR_NEXUS_MIGRATION_LAB=1 -e HR_NEXUS_SETTINGS_LAB=1 \
   -e HR_NEXUS_EMPLOYEE_LAB=1 -e HR_NEXUS_IMPORT_LAB=1 \
-  -e HR_NEXUS_ATTENDANCE_LAB=1 -e HR_NEXUS_LEAVE_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
+  -e HR_NEXUS_ATTENDANCE_LAB=1 -e HR_NEXUS_LEAVE_LAB=1 \
+  -e HR_NEXUS_PAYROLL_LAB=1 -e HR_NEXUS_REPORTS_LAB=1 \
+  -e HR_NEXUS_AUDIT_LAB=1 -e HR_NEXUS_DEMO_LAB=1 \
+  -e HR_NEXUS_DASHBOARD_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
   -e DATABASE_URL=postgresql://postgres@hr-nexus-v2-migration-lab/postgres \
   --mount "type=bind,src=$PWD/database,dst=/database,readonly" \
   --mount "type=bind,src=$PWD/docs,dst=/docs,readonly" \
