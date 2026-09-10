@@ -324,9 +324,9 @@ export default function EmployeeDashboardPage() {
                 {formatDate(upcomingLeave.startDate)} &rarr; {formatDate(upcomingLeave.endDate)}
               </p>
             </div>
-          ) : (
+          ) : recentLeaves.length > 0 ? (
             <p className="mb-4 text-xs text-fg-subtle">No approved leave is scheduled.</p>
-          )}
+          ) : null}
 
           {recentLeaves.length === 0 ? (
             <EmptyState
@@ -375,6 +375,7 @@ export default function EmployeeDashboardPage() {
             <Fact
               label="Employment status"
               value={employee.employmentStatus.replaceAll("_", " ")}
+              capitalize
             />
             <Fact
               label="Joined"
@@ -416,11 +417,21 @@ export default function EmployeeDashboardPage() {
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+/**
+ * `capitalize` is opt-in. Applied to everything it title-cases each word, which
+ * turns a real job title such as "Head of People" into "Head Of People"; it is
+ * only correct for the lowercase enum values stored for employment status.
+ */
+function Fact(
+  { label, value, capitalize = false }:
+  { label: string; value: string; capitalize?: boolean },
+) {
   return (
     <div className="min-w-0">
       <dt className="text-xs text-fg-subtle">{label}</dt>
-      <dd className="mt-0.5 truncate text-sm font-medium capitalize text-fg">{value}</dd>
+      <dd className={`mt-0.5 truncate text-sm font-medium text-fg${capitalize ? " capitalize" : ""}`}>
+        {value}
+      </dd>
     </div>
   );
 }
