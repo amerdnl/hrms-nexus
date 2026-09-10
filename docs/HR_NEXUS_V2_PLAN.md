@@ -22,6 +22,7 @@ money logic, difficult authorization/concurrency work, or complex import upserts
 | 10 | Audit and demo data | Complete; 0008 applied, 358 tests passed, 24/24 authenticated browser smoke on 9 September 2026 |
 | 11 | Employee Dashboard V2 | Complete; no migration needed, 375 tests passed, 30/30 authenticated browser smoke at desktop and mobile widths on 10 September 2026 |
 | 12 | Company data export and XLSX export | Complete; no migration needed, 409 tests passed, 28/28 authenticated admin browser smoke with real downloads on 10 September 2026 |
+| 13 | Forced first-login password change | Complete; 0009 applied, 434 tests passed, 40/40 authenticated browser smoke at desktop and mobile widths on 10 September 2026 |
 
 ## First security increment
 
@@ -466,6 +467,34 @@ happened; it stores counts and dataset names, never the exported content.
 
 See [the milestone record](HR_NEXUS_V2_DATA_EXPORT.md).
 
+## Forced first-login password change increment
+
+The last P0 item, and the release/security blocker. Migration 0009 adds one boolean to
+`public.users`, additive and catalogue-only, defaulting to FALSE so no existing account
+is locked out; it was rehearsed against a restored copy of source (apply, idempotent
+re-run, rollback, re-apply) and applied only after explicit approval.
+
+Sign-in still succeeds for an account holding a temporary password — an account that
+cannot authenticate cannot change its own password — but the session is confined to three
+endpoints: the current user, the password change and logout. The restriction is
+default-deny inside `authenticateToken`, so a router added later is covered without
+anyone remembering; the three exceptions opt in through `authenticateForPasswordChange`,
+and both middlewares share one implementation so the token checks cannot drift.
+
+The flag is never a JWT claim. It is read from the column on every request, so neither a
+token minted before it was set nor one minted while it was set can assert a stale answer,
+and a forged claim is ignored because nothing reads it. An administrator is not exempt;
+the check runs before the role check.
+
+Clearing is one statement, under a row lock so two simultaneous changes cannot both
+succeed. Company Import and administrator employee creation both flag the account; the
+demo seeder states FALSE explicitly with its reasoning.
+
+434 tests pass with no skips and a 40-check authenticated browser smoke passed at desktop
+and mobile widths, covering all seven required steps end to end.
+
+See [the milestone record](HR_NEXUS_V2_FORCED_PASSWORD_CHANGE.md).
+
 ## Remaining blockers / release gates
 
 - Migration 0001 and its browser gate are complete and accepted. Migrations 0002 and
@@ -489,12 +518,10 @@ See [the milestone record](HR_NEXUS_V2_DATA_EXPORT.md).
   recreated with an 8 GB tmpfs and both documented baselines rebuilt from retained
   backups; a full run now settles at 118 MB. The source database was unaffected
   throughout and verified byte-identical to its recorded baseline.
-- Active P0: company data export and XLSX export are complete. One P0 item from the
-  master remains outstanding; P0 is NOT feature-complete.
-- **Remaining P0 scope, not started:**
-  1. Forced first-login password change - the release/security blocker below.
-  P0 must not be declared feature-complete until this is resolved or explicitly
-  deferred with the user's approval.
+- **P0 is feature-complete.** Every P0 item in the master specification is implemented
+  and verified; the forced first-login password change was the last of them and closed
+  the release/security blocker recorded below. Remaining work is validation, polish and
+  the UI/UX redesign, none of which is P0.
 - Observed intermittent, seen twice and never reproduced on demand: a full-suite run has
   once reported a process-level failure in the Company Settings suite, and once in the
   Audit suite. Neither recurred in three subsequent full runs each,
@@ -512,12 +539,16 @@ See [the milestone record](HR_NEXUS_V2_DATA_EXPORT.md).
   employment status, so an inactive or resigned employee with a compensation record would
   appear on a payroll run. Found while building demo data; Payroll is accepted as complete
   and was not reopened. Recorded for a decision rather than changed.
-- **Release/security blocker: no forced first-login password change.** Generated
-  temporary passwords are unique and cryptographically random (128-bit), only bcrypt
-  hashes are persisted, and no plaintext reaches import history or logs -- all verified.
-  But there is no must_change_password column and no forced-reset logic, so nothing
-  compels an employee to change a distributed temporary password. Needs its own
-  milestone before release.
+- **RESOLVED - forced first-login password change.** Was the release/security blocker:
+  generated temporary passwords were unique, cryptographically random and only ever
+  persisted as bcrypt hashes, but nothing compelled an employee to replace one.
+  Migration 0009 adds `users.must_change_password`, defaulting to FALSE so no existing
+  account was locked out (verified: 0 of 2 on source). Both flows that mint a temporary
+  credential set it; the restriction is default-deny inside `authenticateToken` with
+  three endpoints opting out explicitly; the flag is read from the column on every
+  request and never carried in a JWT; and clearing happens in the same statement that
+  writes the new hash, under a row lock so concurrent attempts cannot both succeed.
+  See `HR_NEXUS_V2_FORCED_PASSWORD_CHANGE.md`.
 - Company Import compensation fields are delivered with Payroll V1: basic salary,
   allowance and overtime rate import through the same string-to-sen path, and a new
   compensation row is opened only when the amounts differ from what is in force, so
@@ -569,7 +600,8 @@ docker run --rm --volumes-from hr-nexus-backend:ro \
   -e HR_NEXUS_ATTENDANCE_LAB=1 -e HR_NEXUS_LEAVE_LAB=1 \
   -e HR_NEXUS_PAYROLL_LAB=1 -e HR_NEXUS_REPORTS_LAB=1 \
   -e HR_NEXUS_AUDIT_LAB=1 -e HR_NEXUS_DEMO_LAB=1 \
-  -e HR_NEXUS_DASHBOARD_LAB=1 -e HR_NEXUS_EXPORT_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
+  -e HR_NEXUS_DASHBOARD_LAB=1 -e HR_NEXUS_EXPORT_LAB=1 \
+  -e HR_NEXUS_PASSWORD_LAB=1 -e HR_NEXUS_DB_TESTS=1 \
   -e DATABASE_URL=postgresql://postgres@hr-nexus-v2-migration-lab/postgres \
   --mount "type=bind,src=$PWD/database,dst=/database,readonly" \
   --mount "type=bind,src=$PWD/docs,dst=/docs,readonly" \

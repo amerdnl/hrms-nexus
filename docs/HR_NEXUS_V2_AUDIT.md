@@ -169,6 +169,20 @@ is audited with counts only, and a fingerprint over eight tables is unchanged by
 everything. 409 tests pass with no skips and a 28-check authenticated admin browser smoke
 passed with real downloads. See `HR_NEXUS_V2_DATA_EXPORT.md`.
 
+The forced first-login password change is complete, closing the release/security blocker.
+Migration 0009 adds `users.must_change_password`, additive and defaulting to FALSE so no
+existing account was locked out — verified as 0 of 2 on source — and rehearsed against a
+restored copy before application. Sign-in still succeeds for such an account, but the
+session reaches only the current-user, password-change and logout endpoints; every other
+protected route answers 403 with a distinct code. The restriction is default-deny inside
+`authenticateToken`, so a router added later is covered automatically, and the flag is
+read from the column on every request rather than carried in a JWT, so no stale or forged
+token can bypass it. An administrator is not exempt. Clearing happens in the same
+statement that writes the new hash, under a row lock, so a failed attempt changes nothing
+and two simultaneous attempts cannot both succeed. Company Import and administrator
+employee creation both flag the account. 434 tests pass with no skips and a 40-check
+authenticated browser smoke passed. See `HR_NEXUS_V2_FORCED_PASSWORD_CHANGE.md`.
+
 ## Architecture and versions
 
 React SPA → Axios Bearer requests → Express routes/controllers → parameterized
@@ -265,10 +279,11 @@ zoned clock built from Company Settings.
 
 ## P0 gaps
 
-The forced first-login password change release blocker is the only outstanding P0 item.
-The migration mechanism, company settings, import workflow, attendance verification,
-leave balances, payroll, reporting, the audit log, demo data, Employee Dashboard V2 and
-the company data export are now in place. The dashboard was
+**No P0 item remains outstanding.** The migration mechanism, company settings, import
+workflow, attendance verification, leave balances, payroll, reporting, the audit log,
+demo data, Employee Dashboard V2, the company data export and the forced first-login
+password change are all in place and verified. Remaining work is validation, polish and
+the UI/UX redesign, none of which is P0. The dashboard was
 extended rather than rebuilt, as recorded at baseline: it already used real SQL and there
 was no mock data to replace.
 Demo data is insufficient (one active employee found in the live aggregate).
