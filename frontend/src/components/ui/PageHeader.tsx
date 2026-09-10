@@ -6,7 +6,15 @@ import { cn } from "../../utils/cn";
 interface PageHeaderProps {
   title: string;
   description?: string;
-  /** Renders a back link above the title, replacing the ad-hoc "← Back to X" links. */
+  /**
+   * Back link above the title, shown BELOW md only.
+   *
+   * From md up the app header carries a breadcrumb trail whose second-to-last
+   * crumb goes to exactly this destination, so rendering both stacks two
+   * controls that do the same thing one row apart. Below md the header shows
+   * the page's name instead of a trail, so this is the only way back and has
+   * to stay.
+   */
   backTo?: string;
   backLabel?: string;
   actions?: ReactNode;
@@ -26,7 +34,7 @@ export default function PageHeader({
       {backTo && (
         <Link
           to={backTo}
-          className="mb-3 inline-flex items-center gap-1.5 rounded text-sm font-medium text-fg-muted transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="mb-3 inline-flex items-center gap-1.5 rounded text-sm font-medium text-fg-muted transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:hidden"
         >
           <ArrowLeft size={16} aria-hidden="true" />
           {backLabel}
