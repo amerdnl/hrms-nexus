@@ -84,6 +84,17 @@ rather than presenting it as current.
   an employee refused company-wide reporting, and admin reporting not regressed.
   Evidence in `.local-backups/dashboard-20260910/browser/`.
 
+  Recorded twice, and worth stating why. The first run was unknowingly served by the
+  `hr-nexus-demo-browser-*` containers left running from the audit milestone: they
+  bind-mount the working tree, so they did serve the new code, but they already held
+  ports 5017 and 5189, and the static server started for that run failed to bind with
+  EADDRINUSE without it being noticed — the health check was answered by the container
+  already there. The frontend under test was therefore the Vite dev server rather than
+  the production bundle. The run was repeated on ports confirmed free beforehand,
+  serving the built bundle, with the bindings verified before the browser launched.
+  Both runs pass identically. The source database was never involved in either: it
+  still reports `audit_rows=0`, and one sign-in would have written an entry.
+
 ## Limitations
 
 - **No company announcement.** Master §40 lists it as optional ("if available") and
