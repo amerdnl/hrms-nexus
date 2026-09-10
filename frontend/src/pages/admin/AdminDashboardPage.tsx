@@ -205,6 +205,13 @@ export default function AdminDashboardPage() {
     },
   ];
 
+  // Summed from the same four figures the bar renders, so the empty state and
+  // the breakdown can never disagree about whether there is anything to show.
+  const attendanceRecordedToday = attendanceSegments.reduce(
+    (sum, segment) => sum + segment.value,
+    0,
+  );
+
   const totalLeaves = leaveTypeOrder.reduce(
     (sum, leaveType) => sum + leaveCounts[leaveType],
     0,
@@ -326,11 +333,23 @@ export default function AdminDashboardPage() {
             </LinkButton>
           }
         >
-          <SegmentedBar
-            title="Today's attendance by status"
-            unit="records recorded today"
-            segments={attendanceSegments}
-          />
+          {/* With nothing recorded, the breakdown would be an empty grey track
+              over four "0 (0%)" rows - a lot of chrome saying nothing, and
+              easily misread as a chart that failed to load. The distinction
+              being drawn is "no records yet today", not "zero present". */}
+          {attendanceRecordedToday === 0 ? (
+            <EmptyState
+              icon={Clock3}
+              title="No attendance recorded today yet"
+              description={`Nothing has been recorded for ${dashboard.today}. Check-ins appear here as they happen.`}
+            />
+          ) : (
+            <SegmentedBar
+              title="Today's attendance by status"
+              unit="records recorded today"
+              segments={attendanceSegments}
+            />
+          )}
         </SectionCard>
 
         <SectionCard
