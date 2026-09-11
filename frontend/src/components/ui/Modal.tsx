@@ -4,8 +4,16 @@ import { cn } from "../../utils/cn";
 
 export type ModalTone = "primary" | "danger";
 export type ModalSize = "sm" | "md" | "lg" | "xl";
-/** "center" is the desktop dialog; "sheet" rises from the bottom edge. */
-export type ModalPlacement = "center" | "sheet";
+/**
+ * "responsive" (the default) is a bottom sheet below sm and a centred dialog
+ * from sm up. "center" and "sheet" pin one shape at every width.
+ *
+ * Responsive is the default because a centred dialog on a 375px phone is a
+ * desktop pattern shrunk: it floats mid-screen, puts its actions out of thumb
+ * reach, and on a tall form scrolls inside a box inside a screen. A sheet is
+ * the phone-native shape for the same interaction.
+ */
+export type ModalPlacement = "responsive" | "center" | "sheet";
 
 interface ModalProps {
   isOpen: boolean;
@@ -59,7 +67,7 @@ export default function Modal({
   icon,
   tone = "primary",
   size = "md",
-  placement = "center",
+  placement = "responsive",
   isDismissDisabled = false,
   initialFocusRef,
   footer,
@@ -170,10 +178,10 @@ export default function Modal({
     // a transformed ancestor in the page tree.
     <div
       className={cn(
-        "fixed inset-0 z-[70] flex bg-backdrop",
-        placement === "sheet"
-          ? "items-end justify-center"
-          : "items-center justify-center px-4 py-6",
+        "fixed inset-0 z-[70] flex justify-center bg-backdrop",
+        placement === "sheet" && "items-end",
+        placement === "center" && "items-center px-4 py-6",
+        placement === "responsive" && "items-end sm:items-center sm:px-4 sm:py-6",
       )}
     >
       <div
@@ -184,20 +192,29 @@ export default function Modal({
         aria-describedby={description ? descriptionId : undefined}
         className={cn(
           "w-full overflow-y-auto bg-elevated p-6 shadow-panel",
-          placement === "sheet"
-            ? // Capped below full height so the backdrop stays tappable above
-              // it, and padded for the home indicator on a notched phone.
-              "max-h-[85vh] rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
-            : cn("max-h-full rounded-2xl", sizeStyles[size]),
+          // Sheet: capped below full height so the backdrop stays tappable
+          // above it, and padded for the home indicator on a notched phone.
+          placement === "sheet" &&
+            "max-h-[85vh] rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+          placement === "center" && cn("max-h-full rounded-2xl", sizeStyles[size]),
+          placement === "responsive" &&
+            cn(
+              "max-h-[90vh] rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+              "sm:max-h-full sm:rounded-2xl sm:pb-6",
+              sizeStyles[size],
+            ),
         )}
       >
-        {placement === "sheet" && (
+        {placement !== "center" && (
           // Grab handle. Purely a visual affordance - dragging is not wired
           // up, so it is hidden rather than suggesting a gesture to a screen
           // reader that does not exist.
           <div
             aria-hidden="true"
-            className="mx-auto mb-4 h-1 w-10 rounded-full bg-line-strong"
+            className={cn(
+              "mx-auto mb-4 h-1 w-10 rounded-full bg-line-strong",
+              placement === "responsive" && "sm:hidden",
+            )}
           />
         )}
         {icon && (

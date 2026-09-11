@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "../../utils/cn";
+import Skeleton from "./Skeleton";
 
 interface DataTableProps {
   /** Header cells. Length drives the loading/empty row colSpan. */
@@ -28,8 +29,16 @@ interface DataTableProps {
    * are untouched.
    */
   mobileCards?: ReactNode;
+  /** How many placeholder rows to draw while loading. */
+  skeletonRows?: number;
   className?: string;
 }
+
+/**
+ * Widths cycle so placeholder rows read as text of varying length rather than
+ * a grid of identical bars, which looks like a rendering fault.
+ */
+const SKELETON_WIDTHS = ["w-3/4", "w-1/2", "w-2/3", "w-5/12", "w-3/5"];
 
 /**
  * A table *container*, not a data grid: it owns the card shell, the horizontal
@@ -47,6 +56,7 @@ export default function DataTable({
   minWidthClass = "min-w-full",
   caption,
   mobileCards,
+  skeletonRows = 6,
   className,
 }: DataTableProps) {
   // Coerced once. `mobileCards` is a ReactNode, so a bare `mobileCards &&`
@@ -70,12 +80,22 @@ export default function DataTable({
       {hasCards && (
         <div className="md:hidden">
           {isLoading ? (
-            <p
-              className="px-5 py-10 text-center text-sm text-fg-muted"
-              aria-live="polite"
-            >
-              {loadingLabel}
-            </p>
+            <div aria-busy="true">
+              <p className="sr-only" aria-live="polite">
+                {loadingLabel}
+              </p>
+              <ul className="divide-y divide-line" aria-hidden="true">
+                {Array.from({ length: skeletonRows }, (_, index) => (
+                  <li key={index} className="flex items-center gap-3 px-4 py-4">
+                    <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Skeleton className={cn("h-3.5", SKELETON_WIDTHS[index % 5])} />
+                      <Skeleton className="h-3 w-1/3" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : isEmpty ? (
             fallback
           ) : (
@@ -123,16 +143,31 @@ export default function DataTable({
 
           <tbody className="divide-y divide-line">
             {isLoading ? (
-              <tr>
-                <td
-                  colSpan={headers.length}
-                  className="px-5 py-10 text-center text-sm text-fg-muted"
-                >
-                  {/* aria-live so a filter change that swaps rows is announced
-                      rather than silently replacing the table. */}
-                  <span aria-live="polite">{loadingLabel}</span>
-                </td>
-              </tr>
+              <>
+                {/* Placeholder rows keep the table's shape, so nothing jumps
+                    when the data lands. They are aria-hidden; the single live
+                    message in the first row is what a screen reader hears,
+                    so a filter change is announced once rather than per cell. */}
+                {Array.from({ length: skeletonRows }, (_, row) => (
+                  <tr key={row} aria-hidden={row > 0 || undefined}>
+                    {headers.map((_, column) => (
+                      <td key={column} className="px-5 py-4">
+                        {row === 0 && column === 0 && (
+                          <span className="sr-only" aria-live="polite">
+                            {loadingLabel}
+                          </span>
+                        )}
+                        <Skeleton
+                          className={cn(
+                            "h-3.5",
+                            SKELETON_WIDTHS[(row + column) % SKELETON_WIDTHS.length],
+                          )}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </>
             ) : isEmpty ? (
               <tr>
                 <td colSpan={headers.length} className="p-0">
