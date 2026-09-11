@@ -16,11 +16,16 @@ import {
 } from "../../api/profile";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import Alert from "../../components/ui/Alert";
+import Avatar from "../../components/ui/Avatar";
 import Button from "../../components/ui/Button";
+import DescriptionList from "../../components/ui/DescriptionList";
+import EmptyState from "../../components/ui/EmptyState";
+import ErrorState from "../../components/ui/ErrorState";
 import FormField from "../../components/ui/FormField";
 import PageHeader from "../../components/ui/PageHeader";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import SectionCard from "../../components/ui/SectionCard";
+import Skeleton, { SkeletonText } from "../../components/ui/Skeleton";
 import StatusBadge from "../../components/ui/StatusBadge";
 import TextArea from "../../components/ui/TextArea";
 import TextInput from "../../components/ui/TextInput";
@@ -40,12 +45,6 @@ const emptyForm: ProfileUpdates = {
 const supportedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxProfileImageSize = 2 * 1024 * 1024;
 
-const contactFields = [
-  ["Phone", "phone"],
-  ["Emergency contact name", "emergency_contact_name"],
-  ["Emergency contact phone", "emergency_contact_phone"],
-] as const;
-
 /**
  * dateOfBirth and employmentDate are Postgres DATE columns, so they go through
  * the timezone-safe formatter rather than `new Date(value)`, which would land
@@ -53,15 +52,6 @@ const contactFields = [
  */
 function displayDate(value: string | null | undefined) {
   return value ? formatDate(value) : "Not provided";
-}
-
-function initials(name: string | undefined) {
-  return (name ?? "Employee")
-    .split(" ")
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
 }
 
 export default function ProfilePage() {
@@ -185,14 +175,41 @@ export default function ProfilePage() {
   };
 
   if (isLoading) {
-    return <p className="text-sm text-fg-muted">Loading profile…</p>;
+    return (
+      <div className="mx-auto max-w-6xl space-y-6" aria-busy="true">
+        <p className="sr-only" aria-live="polite">Loading your profile</p>
+        <Skeleton className="h-8 w-48" />
+        <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+          <SectionCard>
+            <Skeleton className="mx-auto h-28 w-28 rounded-full" />
+            <Skeleton className="mx-auto mt-4 h-5 w-40" />
+            <Skeleton className="mx-auto mt-2 h-4 w-28" />
+          </SectionCard>
+          <SectionCard><SkeletonText lines={8} /></SectionCard>
+        </div>
+      </div>
+    );
   }
 
   if (!profile?.employee) {
     return (
-      <Alert tone="warning">
-        {error || "No employee profile is connected to this account."}
-      </Alert>
+      <div className="mx-auto max-w-3xl">
+        <SectionCard>
+          {error ? (
+            <ErrorState
+              title="Your profile could not be loaded"
+              description={error}
+              onRetry={() => window.location.reload()}
+            />
+          ) : (
+            <EmptyState
+              icon={IdCard}
+              title="No employee profile is linked to this account"
+              description="Ask your administrator to connect this sign-in to your employee record."
+            />
+          )}
+        </SectionCard>
+      </div>
     );
   }
 
@@ -201,44 +218,36 @@ export default function ProfilePage() {
   const statusMeta = employmentStatusMeta(employee.employmentStatus);
   const isPhotoBusy = isUploadingPhoto || isRemovingPhoto;
 
-  const readOnlyFields: Array<[string, string]> = [
-    ["Employee number", employee.employeeNumber],
-    ["Full name", employee.fullName],
-    ["Email", profile.email],
-    ["Date of birth", displayDate(employee.dateOfBirth)],
-    ["Gender", employee.gender || "Not provided"],
-    ["Job title", employee.jobTitle || "Not assigned"],
-    ["Department", employee.department?.name || "Not assigned"],
-    ["Employment date", displayDate(employee.employmentDate)],
-    ["Employment status", statusMeta.label],
-  ];
-
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader
         title="My profile"
-        description="Review your employment details and update your contact information."
+        description="Your employment details, your contact information and your sign-in."
       />
 
-      <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-        <SectionCard className="h-fit" bodyClassName="text-center">
-          {profileImageUrl && !imageFailed ? (
-            <img
-              className="mx-auto h-28 w-28 rounded-full object-cover ring-4 ring-primary-soft"
-              src={profileImageUrl}
-              alt={`${employee.fullName}'s profile`}
-              onError={() => setImageFailed(true)}
-            />
-          ) : (
-            <div className="mx-auto grid h-28 w-28 place-items-center rounded-full bg-primary-soft text-3xl font-bold text-primary ring-4 ring-primary-soft">
-              {initials(employee.fullName)}
-            </div>
-          )}
+      <div className="grid items-start gap-6 lg:grid-cols-[300px_1fr]">
+        <SectionCard bodyClassName="text-center">
+          <div className="relative mx-auto w-fit">
+            {/* Avatar is initials whenever the image is missing or fails, and
+                keeps that decision in one place across the app. */}
+            {profileImageUrl && !imageFailed ? (
+              <img
+                className="h-28 w-28 rounded-full object-cover ring-4 ring-primary-soft"
+                src={profileImageUrl}
+                alt={`${employee.fullName}'s profile`}
+                onError={() => setImageFailed(true)}
+              />
+            ) : (
+              <Avatar name={employee.fullName} size="2xl" className="ring-4 ring-primary-soft" />
+            )}
+          </div>
 
           <h2 className="mt-4 text-lg font-bold text-fg">{employee.fullName}</h2>
           <p className="mt-0.5 text-sm text-fg-muted">
             {employee.jobTitle || "Employee"}
+            {employee.department?.name ? ` · ${employee.department.name}` : ""}
           </p>
+          <p className="mt-0.5 text-xs text-fg-subtle">{employee.employeeNumber}</p>
 
           <div className="mt-3 flex justify-center">
             <StatusBadge {...statusMeta} />
@@ -252,8 +261,9 @@ export default function ProfilePage() {
             onChange={(event) => void handlePhotoSelected(event)}
           />
 
-          <div className="mt-6 flex flex-col items-center gap-1">
-            <PrimaryButton
+          <div className="mt-6 flex flex-col items-center gap-1 border-t border-line pt-5">
+            <Button
+              variant="secondary"
               fullWidth
               icon={Camera}
               onClick={() => fileInputRef.current?.click()}
@@ -262,18 +272,17 @@ export default function ProfilePage() {
               loadingLabel="Uploading..."
             >
               Change photo
-            </PrimaryButton>
+            </Button>
+            <p className="mt-1 text-xs text-fg-subtle">JPG, PNG or WEBP, up to 2 MB.</p>
 
             {employee.profileImage && (
-              // Uses the danger-ghost variant added for exactly this case; it
-              // previously had to bypass the primitive because low-emphasis
-              // destructive was not one of its variants.
               <Button
                 variant="danger-ghost"
                 size="sm"
                 icon={Trash2}
                 onClick={() => setIsRemovePhotoModalOpen(true)}
                 disabled={isPhotoBusy}
+                className="mt-1"
               >
                 Remove photo
               </Button>
@@ -297,25 +306,34 @@ export default function ProfilePage() {
         </SectionCard>
 
         <div className="space-y-6">
-          {/* Title names both groups because this card holds personal fields
-              (date of birth, gender) as well as employment ones, and all of
-              them are read-only here: the profile API only accepts the four
-              contact fields edited in the card below. */}
+          {/* Read-only. The profile API accepts only the four contact fields
+              edited in the next card, so everything here is shown, not
+              editable, and says who can correct it. */}
           <SectionCard
-            title="Employment and personal details"
+            title="Employment"
             description="Read-only. Contact HR if a correction is needed."
             icon={IdCard}
           >
-            <dl className="grid gap-5 sm:grid-cols-2">
-              {readOnlyFields.map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-                    {label}
-                  </dt>
-                  <dd className="mt-1 text-sm font-medium text-fg">{value}</dd>
-                </div>
-              ))}
-            </dl>
+            <DescriptionList
+              items={[
+                { label: "Employee number", value: employee.employeeNumber },
+                { label: "Job title", value: employee.jobTitle || "Not assigned" },
+                { label: "Department", value: employee.department?.name || "Not assigned" },
+                { label: "Employment date", value: displayDate(employee.employmentDate) },
+                { label: "Employment status", value: <StatusBadge {...statusMeta} /> },
+              ]}
+            />
+            <div className="mt-5 border-t border-line pt-5">
+              <h3 className="mb-4 text-sm font-semibold text-fg">Personal</h3>
+              <DescriptionList
+                items={[
+                  { label: "Full name", value: employee.fullName },
+                  { label: "Email", value: profile.email },
+                  { label: "Date of birth", value: displayDate(employee.dateOfBirth) },
+                  { label: "Gender", value: employee.gender || "Not provided" },
+                ]}
+              />
+            </div>
           </SectionCard>
 
           <form onSubmit={handleSubmit}>
@@ -324,36 +342,52 @@ export default function ProfilePage() {
               description="The only details on this page you can change yourself."
               icon={Phone}
             >
-
               <div className="grid gap-5 sm:grid-cols-2">
-                {contactFields.map(([label, field]) => (
-                  <FormField key={field} id={field} label={label}>
-                    <TextInput
-                      id={field}
-                      value={form[field]}
-                      onChange={(event) =>
-                        updateField(field, event.target.value)
-                      }
-                    />
-                  </FormField>
-                ))}
+                <FormField id="phone" label="Phone">
+                  <TextInput
+                    id="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    value={form.phone}
+                    onChange={(event) => updateField("phone", event.target.value)}
+                  />
+                </FormField>
 
-                <FormField
-                  id="address"
-                  label="Address"
-                  className="sm:col-span-2"
-                >
+                <FormField id="address" label="Address" className="sm:col-span-2">
                   <TextArea
                     id="address"
                     rows={3}
                     className="min-h-24"
+                    autoComplete="street-address"
                     value={form.address}
-                    onChange={(event) =>
-                      updateField("address", event.target.value)
-                    }
+                    onChange={(event) => updateField("address", event.target.value)}
                   />
                 </FormField>
               </div>
+
+              {/* The two emergency fields as one group, because they describe
+                  one person. There is no relationship field: the record does
+                  not store one. */}
+              <fieldset className="mt-6 rounded-xl border border-line p-4">
+                <legend className="px-1 text-sm font-semibold text-fg">Emergency contact</legend>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <FormField id="emergency_contact_name" label="Name">
+                    <TextInput
+                      id="emergency_contact_name"
+                      value={form.emergency_contact_name}
+                      onChange={(event) => updateField("emergency_contact_name", event.target.value)}
+                    />
+                  </FormField>
+                  <FormField id="emergency_contact_phone" label="Phone">
+                    <TextInput
+                      id="emergency_contact_phone"
+                      type="tel"
+                      value={form.emergency_contact_phone}
+                      onChange={(event) => updateField("emergency_contact_phone", event.target.value)}
+                    />
+                  </FormField>
+                </div>
+              </fieldset>
 
               {error && (
                 <Alert tone="danger" className="mt-5">
@@ -362,12 +396,12 @@ export default function ProfilePage() {
               )}
 
               {success && (
-                <Alert tone="success" className="mt-5">
+                <Alert tone="success" className="mt-5" onDismiss={() => setSuccess("")}>
                   {success}
                 </Alert>
               )}
 
-              <div className="mt-6 flex justify-end">
+              <div className="mt-6 flex justify-end border-t border-line pt-5">
                 <PrimaryButton
                   type="submit"
                   icon={Save}
@@ -381,25 +415,26 @@ export default function ProfilePage() {
           </form>
 
           <SectionCard
-            title="Account & security"
-            description="Manage your password and account security."
+            title="Sign-in and security"
+            description="Your password protects your pay and personal records."
             icon={KeyRound}
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-fg">Password</h3>
                 <p className="mt-1 text-sm text-fg-muted">
-                  Keep your account secure by using a strong password.
+                  Signed in as {profile.email}. Use at least 8 characters.
                 </p>
               </div>
 
-              <PrimaryButton
+              <Button
+                variant="secondary"
                 className="shrink-0"
                 icon={KeyRound}
                 onClick={() => setIsPasswordModalOpen(true)}
               >
                 Change password
-              </PrimaryButton>
+              </Button>
             </div>
           </SectionCard>
         </div>

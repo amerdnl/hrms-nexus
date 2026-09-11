@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { cn } from "../../utils/cn";
 import { getInitials } from "../../utils/name";
 
-export type AvatarSize = "sm" | "md" | "lg" | "xl";
+export type AvatarSize = "sm" | "md" | "lg" | "xl" | "2xl";
 
 const sizeStyles: Record<AvatarSize, string> = {
   sm: "h-8 w-8 text-xs",
   md: "h-10 w-10 text-sm",
   lg: "h-12 w-12 text-base",
   xl: "h-20 w-20 text-xl",
+  /** The identity card on a profile page. */
+  "2xl": "h-28 w-28 text-3xl",
 };
 
 interface AvatarProps {
