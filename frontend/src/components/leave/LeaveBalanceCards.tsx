@@ -1,6 +1,8 @@
 import { CalendarCheck } from "lucide-react";
 import type { LeaveBalance } from "../../types/leave";
 import { leaveTypeMeta } from "../../utils/status";
+import ProgressBar from "../ui/ProgressBar";
+import Skeleton from "../ui/Skeleton";
 
 interface LeaveBalanceCardsProps {
   balances: LeaveBalance[];
@@ -31,7 +33,18 @@ export default function LeaveBalanceCards({
   }
 
   if (isLoading) {
-    return <p className="text-sm text-fg-muted">Loading balances...</p>;
+    return (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-busy="true">
+        <p className="sr-only" aria-live="polite">Loading leave balances</p>
+        {Array.from({ length: 4 }, (_, index) => (
+          <div key={index} className="rounded-card border border-line bg-surface p-4">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="mt-3 h-7 w-24" />
+            <Skeleton className="mt-3 h-2 w-full" />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -57,7 +70,17 @@ export default function LeaveBalanceCards({
                       of {format(balance.entitledDays)} left
                     </span>
                   </p>
-                  <dl className="mt-2 space-y-0.5 text-xs text-fg-muted">
+                  {/* Decoration: the figure above is the fact. */}
+                  <ProgressBar
+                    className="mt-3"
+                    size="sm"
+                    tone={meta.tone}
+                    value={balance.remainingDays}
+                    max={balance.entitledDays}
+                    label={`${meta.label}: ${format(balance.remainingDays)} of ${format(balance.entitledDays)} days left`}
+                    isDecorative
+                  />
+                  <dl className="mt-3 space-y-0.5 text-xs text-fg-muted">
                     <div className="flex justify-between gap-2">
                       <dt>Used</dt><dd className="text-fg">{format(balance.usedDays)}</dd>
                     </div>

@@ -1,4 +1,4 @@
-import { CalendarOff, CalendarPlus, CalendarRange } from "lucide-react";
+import { CalendarOff, CalendarPlus, CalendarRange, Send } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import {
@@ -13,10 +13,12 @@ import DataTable from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import FormField from "../../components/ui/FormField";
 import PageHeader from "../../components/ui/PageHeader";
+import RecordCard from "../../components/ui/RecordCard";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import SectionCard from "../../components/ui/SectionCard";
 import LeaveBalanceCards from "../../components/leave/LeaveBalanceCards";
 import SelectInput from "../../components/ui/SelectInput";
+import { SkeletonText } from "../../components/ui/Skeleton";
 import StatusBadge from "../../components/ui/StatusBadge";
 import Tabs, { type TabItem } from "../../components/ui/Tabs";
 import TextArea from "../../components/ui/TextArea";
@@ -27,12 +29,8 @@ import type {
   LeaveRequest,
   LeaveType,
 } from "../../types/leave";
-import { formatDate, formatDateTime } from "../../utils/datetime";
-import {
-  calcLeaveDays,
-  formatLeaveDays,
-  formatLeaveDaysBetween,
-} from "../../utils/leave";
+import { formatDate, formatDateRange } from "../../utils/datetime";
+import { calcLeaveDays, formatLeaveDuration } from "../../utils/leave";
 import { leaveStatusMeta, leaveTypeMeta } from "../../utils/status";
 
 const initialForm: CreateLeaveRequestInput = {
@@ -49,15 +47,13 @@ const APPLY_TAB = "apply";
 const HISTORY_TAB = "history";
 
 const tableHeaders = [
-  "Leave type",
-  "Start date",
-  "End date",
-  "Total days",
-  "Reason",
+  "Leave",
+  "Dates",
+  "Duration",
   "Status",
-  "Admin comment",
-  "Applied on",
-  "Action",
+  "Comment",
+  "Applied",
+  <span key="action" className="sr-only">Action</span>,
 ];
 
 /**
@@ -169,29 +165,55 @@ export default function EmployeeLeavePage() {
     }
   }
 
-  // Informational only. This project has no leave balance: nothing is
-  // deducted, accrued, or checked against an entitlement, and this value
-  // never gates submission.
+  // The calendar span of the chosen dates, and only that. The balance is
+  // charged WORKING days, which the server counts from the company's working
+  // week when the request is submitted. Employees cannot read that working
+  // week (Company Settings is administrator-only), so this page cannot
+  // preview the working-day figure and must not pretend to - it says so
+  // beside this number instead. The request's own working-day count appears
+  // in the history once submitted.
   const requestedDays = calcLeaveDays(form.startDate, form.endDate);
+  const selectedBalance = balances.find((balance) => balance.leaveType === form.leaveType) ?? null;
 
   const tabs: TabItem[] = [
-    { id: APPLY_TAB, label: "Apply for leave" },
-    { id: HISTORY_TAB, label: "Leave history", count: leaves.length },
+    { id: APPLY_TAB, label: "Request leave" },
+    { id: HISTORY_TAB, label: "My requests", count: leaves.length },
   ];
 
+  const canCancel = (leave: LeaveRequest) =>
+    // Only leave that has not started can be withdrawn; anything else needs an
+    // administrator correction, so no button is offered. The server enforces
+    // the same rule and refuses otherwise.
+    (leave.status === "pending" || leave.status === "approved") &&
+    leave.startDate > new Date().toISOString().slice(0, 10);
+
+  const cancelButton = (leave: LeaveRequest) =>
+    canCancel(leave) ? (
+      <Button
+        variant="danger-ghost"
+        size="sm"
+        isLoading={cancellingId === leave.id}
+        loadingLabel="Cancelling..."
+        onClick={() => void handleCancel(leave.id)}
+        aria-label={`Cancel ${leaveTypeMeta(leave.leaveType).label.toLowerCase()} leave from ${formatDate(leave.startDate)}`}
+      >
+        Cancel
+      </Button>
+    ) : null;
+
   return (
-    <section className="mx-auto max-w-7xl space-y-6">
+    <section className="mx-auto max-w-6xl space-y-6">
       <PageHeader
         title="My leave"
-        description="Submit a leave request and review your leave history."
+        description="Check your balances, request time off and follow each request."
       />
 
       {/* Above the tabs on purpose: a submission made on the Apply panel
           switches to History, and the confirmation has to survive that. */}
-      {error && <Alert tone="danger">{error}</Alert>}
-      {success && <Alert tone="success">{success}</Alert>}
+      {error && <Alert tone="danger" onDismiss={() => setError("")}>{error}</Alert>}
+      {success && <Alert tone="success" onDismiss={() => setSuccess("")}>{success}</Alert>}
 
-      <SectionCard title="Your leave balances" icon={CalendarRange}>
+      <SectionCard title="Your balances" icon={CalendarRange}>
         <LeaveBalanceCards
           balances={balances}
           leaveYear={leaveYear}
@@ -210,94 +232,126 @@ export default function EmployeeLeavePage() {
         aria-labelledby={`tab-${APPLY_TAB}`}
         hidden={activeTab !== APPLY_TAB}
       >
-        <SectionCard title="Apply for leave" icon={CalendarPlus}>
-          <form className="space-y-5" onSubmit={handleSubmit}>
-            <FormField id="leaveType" label="Leave type" required>
-              <SelectInput
-                id="leaveType"
-                value={form.leaveType}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    leaveType: event.target.value as LeaveType,
-                  })
-                }
-              >
-                {leaveTypes.map((leaveType) => (
-                  <option key={leaveType} value={leaveType}>
-                    {leaveTypeMeta(leaveType).label} leave
-                  </option>
-                ))}
-              </SelectInput>
-            </FormField>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField id="startDate" label="Start date" required>
-                <TextInput
-                  id="startDate"
-                  type="date"
-                  value={form.startDate}
+        <div className="grid items-start gap-6 lg:grid-cols-3">
+          <SectionCard className="lg:col-span-2" title="Request time off" icon={CalendarPlus}>
+            <form className="space-y-5" onSubmit={handleSubmit}>
+              <FormField id="leaveType" label="Leave type" required>
+                <SelectInput
+                  id="leaveType"
+                  value={form.leaveType}
                   onChange={(event) =>
-                    setForm({ ...form, startDate: event.target.value })
+                    setForm({
+                      ...form,
+                      leaveType: event.target.value as LeaveType,
+                    })
                   }
+                >
+                  {leaveTypes.map((leaveType) => (
+                    <option key={leaveType} value={leaveType}>
+                      {leaveTypeMeta(leaveType).label} leave
+                    </option>
+                  ))}
+                </SelectInput>
+              </FormField>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField id="startDate" label="Start date" required>
+                  <TextInput
+                    id="startDate"
+                    type="date"
+                    value={form.startDate}
+                    onChange={(event) =>
+                      setForm({ ...form, startDate: event.target.value })
+                    }
+                  />
+                </FormField>
+
+                <FormField id="endDate" label="End date" required>
+                  <TextInput
+                    id="endDate"
+                    type="date"
+                    value={form.endDate}
+                    onChange={(event) =>
+                      setForm({ ...form, endDate: event.target.value })
+                    }
+                  />
+                </FormField>
+              </div>
+
+              {requestedDays !== null && (
+                <div
+                  className="flex items-start gap-3 rounded-xl bg-primary-soft p-4"
+                  // Announced when the dates change, without stealing focus.
+                  role="status"
+                >
+                  <CalendarRange size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
+                  <div>
+                    <p className="text-sm font-semibold text-fg">
+                      {formatDateRange(form.startDate, form.endDate)} ·{" "}
+                      {requestedDays} calendar day{requestedDays === 1 ? "" : "s"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-fg-muted">
+                      Your balance is charged only the working days in this range,
+                      counted from your company&rsquo;s working week when you submit.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <FormField id="reason" label="Reason" required>
+                <TextArea
+                  id="reason"
+                  rows={4}
+                  value={form.reason}
+                  onChange={(event) =>
+                    setForm({ ...form, reason: event.target.value })
+                  }
+                  placeholder="Explain the reason for your leave request"
                 />
               </FormField>
 
-              <FormField id="endDate" label="End date" required>
-                <TextInput
-                  id="endDate"
-                  type="date"
-                  value={form.endDate}
-                  onChange={(event) =>
-                    setForm({ ...form, endDate: event.target.value })
-                  }
-                />
-              </FormField>
-            </div>
+              <div className="flex justify-end border-t border-line pt-5">
+                <PrimaryButton
+                  type="submit"
+                  icon={Send}
+                  isLoading={isSubmitting}
+                  loadingLabel="Submitting..."
+                >
+                  Submit request
+                </PrimaryButton>
+              </div>
+            </form>
+          </SectionCard>
 
-            {requestedDays !== null && (
-              <p
-                className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-surface-muted px-3 py-2.5 text-sm text-fg-muted"
-                // Announced when the dates change, without stealing focus.
-                role="status"
-              >
-                <CalendarRange
-                  size={15}
-                  className="text-primary"
-                  aria-hidden="true"
-                />
-                Total days:{" "}
-                <span className="font-semibold text-fg">
-                  {formatLeaveDays(requestedDays)}
-                </span>
-                <span className="text-xs text-fg-subtle">
-                  Every calendar day in the range, weekends and holidays
-                  included.
-                </span>
+          <SectionCard title={`${leaveTypeMeta(form.leaveType).label} leave`} icon={leaveTypeMeta(form.leaveType).icon}>
+            {balancesFailed ? (
+              <p className="text-sm text-fg-muted">
+                Your balance could not be loaded. You can still apply; the server
+                checks your balance when you submit.
               </p>
+            ) : isLoadingBalances ? (
+              <SkeletonText lines={3} />
+            ) : selectedBalance?.deductsBalance ? (
+              <>
+                <p className="text-xs font-medium text-fg-muted">You can request now</p>
+                <p className="mt-1 text-3xl font-bold tracking-tight text-fg">
+                  {selectedBalance.availableDays}
+                  <span className="ml-1.5 text-sm font-medium text-fg-muted">working days</span>
+                </p>
+                <p className="mt-2 text-xs text-fg-subtle">
+                  {selectedBalance.remainingDays} of {selectedBalance.entitledDays} left
+                  {selectedBalance.pendingDays > 0 ? `, ${selectedBalance.pendingDays} awaiting approval` : ""}.
+                </p>
+              </>
+            ) : selectedBalance ? (
+              <p className="text-sm text-fg-muted">
+                No balance limit. {selectedBalance.isPaid ? "This leave is paid." : "Unpaid, so it reduces pay."}
+              </p>
+            ) : (
+              <p className="text-sm text-fg-muted">This leave type has no active policy.</p>
             )}
-
-            <FormField id="reason" label="Reason" required>
-              <TextArea
-                id="reason"
-                rows={5}
-                value={form.reason}
-                onChange={(event) =>
-                  setForm({ ...form, reason: event.target.value })
-                }
-                placeholder="Explain the reason for your leave request"
-              />
-            </FormField>
-
-            <PrimaryButton
-              type="submit"
-              isLoading={isSubmitting}
-              loadingLabel="Submitting..."
-            >
-              Submit request
-            </PrimaryButton>
-          </form>
-        </SectionCard>
+          </SectionCard>
+        </div>
       </div>
 
       <div
@@ -309,15 +363,15 @@ export default function EmployeeLeavePage() {
         <DataTable
           headers={tableHeaders}
           caption="Your leave requests"
-          minWidthClass="min-w-250"
+          minWidthClass="min-w-200"
           isLoading={isLoadingLeaves}
-          loadingLabel="Loading leave history..."
+          loadingLabel="Loading leave history"
           isEmpty={leaves.length === 0}
           emptyState={
             <EmptyState
               icon={CalendarOff}
-              title="No leave requests found"
-              description="Requests you submit will be listed here with their status and any admin comment."
+              title="No leave requests yet"
+              description="Requests you submit are listed here with their status and any comment from your administrator."
               action={
                 <Button
                   variant="secondary"
@@ -325,72 +379,70 @@ export default function EmployeeLeavePage() {
                   icon={CalendarPlus}
                   onClick={() => setActiveTab(APPLY_TAB)}
                 >
-                  Apply for leave
+                  Request time off
                 </Button>
               }
             />
           }
+          mobileCards={leaves.map((leave) => (
+            <RecordCard
+              key={leave.id}
+              leading={<LeaveTypeTile leaveType={leave.leaveType} />}
+              title={`${leaveTypeMeta(leave.leaveType).label} leave`}
+              subtitle={formatDateRange(leave.startDate, leave.endDate)}
+              badge={<StatusBadge {...leaveStatusMeta(leave.status)} />}
+              meta={[
+                { label: "Duration", value: formatLeaveDuration(leave) },
+                { label: "Applied", value: formatDate(leave.createdAt) },
+                ...(leave.adminComment ? [{ label: "Comment", value: leave.adminComment }] : []),
+              ]}
+              actions={cancelButton(leave) ?? undefined}
+            />
+          ))}
         >
           {leaves.map((leave) => (
-            <tr key={leave.id}>
-              <td className="px-5 py-4">
+            <tr key={leave.id} className="align-top transition-colors hover:bg-surface-muted">
+              <td className="px-5 py-3">
                 <StatusBadge {...leaveTypeMeta(leave.leaveType)} />
+                <p className="mt-1.5 max-w-56 text-xs text-fg-muted">{leave.reason}</p>
               </td>
 
-              <td className="px-5 py-4 font-medium text-fg">
-                {formatDate(leave.startDate)}
+              <td className="whitespace-nowrap px-5 py-3 font-medium text-fg">
+                {formatDateRange(leave.startDate, leave.endDate)}
               </td>
 
-              <td className="px-5 py-4 font-medium text-fg">
-                {formatDate(leave.endDate)}
+              {/* The server's snapshot, in working days; older records that
+                  predate it say "calendar days" so the two are never confused. */}
+              <td className="whitespace-nowrap px-5 py-3 text-fg-muted">
+                {formatLeaveDuration(leave)}
               </td>
 
-              {/* The server's snapshot, in working days. Older records that
-                  predate balances fall back to the calendar-day estimate. */}
-              <td className="px-5 py-4 text-fg-muted">
-                {leave.workingDays === null
-                  ? formatLeaveDaysBetween(leave.startDate, leave.endDate)
-                  : `${leave.workingDays} working day${leave.workingDays === 1 ? "" : "s"}`}
-              </td>
-
-              <td className="max-w-56 px-5 py-4 text-fg-muted">
-                {leave.reason}
-              </td>
-
-              <td className="px-5 py-4">
+              <td className="px-5 py-3">
                 <StatusBadge {...leaveStatusMeta(leave.status)} />
               </td>
 
-              <td className="max-w-48 px-5 py-4 text-fg-muted">
+              <td className="max-w-52 px-5 py-3 text-fg-muted">
                 {leave.adminComment ?? "—"}
               </td>
 
-              <td className="px-5 py-4 text-fg-muted">
-                {formatDateTime(leave.createdAt)}
+              <td className="whitespace-nowrap px-5 py-3 text-fg-muted">
+                {formatDate(leave.createdAt)}
               </td>
 
-              {/* Only leave that has not started can be withdrawn; anything else
-                  needs an administrator correction, so no button is offered. */}
-              <td className="px-5 py-4">
-                {(leave.status === "pending" || leave.status === "approved") &&
-                leave.startDate > new Date().toISOString().slice(0, 10) ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    isLoading={cancellingId === leave.id}
-                    loadingLabel="Cancelling..."
-                    onClick={() => void handleCancel(leave.id)}
-                  >
-                    Cancel
-                  </Button>
-                ) : (
-                  <span className="text-fg-subtle">—</span>
-                )}
-              </td>
+              <td className="px-3 py-3 text-right">{cancelButton(leave) ?? <span className="text-fg-subtle">—</span>}</td>
             </tr>
           ))}
         </DataTable>
       </div>
     </section>
+  );
+}
+
+function LeaveTypeTile({ leaveType }: { leaveType: LeaveType }) {
+  const Icon = leaveTypeMeta(leaveType).icon;
+  return (
+    <span className="grid h-10 w-10 place-items-center rounded-xl bg-surface-muted text-primary" aria-hidden="true">
+      <Icon size={18} />
+    </span>
   );
 }
