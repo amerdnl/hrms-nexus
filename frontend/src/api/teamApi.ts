@@ -3,6 +3,7 @@ import type {
   TeamAttendanceSummaryRow,
   TeamLeaveRequest,
   TeamMember,
+  TeamMemberDetail,
   TeamOverview,
 } from "../types/team";
 
@@ -46,5 +47,11 @@ export async function getTeamAttendanceSummary(
     "/team/attendance/summary",
     { params: { from, to } },
   );
+  return response.data.data;
+}
+
+/** One direct report's team layer; 404 for anyone outside the team. */
+export async function getTeamMember(employeeId: number): Promise<TeamMemberDetail> {
+  const response = await apiClient.get<Envelope<TeamMemberDetail>>(`/team/members/${employeeId}`);
   return response.data.data;
 }

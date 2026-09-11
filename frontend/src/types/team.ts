@@ -87,3 +87,9 @@ export interface TeamAttendanceSummaryRow {
   lateMinutes: number;
   missingCheckout: number;
 }
+
+export interface TeamMemberDetail {
+  member: TeamMember | null;
+  attendance30Days: TeamAttendanceSummaryRow | null;
+  leave: TeamLeaveRequest[];
+}

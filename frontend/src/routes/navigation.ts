@@ -5,7 +5,9 @@ import {
   CalendarDays,
   Clock3,
   DatabaseBackup,
+  Contact,
   LayoutDashboard,
+  Network,
   ScrollText,
   Settings,
   Timer,
@@ -53,7 +55,7 @@ const companySection: NavigationSection = {
   label: "Company",
   items: [
     { label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard, shortLabel: "Home" },
-    { label: "Employees", to: "/admin/employees", icon: Users, shortLabel: "People" },
+    { label: "Employees", to: "/admin/employees", icon: Users },
     { label: "Departments", to: "/admin/departments", icon: Building2 },
     { label: "Attendance", to: "/admin/attendance", icon: Clock3 },
     { label: "Leave", to: "/admin/leave", icon: CalendarDays },
@@ -88,11 +90,19 @@ const teamSection: NavigationSection = {
   ],
 };
 
+/** The shared workplace layer: every signed-in account, whatever its role. */
+const workplaceSection: NavigationSection = {
+  id: "workplace",
+  label: "Workplace",
+  items: [
+    { label: "People", to: "/people", icon: Contact },
+    { label: "Org chart", to: "/org", icon: Network, shortLabel: "Org" },
+  ],
+};
+
 export function navigationSectionsFor(subject: NavigationSubject): NavigationSection[] {
-  if (subject.role === "admin") {
-    return subject.isManager ? [companySection, teamSection] : [companySection];
-  }
-  return subject.isManager ? [meSection, teamSection] : [meSection];
+  const own = subject.role === "admin" ? companySection : meSection;
+  return subject.isManager ? [own, teamSection, workplaceSection] : [own, workplaceSection];
 }
 
 /** Every destination, flattened in sidebar order. */
@@ -118,7 +128,7 @@ function mobilePrimaryPaths(subject: NavigationSubject): string[] {
   if (subject.isManager) {
     return ["/employee/dashboard", "/team", "/employee/attendance", "/employee/leave"];
   }
-  return navigationFor(subject).map((item) => item.to);
+  return ["/employee/dashboard", "/employee/attendance", "/employee/leave", "/people"];
 }
 
 export function mobilePrimaryFor(subject: NavigationSubject): NavigationItem[] {

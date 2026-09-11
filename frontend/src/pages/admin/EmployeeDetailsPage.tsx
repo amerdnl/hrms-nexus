@@ -1,4 +1,4 @@
-import { Pencil, UsersRound } from "lucide-react";
+import { Contact, Pencil, UsersRound } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getApiErrorMessage, resolveProfileImageUrl } from "../../api/axios";
@@ -173,9 +173,16 @@ export default function EmployeeDetailsPage() {
         backTo="/admin/employees"
         backLabel="Back to employees"
         actions={
-          <LinkButton to={`/admin/employees/${employee.id}/edit`} icon={Pencil}>
-            Edit employee
-          </LinkButton>
+          <>
+            {["active", "probation"].includes(employee.employmentStatus) && (
+              <LinkButton to={`/people/${employee.id}`} icon={Contact} variant="secondary">
+                Colleague profile
+              </LinkButton>
+            )}
+            <LinkButton to={`/admin/employees/${employee.id}/edit`} icon={Pencil}>
+              Edit employee
+            </LinkButton>
+          </>
         }
       />
 

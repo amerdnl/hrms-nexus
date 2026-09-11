@@ -75,6 +75,12 @@ export function breadcrumbsFor(pathname: string): Crumb[] {
 
   const [scope, ...rest] = segments;
 
+  // The workplace pages belong to no portal, so they have no scope crumb.
+  if (scope === "people") {
+    return rest[0] ? [{ label: "People", to: "/people" }, { label: "Profile" }] : [{ label: "People" }];
+  }
+  if (scope === "org") return [{ label: "Org chart" }];
+
   // The team area: its overview is a real page, so it is the linked root.
   if (scope === "team") {
     const leaf = rest[0] ? TEAM[rest[0]] : undefined;

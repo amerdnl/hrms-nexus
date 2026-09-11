@@ -8,6 +8,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getApiErrorMessage, resolveProfileImageUrl } from "../../api/axios";
 import { getTeamOverview } from "../../api/teamApi";
 import LeaveDecisionModal from "../../components/leave/LeaveDecisionModal";
@@ -141,7 +142,12 @@ export default function TeamOverviewPage() {
                   <li key={member.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-5 py-3">
                     <Avatar name={member.fullName} src={resolveProfileImageUrl(member.profileImage)} size="md" />
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-fg [overflow-wrap:anywhere]">{member.fullName}</p>
+                      <Link
+                        to={`/people/${member.id}`}
+                        className="text-sm font-semibold text-fg hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [overflow-wrap:anywhere]"
+                      >
+                        {member.fullName}
+                      </Link>
                       <p className="text-xs text-fg-subtle [overflow-wrap:anywhere]">
                         {member.jobTitle ?? "No job title recorded"}
                         {member.day.checkInTime ? ` · in ${formatTime(member.day.checkInTime)}` : ""}

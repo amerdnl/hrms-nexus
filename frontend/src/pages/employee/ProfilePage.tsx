@@ -15,6 +15,7 @@ import {
   type ProfileUpdates,
 } from "../../api/profile";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
+import AboutMeCard from "../../components/people/AboutMeCard";
 import Alert from "../../components/ui/Alert";
 import Avatar from "../../components/ui/Avatar";
 import Button from "../../components/ui/Button";
@@ -335,6 +336,8 @@ export default function ProfilePage() {
               />
             </div>
           </SectionCard>
+
+          {profile.employeeId !== null && <AboutMeCard employeeId={profile.employeeId} />}
 
           <form onSubmit={handleSubmit}>
             <SectionCard

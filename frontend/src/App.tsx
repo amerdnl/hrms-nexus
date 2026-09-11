@@ -50,6 +50,10 @@ const TeamOverviewPage = lazy(() => import("./pages/team/TeamOverviewPage"));
 const TeamLeavePage = lazy(() => import("./pages/team/TeamLeavePage"));
 const TeamAttendancePage = lazy(() => import("./pages/team/TeamAttendancePage"));
 
+const PeopleDirectoryPage = lazy(() => import("./pages/people/PeopleDirectoryPage"));
+const PersonProfilePage = lazy(() => import("./pages/people/PersonProfilePage"));
+const OrgChartPage = lazy(() => import("./pages/people/OrgChartPage"));
+
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
 
@@ -127,6 +131,15 @@ export default function App() {
             <Route path="/employee/attendance" element={<EmployeeAttendancePage />} />
             <Route path="/employee/leave" element={<EmployeeLeavePage />} />
             <Route path="/employee/payroll" element={<EmployeePayslipsPage />} />
+          </Route>
+        </Route>
+
+        {/* The shared workplace layer: every signed-in account. */}
+        <Route element={<ProtectedRoute allowedRoles={["admin", "employee"]} />}>
+          <Route element={<AppLayout />}>
+            <Route path="/people" element={<PeopleDirectoryPage />} />
+            <Route path="/people/:id" element={<PersonProfilePage />} />
+            <Route path="/org" element={<OrgChartPage />} />
           </Route>
         </Route>
 
