@@ -11,6 +11,7 @@ import FormField from "../ui/FormField";
 import PrimaryButton from "../ui/PrimaryButton";
 import SectionCard from "../ui/SectionCard";
 import SelectInput from "../ui/SelectInput";
+import Skeleton from "../ui/Skeleton";
 import TextInput from "../ui/TextInput";
 import { leaveTypeMeta } from "../../utils/status";
 
@@ -158,7 +159,14 @@ export default function EmployeeEntitlementPanel({
           </FormField>
         </div>
 
-        {loading && <p className="text-sm text-fg-muted">Loading balances...</p>}
+        {loading && (
+          <div aria-busy="true" className="space-y-2">
+            <p className="sr-only" aria-live="polite">Loading balances</p>
+            {Array.from({ length: 4 }, (_, index) => (
+              <Skeleton key={index} className="h-9 w-full rounded-lg" />
+            ))}
+          </div>
+        )}
 
         {!loading && employeeId && balances.length > 0 && (
           <>

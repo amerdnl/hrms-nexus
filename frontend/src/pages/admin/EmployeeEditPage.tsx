@@ -5,12 +5,14 @@ import { getApiErrorMessage } from "../../api/axios";
 import { getDepartments } from "../../api/departmentApi";
 import { getEmployeeById, updateEmployee } from "../../api/employeeApi";
 import Alert from "../../components/ui/Alert";
+import ErrorState from "../../components/ui/ErrorState";
 import FormField from "../../components/ui/FormField";
 import { fieldDescribedBy } from "../../components/ui/fieldStyles";
 import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import SectionCard from "../../components/ui/SectionCard";
+import Skeleton from "../../components/ui/Skeleton";
 import {
   accountSection,
   employmentSection,
@@ -138,16 +140,45 @@ export default function EmployeeEditPage() {
     }
   }
 
-  if (isLoading) {
-    return <p className="text-sm text-fg-muted">Loading employee...</p>;
-  }
+  if (isLoading || !employee) {
+    const header = (
+      <PageHeader
+        title="Edit employee"
+        description="Update employee information."
+        backTo={id ? `/admin/employees/${id}` : "/admin/employees"}
+        backLabel={id ? "Back to employee" : "Back to employees"}
+      />
+    );
 
-  if (error && !employee) {
-    return <Alert tone="danger">{error}</Alert>;
-  }
-
-  if (!employee) {
-    return null;
+    return isLoading ? (
+      <section className="mx-auto max-w-3xl space-y-6" aria-busy="true">
+        {header}
+        <p className="sr-only" aria-live="polite">Loading employee</p>
+        {[4, 4, 6].map((fields, index) => (
+          <SectionCard key={index}>
+            <Skeleton className="h-5 w-40" />
+            <div className="mt-6 grid gap-5 md:grid-cols-2">
+              {Array.from({ length: fields }, (_, field) => (
+                <div key={field}>
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="mt-2 h-11 w-full rounded-xl" />
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        ))}
+      </section>
+    ) : (
+      <section className="mx-auto max-w-3xl space-y-6">
+        {header}
+        <SectionCard>
+          <ErrorState
+            title="This employee could not be loaded"
+            description={error || "The record is unavailable."}
+          />
+        </SectionCard>
+      </section>
+    );
   }
 
   return (
