@@ -136,6 +136,28 @@ test("employee cannot access admin attendance, leave approval, or dashboard", as
   ]) assert.equal((await call(method!, path!, token())).status, 403);
 });
 
+test("team routes: anonymous is 401 before any query; an employee or admin without reports is 403", async () => {
+  for (const path of ["/team", "/team/leave", "/team/attendance", "/team/attendance/summary", "/team/members/20"]) {
+    queries = [];
+    assert.equal((await call("GET", path)).status, 401, path);
+    assert.equal(queries.length, 0, path);
+    // The session lookup is the only query: the manager guard refuses before
+    // any team data is read.
+    queries = [];
+    const employee = await call("GET", path, token());
+    assert.equal(employee.status, 403, path);
+    assert.equal((await employee.json()).code, "not_a_manager");
+    assert.equal(queries.length, 1, path);
+    assert.equal((await call("GET", path, token(1))).status, 403, `${path} as admin`);
+  }
+});
+
+test("a leave decision by an employee who manages nobody is refused before the controller", async () => {
+  queries = [];
+  assert.equal((await call("PUT", "/leaves/100/status", token(), { status: "approved" })).status, 403);
+  assert.equal(queries.length, 1);
+});
+
 test("invalid, expired, not-yet-valid, and unsupported algorithm tokens are denied", async () => {
   const invalidTokens = [
     "invalid", token(2, {}, { expiresIn: -1 }), token(2, {}, { notBefore: "1h" }),

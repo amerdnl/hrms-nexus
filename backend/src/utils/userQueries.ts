@@ -1,6 +1,20 @@
 import pool from "../config/db.js";
 import type { AuthenticatedUser, UserRole } from "../types/auth.js";
 
+/**
+ * Whether the account's employee currently manages anyone, as a SQL expression
+ * over `u`. Shared by the session lookup and the safe-user read so the two can
+ * never disagree about who is a manager. Only active and probation reports
+ * count: a former report is HR's history, not the manager's team.
+ */
+const isManagerExpression = `(
+  u.employee_id IS NOT NULL AND EXISTS (
+    SELECT 1 FROM employees report
+    WHERE report.manager_id = u.employee_id
+      AND report.employment_status IN ('active', 'probation')
+  )
+)`;
+
 // Check live account state without selecting credentials or personal profile data.
 export async function findSessionUserById(
   userId: number,
@@ -11,8 +25,10 @@ export async function findSessionUserById(
     role: UserRole;
     email: string;
     must_change_password: boolean;
+    is_manager: boolean | null;
   }>(
-    `SELECT u.id, u.employee_id, u.role, u.email, u.must_change_password
+    `SELECT u.id, u.employee_id, u.role, u.email, u.must_change_password,
+            ${isManagerExpression} AS is_manager
      FROM users u
      LEFT JOIN employees e ON e.id = u.employee_id
      WHERE u.id = $1 AND u.is_active = TRUE
@@ -40,6 +56,7 @@ export async function findSessionUserById(
   return {
     id, employeeId, role: row.role, email: row.email,
     mustChangePassword: row.must_change_password,
+    isManager: row.is_manager === true,
   };
 }
 
@@ -61,6 +78,8 @@ export interface SafeUser {
   isActive: boolean;
   /** Tells the client to route to the forced password change and nowhere else. */
   mustChangePassword: boolean;
+  /** Advisory for navigation; every team endpoint re-derives it server-side. */
+  isManager: boolean;
   employee: {
     employeeNumber: string;
     fullName: string;
@@ -85,6 +104,7 @@ interface SafeUserRow {
   role: UserRole;
   is_active: boolean;
   must_change_password: boolean;
+  is_manager: boolean | null;
   employee_number: string | null;
   full_name: string | null;
   phone: string | null;
@@ -109,6 +129,7 @@ const safeUserSelect = `
     u.role,
     u.is_active,
     u.must_change_password,
+    ${isManagerExpression} AS is_manager,
     e.employee_number,
     e.full_name,
     e.phone,
@@ -136,6 +157,7 @@ function toSafeUser(row: SafeUserRow): SafeUser {
     role: row.role,
     isActive: row.is_active,
     mustChangePassword: row.must_change_password,
+    isManager: row.is_manager === true,
     employee:
       row.employee_id === null || row.employee_number === null || row.full_name === null
         ? null

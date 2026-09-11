@@ -12,7 +12,9 @@ test("session lookup against PostgreSQL with isolated temporary tables", {
   try {
     await client.query("BEGIN");
     await client.query(`
-      CREATE TEMP TABLE employees (id BIGINT PRIMARY KEY, employment_status TEXT);
+      CREATE TEMP TABLE employees (
+        id BIGINT PRIMARY KEY, employment_status TEXT, manager_id BIGINT
+      );
       CREATE TEMP TABLE users (
         id BIGINT PRIMARY KEY, employee_id BIGINT, email TEXT, role TEXT, is_active BOOLEAN,
         must_change_password BOOLEAN NOT NULL DEFAULT FALSE
@@ -30,26 +32,35 @@ test("session lookup against PostgreSQL with isolated temporary tables", {
     mock.method(pool, "query", client.query.bind(client));
     assert.deepEqual(await findSessionUserById(1),
       { id: 1, employeeId: null, role: "admin", email: "one@example.invalid",
-        mustChangePassword: false });
+        mustChangePassword: false, isManager: false });
     assert.deepEqual(await findSessionUserById(2),
       { id: 2, employeeId: 10, role: "employee", email: "two@example.invalid",
-        mustChangePassword: false });
+        mustChangePassword: false, isManager: false });
     for (const id of [3, 4, 5, 6, 999]) assert.equal(await findSessionUserById(id), null);
     assert.deepEqual(await findSessionUserById(7),
       { id: 7, employeeId: 30, role: "employee", email: "seven@example.invalid",
-        mustChangePassword: false });
+        mustChangePassword: false, isManager: false });
+
+    // Manager is derived from reporting lines on every lookup, and only an
+    // active or probation report makes someone a manager.
+    await client.query("UPDATE employees SET manager_id = 30 WHERE id = 20");
+    assert.equal((await findSessionUserById(7))!.isManager, false, "an inactive report does not count");
+    await client.query("UPDATE employees SET manager_id = 30 WHERE id = 10");
+    assert.equal((await findSessionUserById(7))!.isManager, true);
+    await client.query("UPDATE employees SET manager_id = NULL WHERE id = 10");
+    assert.equal((await findSessionUserById(7))!.isManager, false, "removing the last report removes the scope");
     await client.query("UPDATE users SET is_active = FALSE WHERE id = 2");
     assert.equal(await findSessionUserById(2), null);
     await client.query("UPDATE users SET role = 'employee', employee_id = 10 WHERE id = 1");
     assert.deepEqual(await findSessionUserById(1),
       { id: 1, employeeId: 10, role: "employee", email: "one@example.invalid",
-        mustChangePassword: false });
+        mustChangePassword: false, isManager: false });
     // The session user feeds every authorization decision. It carries an email
     // for the audit log and nothing else about the account.
     const session = await findSessionUserById(1);
     assert.deepEqual(
       Object.keys(session!).sort(),
-      ["email", "employeeId", "id", "mustChangePassword", "role"],
+      ["email", "employeeId", "id", "isManager", "mustChangePassword", "role"],
     );
 
     // The forced-change state is read from the column on every lookup, so a

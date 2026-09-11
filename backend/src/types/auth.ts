@@ -21,6 +21,16 @@ export interface AuthenticatedUser {
    * authority.
    */
   mustChangePassword: boolean;
+  /**
+   * True while at least one active or probation employee reports to this
+   * account's employee record.
+   *
+   * Derived from employees.manager_id on every request, never stored and never
+   * a token claim: manager is a scope over current reporting lines, not a role.
+   * Removing someone's last report removes this on their very next request.
+   * It grants the team layer only - nothing company-wide, which stays admin.
+   */
+  isManager: boolean;
 }
 
 declare global {
