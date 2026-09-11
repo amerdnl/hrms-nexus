@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { Outlet } from "react-router-dom";
+import { PageFallback } from "../common/RouteFallback";
 import AppHeader from "./AppHeader";
 import MobileNav from "./MobileNav";
 import Sidebar from "./Sidebar";
@@ -29,7 +31,11 @@ export default function AppLayout() {
           tabIndex={-1}
           className="min-w-0 flex-1 px-4 pb-24 pt-6 sm:px-6 md:p-8 md:pb-8 lg:p-10"
         >
-          <Outlet />
+          {/* The boundary for page chunks, inside the shell, so a first
+              visit to a page keeps the navigation on screen. */}
+          <Suspense fallback={<PageFallback />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 
