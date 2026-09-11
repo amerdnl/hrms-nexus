@@ -46,8 +46,15 @@ export default function MetricTile({
   className,
 }: MetricTileProps) {
   return (
-    <div className={cn("rounded-xl bg-surface-muted p-4", className)}>
-      <div className="flex items-center gap-2.5">
+    // @container: the figure is sized by the TILE's width, not the viewport's.
+    // The same tile sits four to a row on a laptop, two to a row on a phone and
+    // two to a half-card in reports, and a viewport breakpoint cannot know
+    // which. Sizing by the viewport is how a six-figure amount spilled out of
+    // its tile at 1024px while fitting at 1280.
+    <div className={cn("@container rounded-xl bg-surface-muted p-4", className)}>
+      {/* Icon above the label in a narrow tile, beside it in a wider one, so
+          the icon never takes the width a label needs to be read. */}
+      <div className="flex flex-col gap-2 @min-[10rem]:flex-row @min-[10rem]:items-start @min-[10rem]:gap-2.5">
         {Icon && (
           <span
             className={cn(
@@ -59,7 +66,9 @@ export default function MetricTile({
             <Icon size={16} />
           </span>
         )}
-        <p className="min-w-0 truncate text-xs font-medium uppercase tracking-wide text-fg-muted">
+        {/* Wraps to two lines rather than truncating: "Employees paid" cut to
+            "Employe..." is a label that no longer says what it labels. */}
+        <p className="min-w-0 text-xs font-medium leading-snug text-fg-muted line-clamp-2 @min-[10rem]:pt-1.5">
           {label}
         </p>
       </div>
@@ -67,9 +76,12 @@ export default function MetricTile({
       <p
         className={cn(
           "mt-3 font-bold tracking-tight text-fg tabular-nums",
-          // One step smaller below sm, where tiles run two to a row on a
-          // phone and a six-figure amount has about 130px to fit in.
-          emphasis ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl",
+          // Money is never truncated and never allowed to spill: at the very
+          // worst a figure wraps, which is ugly but hides no digit.
+          "[overflow-wrap:anywhere]",
+          emphasis
+            ? "text-lg @min-[11rem]:text-xl @min-[13rem]:text-2xl @min-[16rem]:text-3xl"
+            : "text-lg @min-[11rem]:text-xl @min-[13rem]:text-2xl",
         )}
       >
         {value}
