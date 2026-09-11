@@ -1,4 +1,4 @@
-import { Briefcase, IdCard, Pencil, UserRound } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getApiErrorMessage, resolveProfileImageUrl } from "../../api/axios";
@@ -32,12 +32,6 @@ const TABS: TabItem[] = [
   { id: "personal", label: "Personal" },
   { id: "employment", label: "Employment" },
 ];
-
-const TAB_ICONS = {
-  overview: IdCard,
-  personal: UserRound,
-  employment: Briefcase,
-} as const;
 
 function panelFor(employee: Employee, tab: string): DescriptionEntry[] {
   const date = (value: string | null) => (value ? formatDate(value) : null);
@@ -155,7 +149,6 @@ export default function EmployeeDetailsPage() {
   }
 
   const statusMeta = employmentStatusMeta(employee.employmentStatus);
-  const PanelIcon = TAB_ICONS[activeTab as keyof typeof TAB_ICONS] ?? IdCard;
 
   return (
     <section className="mx-auto max-w-4xl space-y-6">
@@ -184,10 +177,10 @@ export default function EmployeeDetailsPage() {
           />
 
           <div className="min-w-0 flex-1 text-center sm:text-left">
-            <h2 className="truncate text-xl font-bold tracking-tight text-fg">
+            <h2 className="text-xl font-bold tracking-tight text-fg [overflow-wrap:anywhere]">
               {employee.fullName}
             </h2>
-            <p className="mt-1 truncate text-sm text-fg-muted">
+            <p className="mt-1 text-sm text-fg-muted [overflow-wrap:anywhere]">
               {[employee.jobTitle, employee.departmentName]
                 .filter(Boolean)
                 .join(" · ") || "No job title recorded"}
@@ -214,11 +207,10 @@ export default function EmployeeDetailsPage() {
           tabIndex={0}
           className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          <SectionCard
-            className="mt-4"
-            title={TABS.find((tab) => tab.id === activeTab)?.label}
-            icon={PanelIcon}
-          >
+          {/* No card title: the selected tab already names this panel and
+              labels it for assistive technology, so a heading repeating it
+              was the same word twice. */}
+          <SectionCard className="mt-4">
             <DescriptionList items={panelFor(employee, activeTab)} />
           </SectionCard>
         </div>

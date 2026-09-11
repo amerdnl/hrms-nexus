@@ -1,20 +1,21 @@
 import { Building2, Pencil, Users } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
 import {
   getDepartmentById,
   getDepartmentEmployees,
 } from "../../api/departmentApi";
-import Alert from "../../components/ui/Alert";
 import Avatar from "../../components/ui/Avatar";
 import DataTable from "../../components/ui/DataTable";
 import DescriptionList from "../../components/ui/DescriptionList";
 import EmptyState from "../../components/ui/EmptyState";
+import ErrorState from "../../components/ui/ErrorState";
 import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
 import RecordCard from "../../components/ui/RecordCard";
 import SectionCard from "../../components/ui/SectionCard";
+import Skeleton, { SkeletonText } from "../../components/ui/Skeleton";
 import StatusBadge from "../../components/ui/StatusBadge";
 import type { Department, DepartmentEmployee } from "../../types/department";
 import { formatDateTime } from "../../utils/datetime";
@@ -63,42 +64,64 @@ export default function DepartmentDetailsPage() {
     void loadDepartment();
   }, [id]);
 
+  // Same frame as the employee record: a generic page title, with the
+  // identity card below owning the department's name, so the name is not
+  // printed twice one above the other.
+  const header = (actions?: ReactNode) => (
+    <PageHeader
+      title="Department details"
+      description="View the department and who is assigned to it."
+      backTo="/admin/departments"
+      backLabel="Back to departments"
+      actions={actions}
+    />
+  );
+
   if (isLoading) {
-    return <p className="text-sm text-fg-muted">Loading department...</p>;
-  }
-
-  if (error) {
     return (
-      <section className="space-y-4">
-        <Alert tone="danger">{error}</Alert>
-
-        <LinkButton to="/admin/departments" variant="secondary">
-          Back to departments
-        </LinkButton>
+      <section className="mx-auto max-w-5xl space-y-6" aria-busy="true">
+        {header()}
+        <p className="sr-only" aria-live="polite">Loading department</p>
+        <SectionCard>
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-14 w-14 rounded-2xl" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-3.5 w-64 max-w-full" />
+            </div>
+          </div>
+        </SectionCard>
+        <SectionCard>
+          <SkeletonText lines={5} />
+        </SectionCard>
       </section>
     );
   }
 
-  if (!department) {
-    return null;
+  if (error || !department) {
+    return (
+      <section className="mx-auto max-w-5xl space-y-6">
+        {header()}
+        <SectionCard>
+          <ErrorState
+            title="This department could not be loaded"
+            description={error || "The record is unavailable."}
+          />
+        </SectionCard>
+      </section>
+    );
   }
 
   return (
     <section className="mx-auto max-w-5xl space-y-6">
-      <PageHeader
-        title={department.name}
-        description={department.description || "No description provided."}
-        backTo="/admin/departments"
-        backLabel="Back to departments"
-        actions={
+      {header(
           <LinkButton
             to={`/admin/departments/${department.id}/edit`}
             icon={Pencil}
           >
             Edit department
-          </LinkButton>
-        }
-      />
+          </LinkButton>,
+      )}
 
       {/* Identity header, matching the references: the mark, the name, the
           headcount and the description in one band above the roster. */}
@@ -112,7 +135,7 @@ export default function DepartmentDetailsPage() {
           </span>
 
           <div className="min-w-0 flex-1 text-center sm:text-left">
-            <h2 className="truncate text-xl font-bold tracking-tight text-fg">
+            <h2 className="text-xl font-bold tracking-tight text-fg [overflow-wrap:anywhere]">
               {department.name}
             </h2>
             <p className="mt-1 text-sm text-fg-muted">
@@ -171,6 +194,7 @@ export default function DepartmentDetailsPage() {
                 />
               }
               meta={[{ label: "Job title", value: employee.job_title || "\u2014" }]}
+              to={`/admin/employees/${employee.id}`}
             />
           ))}
           emptyState={
@@ -184,10 +208,21 @@ export default function DepartmentDetailsPage() {
           {employees.map((employee) => (
             <tr key={employee.id}>
               <td className="px-5 py-4">
-                <p className="font-medium text-fg">{employee.full_name}</p>
-                <p className="mt-0.5 text-xs text-fg-subtle">
-                  {employee.employee_number}
-                </p>
+                {/* Initials only: the roster payload carries no photo. */}
+                <div className="flex items-center gap-3">
+                  <Avatar name={employee.full_name} size="sm" />
+                  <div className="min-w-0">
+                    <Link
+                      to={`/admin/employees/${employee.id}`}
+                      className="font-medium text-fg hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                      {employee.full_name}
+                    </Link>
+                    <p className="mt-0.5 text-xs text-fg-subtle">
+                      {employee.employee_number}
+                    </p>
+                  </div>
+                </div>
               </td>
 
               <td className="px-5 py-4 text-fg-muted">
