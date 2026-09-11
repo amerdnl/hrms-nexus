@@ -1,12 +1,9 @@
 import {
   ArrowRight,
-  BadgeCheck,
   CalendarDays,
   CalendarOff,
   CalendarPlus,
   Clock3,
-  LogIn,
-  LogOut,
   ShieldAlert,
   UserRound,
   Wallet,
@@ -14,9 +11,9 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { getEmployeeDashboard } from "../../api/dashboardApi";
+import TodayAttendanceCard from "../../components/attendance/TodayAttendanceCard";
 import VerifiedClockPanel from "../../components/attendance/VerifiedClockPanel";
 import Alert from "../../components/ui/Alert";
-import Button from "../../components/ui/Button";
 import EmptyState from "../../components/ui/EmptyState";
 import ErrorState from "../../components/ui/ErrorState";
 import LinkButton from "../../components/ui/LinkButton";
@@ -30,22 +27,13 @@ import type {
   EmployeeLeaveEntry,
 } from "../../types/dashboard";
 import { formatPeriod, formatSen } from "../../types/payroll";
-import { formatWorkHoursBetween } from "../../utils/attendance";
-import { cn } from "../../utils/cn";
 import { formatDate, formatDateRange, formatTime } from "../../utils/datetime";
 import { formatLeaveDuration } from "../../utils/leave";
 import {
   attendanceStatusMeta,
   leaveStatusMeta,
   leaveTypeMeta,
-  type StatusMeta,
 } from "../../utils/status";
-
-const notRecordedMeta: StatusMeta = {
-  label: "Not recorded",
-  tone: "neutral",
-  icon: Clock3,
-};
 
 export default function EmployeeDashboardPage() {
   const [dashboard, setDashboard] = useState<EmployeeDashboardData | null>(null);
@@ -114,20 +102,9 @@ export default function EmployeeDashboardPage() {
   const balancesUnavailable = unavailable.includes("leaveBalances");
   const payslipUnavailable = unavailable.includes("payslip");
 
-  const todayMeta = todayAttendance
-    ? attendanceStatusMeta(todayAttendance.status)
-    : notRecordedMeta;
-
-  const hasCheckedIn = Boolean(todayAttendance?.checkInTime);
-  const hasCheckedOut = Boolean(todayAttendance?.checkOutTime);
-
   // Annual leave is the balance an employee asks about first; the rest are
   // listed in full below. Absent rather than zero when it could not be read.
   const annual = leaveBalances?.find((balance) => balance.leaveType === "annual") ?? null;
-
-  // The next thing to do today, stated once. Never offered when it is already
-  // done, so the primary button always means what it says.
-  const nextAction = !hasCheckedIn ? "check-in" : !hasCheckedOut ? "check-out" : null;
 
   return (
     <section className="mx-auto max-w-7xl space-y-6">
@@ -154,59 +131,16 @@ export default function EmployeeDashboardPage() {
       */}
       <div className="grid items-start gap-6 lg:grid-cols-3 lg:grid-rows-[auto_1fr]">
         <div className="space-y-6 lg:col-span-2">
-          <SectionCard title="Today" description={formatDate(dashboard.today)} icon={Clock3}>
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-4">
-                <span
-                  className={cn("grid h-14 w-14 shrink-0 place-items-center rounded-2xl", HERO_TONE[todayMeta.tone])}
-                  aria-hidden="true"
-                >
-                  <todayMeta.icon size={26} />
-                </span>
-                <div>
-                  <p className="text-2xl font-bold tracking-tight text-fg">{todayMeta.label}</p>
-                  {todayAttendance?.verificationStatus ? (
-                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-fg-subtle">
-                      <BadgeCheck className="size-3.5" aria-hidden="true" />
-                      {verificationLabel(todayAttendance.verificationStatus)}
-                    </p>
-                  ) : (
-                    <p className="mt-0.5 text-xs text-fg-subtle">Nothing recorded yet today</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Check-in and check-out both open the same verified flow; only
-                  the one that applies right now is offered as the main action. */}
-              <div className="flex flex-col gap-2 sm:items-end">
-                {nextAction ? (
-                  <Button
-                    icon={nextAction === "check-in" ? LogIn : LogOut}
-                    onClick={() => { setClockMode(nextAction); setMessage(""); }}
-                    disabled={clockMode !== null}
-                    className="sm:min-w-40"
-                  >
-                    {nextAction === "check-in" ? "Check in" : "Check out"}
-                  </Button>
-                ) : (
-                  <StatusBadge label="Done for today" tone="success" icon={BadgeCheck} />
-                )}
-                <p className="text-xs text-fg-subtle">Verified with the office QR code</p>
-              </div>
-            </div>
-
-            <dl className="mt-6 grid grid-cols-3 gap-3 border-t border-line pt-5">
-              <Fact label="Check-in" value={formatTime(todayAttendance?.checkInTime)} />
-              <Fact label="Check-out" value={formatTime(todayAttendance?.checkOutTime)} />
-              <Fact
-                label="Worked"
-                value={formatWorkHoursBetween(todayAttendance?.checkInTime, todayAttendance?.checkOutTime)}
-              />
-            </dl>
-            {todayAttendance?.lateMinutes !== null && todayAttendance?.lateMinutes !== undefined && todayAttendance.lateMinutes > 0 && (
-              <p className="mt-3 text-xs text-warning-fg">Checked in {todayAttendance.lateMinutes} minutes late.</p>
-            )}
-          </SectionCard>
+          <TodayAttendanceCard
+            dateLabel={formatDate(dashboard.today)}
+            status={todayAttendance?.status ?? null}
+            checkInTime={todayAttendance?.checkInTime}
+            checkOutTime={todayAttendance?.checkOutTime}
+            verificationStatus={todayAttendance?.verificationStatus ?? null}
+            lateMinutes={todayAttendance?.lateMinutes ?? null}
+            actionsDisabled={clockMode !== null}
+            onStart={(mode) => { setClockMode(mode); setMessage(""); }}
+          />
 
           {clockMode && (
             <VerifiedClockPanel
@@ -426,16 +360,6 @@ export default function EmployeeDashboardPage() {
   );
 }
 
-/** Solid-tinted tiles for the Today status, matching StatusBadge's tones. */
-const HERO_TONE: Record<StatusMeta["tone"], string> = {
-  success: "bg-success-soft text-success-fg",
-  warning: "bg-warning-soft text-warning-fg",
-  danger: "bg-danger-soft text-danger-fg",
-  info: "bg-info-soft text-info-fg",
-  primary: "bg-primary-soft text-primary",
-  neutral: "bg-surface-muted text-fg-muted",
-};
-
 /**
  * Greeting word from the viewer's clock. Cosmetic only - nothing here decides
  * a date; the company-local date shown beside it comes from the server.
@@ -475,16 +399,6 @@ function Fact(
       </dd>
     </div>
   );
-}
-
-/**
- * The coarse verification state only. The dashboard is never sent coordinates,
- * accuracy or distance from the office, so none can be rendered here.
- */
-function verificationLabel(status: "verified" | "manual" | "exception"): string {
-  if (status === "verified") return "Today's record is verified";
-  if (status === "manual") return "Today's record was entered by an administrator";
-  return "Today's record is marked as an exception";
 }
 
 function AttendanceRow({ entry }: { entry: EmployeeAttendanceEntry }) {
