@@ -31,6 +31,12 @@ interface DataTableProps {
   mobileCards?: ReactNode;
   /** How many placeholder rows to draw while loading. */
   skeletonRows?: number;
+  /**
+   * Drops the table's own card shell - border, radius, shadow - for a table
+   * that already sits inside a card. Without it the two borders stack into a
+   * card within a card.
+   */
+  plain?: boolean;
   className?: string;
 }
 
@@ -57,6 +63,7 @@ export default function DataTable({
   caption,
   mobileCards,
   skeletonRows = 6,
+  plain = false,
   className,
 }: DataTableProps) {
   // Coerced once. `mobileCards` is a ReactNode, so a bare `mobileCards &&`
@@ -73,7 +80,8 @@ export default function DataTable({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-card border border-line bg-surface shadow-card",
+        "overflow-hidden",
+        !plain && "rounded-card border border-line bg-surface shadow-card",
         className,
       )}
     >
