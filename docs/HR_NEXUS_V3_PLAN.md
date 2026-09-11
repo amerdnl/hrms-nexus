@@ -28,7 +28,7 @@ typecheck, Oxlint and production build pass; the entry chunk is 569.69 kB (161.7
 | # | Milestone | Status |
 | --- | --- | --- |
 | M0 | Architecture & foundation | complete |
-| M1 | Roles, permissions & manager experience | — |
+| M1 | Roles, permissions & manager experience | complete |
 | M2 | People, directory, social profiles & org chart | — |
 | M3 | Action Center, search, notifications, calendar & announcements | — |
 | M4 | Onboarding & offboarding | — |
@@ -57,7 +57,15 @@ responsive smoke at 375/390/1280, and the source-integrity fingerprint above re-
 4. Apply to source through `npm run migrate:apply -- --database hr_nexus` with an
    explicit `MIGRATION_DATABASE_URL`; re-run to prove a no-op; re-read the fingerprint;
    record checksum, ledger timestamp and impact in the milestone notes below.
-5. Apply to the isolated demo database `hr_nexus_demo_browser` for browser checks.
+5. Rebuild the isolated V3 demo database `hr_nexus_v3_demo` (clone, migrate, seed) for
+   browser checks. The V2 demo database `hr_nexus_demo_browser` is left untouched.
+
+**Ordering rule, learned in M1.** The compose backend container live-reloads from the
+working tree and serves the source database, so saved backend code is live on the source
+app at once. Apply each migration to source as soon as its file and laboratory tests pass,
+before saving code that makes an existing shared path read the new schema, and write new
+side effects (timeline, notifications) SAVEPOINT-contained so a missing table can never
+fail an existing action.
 
 STOP conditions from master §27 and §44 apply. None of the planned migrations drops,
 rewrites or reconciles anything.
@@ -158,8 +166,72 @@ Verification:
 | Backend typecheck (source and tests) | pass |
 | Backend full laboratory suite | **440 pass, 0 fail, 0 skipped** (434 + 6 new foundation checks) |
 | Frontend typecheck, Oxlint, production build | pass, no chunk-size warning |
-| Entry chunk | **254.98 kB (81.56 kB gzip)**, down from 569.69 kB (161.75 kB gzip) |
+| Initial JavaScript | **317.99 kB (104.54 kB gzip)**: the 254.99 kB entry plus the three chunks `index.html` preloads, down from V2's single 569.69 kB file. (First recorded as the entry alone, 254.98 kB, which understated it; corrected in M1.) |
 | Navigation gate on the split production bundle | 49/49, no page errors |
 | Source fingerprint | unchanged: ledger 0001–0009, 18 tables, 1/2/5, orphans `1:1,3:1,4:2,5:1,6:1`, September draft, 0 flagged |
 
 M0 status: **complete.**
+
+## M1 — Roles, permissions & manager experience (11 September 2026)
+
+Delivered:
+
+- **Migration 0010 `org_structure`** (SHA-256 `e2b1a23bb35c60f1113565afed956b058dd0f647be9310677c2bd961f96ec308`):
+  nullable `employees.manager_id` with a RESTRICT self-reference, a not-self CHECK, a
+  partial index, and a `prevent_manager_cycle` trigger serialised by an advisory lock.
+  No row back-filled. Review-only rollback: `docs/sql/rollback_0010_org_structure.sql`.
+- **Manager scope derived per request.** The session lookup computes `isManager` from
+  current reporting lines (active/probation reports only); `/api/auth/me` reports it.
+  `users.role` is unchanged. `auth/policy.ts` (`relationTo`, `isTeamMember`,
+  `teamMemberIds`, `actingRole`) and `auth/guards.ts` (`requireManager`,
+  `requireEmployeeRecord`, `authorizeLeaveDecision`) are the only authorisation additions.
+- **Leave decisions by managers**, for current direct reports only, checked inside the
+  transaction that locks the request; nobody (admins included) decides their own request;
+  a manager decision is audited with `actor_role = "manager"`.
+- **Reporting lines on employee records**: create/update accept `manager_id`, validated
+  (exists, active/probation, not self) with loops refused by the database and reported as
+  409 `reporting_cycle`; each change is audited as `MANAGER_CHANGED`; the record returns
+  the manager and every direct report.
+- **Team API** `/api/team` (overview, day attendance, 30-day summary, leave, one member),
+  bounded in SQL to the session's own reports, with no pay, coordinates, accuracy or
+  distance anywhere in it.
+- **Frontend**: capability-built navigation (Me / My team / Company sections), a
+  `requires="manager"` route guard, Manager portal labelling, `/team`, `/team/leave`,
+  `/team/attendance`, a shared leave decision dialog, a team card on a manager's own
+  dashboard, and a "Reports to" picker (loops filtered out client-side as a courtesy) plus
+  manager and direct reports on the admin employee record.
+- **Demo company**: a Managing Director (new Leadership department) at the top of complete
+  reporting lines, three levels deep in Engineering, and sign-ins for two managers
+  (Nurul Aisyah, Wei Jian Tan) and one engineer (Aiman Zulkifli) besides the administrator.
+
+Source application of 0010, 11 September 2026 07:22:12 UTC, through the guarded
+procedure (evidence `.local-backups/0010-20260911/`):
+
+| Step | Result |
+| --- | --- |
+| Fresh backup | `hr_nexus_before_0010.dump`, 97,995 bytes, SHA-256 `fd7498bd…a997e7` |
+| Restore proof | restored copy matches source on every business digest, orphans and V2 sequences |
+| Rehearsal | apply, no-op re-apply, data identical, rollback (ledger back to 0009, data identical), re-apply |
+| Source apply | `newlyApplied: ["0010"]`, re-run no-op, business data identical before and after |
+| Post-apply dump | SHA-256 `0e7aa82f…1d3127` |
+
+**Incident, recorded rather than smoothed over.** The session lookup began reading
+`manager_id` when `userQueries.ts` was saved, before 0010 reached source. Because the
+source backend live-reloads from the working tree, sign-ins and authenticated requests on
+the source app failed with a 500 (11 occurrences, 07:05:53–07:08:44 UTC, while someone
+was signing in) until the guarded apply at 07:22 UTC. No data was affected. The ordering
+rule above prevents a repeat.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Backend typecheck (source and tests) | pass |
+| Backend full laboratory suite | **460 pass, 0 fail, 0 skipped** (+20: the org suite, 17 checks and its parent, plus two mock authorisation checks; the session test gained manager assertions) |
+| Frontend typecheck, Oxlint, production build | pass, no warnings |
+| Initial JavaScript | 321.78 kB (105.51 kB gzip), 99 chunks |
+| M1 browser smoke on the V3 demo stack | **49/49**, no page errors: admin reporting lines, manager navigation/dashboard/overview/decision/attendance, non-manager refusal, second manager isolation, 390 light and 375 dark with no overflow |
+| V2 navigation gate on the V3 bundle | 48/48 (one fewer bottom-bar check: the demo employee account is now a manager with four bar links plus More) |
+| Source fingerprint after apply | business digests identical; ledger 0001–0010; 18 base tables; 1/2/5; orphans `1:1,3:1,4:2,5:1,6:1`; September draft; 0 flagged |
+
+M1 status: **complete.** Cross-role authorization passes (org suite, mock suite, browser).
