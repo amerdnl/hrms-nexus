@@ -275,9 +275,12 @@ test("isolated PostgreSQL migration rehearsal", {
        * the scoped chain here would test the app against a database no
        * deployment will ever have.
        */
+      // Every reviewed migration, in order. Derived from the files rather than
+      // pinned, so a later additive migration joins the chain without this
+      // assertion having to be rewritten each time.
       assert.deepEqual(
         (await runVersionedMigrations(db.pool, { mode: "apply", database: db.name })).newlyApplied,
-        ["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009"],
+        (await loadMigrations()).map((migration) => migration.version),
       );
       // Synthetic accounts only in this isolated copy; never use source account credentials.
       await db.pool.query(`INSERT INTO employees (id,employee_number,full_name) VALUES (1000,'LAB-LIFECYCLE','Isolated Lifecycle Fixture');
