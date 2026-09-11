@@ -34,7 +34,7 @@ export default function PageHeader({
       {backTo && (
         <Link
           to={backTo}
-          className="mb-3 inline-flex items-center gap-1.5 rounded text-sm font-medium text-fg-muted transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:hidden"
+          className="mb-2 inline-flex min-h-6 items-center gap-1.5 rounded text-sm font-medium text-fg-muted transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:hidden"
         >
           <ArrowLeft size={16} aria-hidden="true" />
           {backLabel}
