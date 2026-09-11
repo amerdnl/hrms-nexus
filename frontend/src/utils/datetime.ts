@@ -127,3 +127,41 @@ export function timeToMinutes(time: string | null | undefined): number | null {
 
   return hours * 60 + minutes;
 }
+
+/**
+ * A date range with the shared parts said once.
+ *
+ *   same day    "02 Sept 2026"
+ *   same month  "21–22 Sept 2026"
+ *   same year   "28 Sept – 02 Oct 2026"
+ *   otherwise   "30 Dec 2026 – 02 Jan 2027"
+ *
+ * Repeating the month and year on both sides was the widest thing in the leave
+ * table and made a two-day request look like a long one. Parsed from the ISO
+ * parts, like formatDate, so no timezone can shift either end.
+ */
+export function formatDateRange(start: string, end: string): string {
+  const a = toIsoDate(start);
+  const b = toIsoDate(end);
+
+  if (!a || !b) return `${formatDate(start)} – ${formatDate(end)}`;
+  if (a === b) return formatDate(start);
+
+  const [startYear, startMonth, startDay] = a.split("-");
+  const [endYear, endMonth, endDay] = b.split("-");
+
+  const monthName = (year: string, month: string) =>
+    new Intl.DateTimeFormat("en-MY", { month: "short" }).format(
+      new Date(Number(year), Number(month) - 1, 1),
+    );
+
+  if (startYear === endYear && startMonth === endMonth) {
+    return `${startDay}–${endDay} ${monthName(endYear, endMonth)} ${endYear}`;
+  }
+
+  if (startYear === endYear) {
+    return `${startDay} ${monthName(startYear, startMonth)} – ${endDay} ${monthName(endYear, endMonth)} ${endYear}`;
+  }
+
+  return `${formatDate(start)} – ${formatDate(end)}`;
+}

@@ -80,3 +80,27 @@ export function findUpcomingLeave(
 
   return upcoming[0] ?? null;
 }
+
+/**
+ * How long a request is, in the unit that actually affects a balance.
+ *
+ * The server snapshots working days at submission - weekends and non-working
+ * days already excluded - and that is the figure deducted. Calendar days are
+ * only the fallback for records created before the snapshot existed, and are
+ * labelled as such so the two can never be mistaken for each other. Before
+ * this, the admin review table showed calendar days while the employee saw
+ * working days: an admin approving "5 days" across a weekend was approving 3.
+ */
+export function formatLeaveDuration(leave: {
+  workingDays: number | null;
+  startDate: string;
+  endDate: string;
+}): string {
+  if (leave.workingDays !== null && leave.workingDays !== undefined) {
+    const days = Number(leave.workingDays);
+    return `${days} working day${days === 1 ? "" : "s"}`;
+  }
+
+  const calendar = calcLeaveDays(leave.startDate, leave.endDate);
+  return calendar === null ? "—" : `${calendar} calendar day${calendar === 1 ? "" : "s"}`;
+}

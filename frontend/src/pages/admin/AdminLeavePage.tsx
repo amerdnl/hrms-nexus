@@ -1,46 +1,64 @@
 import { CalendarDays, CircleCheck, CircleX, Eye } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
+import { getEmployeeLookup } from "../../api/employeeApi";
 import { getAllLeaveRequests, updateLeaveStatus } from "../../api/leaveApi";
+import EmployeeEntitlementPanel from "../../components/leave/EmployeeEntitlementPanel";
 import Alert from "../../components/ui/Alert";
+import Avatar from "../../components/ui/Avatar";
 import Button from "../../components/ui/Button";
 import DataTable from "../../components/ui/DataTable";
+import DescriptionList from "../../components/ui/DescriptionList";
 import EmptyState from "../../components/ui/EmptyState";
 import FilterPanel from "../../components/ui/FilterPanel";
 import FormField from "../../components/ui/FormField";
 import { fieldDescribedBy } from "../../components/ui/fieldStyles";
 import Modal from "../../components/ui/Modal";
-import { getEmployeeLookup } from "../../api/employeeApi";
-import EmployeeEntitlementPanel from "../../components/leave/EmployeeEntitlementPanel";
 import PageHeader from "../../components/ui/PageHeader";
 import Pagination from "../../components/ui/Pagination";
+import RecordCard from "../../components/ui/RecordCard";
 import SecondaryButton from "../../components/ui/SecondaryButton";
 import SelectInput from "../../components/ui/SelectInput";
 import StatusBadge from "../../components/ui/StatusBadge";
+import Tabs, { type TabItem } from "../../components/ui/Tabs";
 import TextArea from "../../components/ui/TextArea";
 import TextInput from "../../components/ui/TextInput";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import type { EmployeeLookupEntry } from "../../types/employee";
 import type { LeaveRequest, LeaveStatus, LeaveType } from "../../types/leave";
-import { formatDate, formatDateTime, toIsoDate } from "../../utils/datetime";
-import { formatLeaveDaysBetween } from "../../utils/leave";
+import {
+  formatDate,
+  formatDateRange,
+  formatDateTime,
+  toIsoDate,
+} from "../../utils/datetime";
+import { formatLeaveDuration } from "../../utils/leave";
 import { leaveStatusMeta, leaveTypeMeta } from "../../utils/status";
 
 const SEARCH_DEBOUNCE_MS = 350;
 const PAGE_SIZE = 25;
 
-const statusOptions: LeaveStatus[] = ["pending", "approved", "rejected"];
 const typeOptions: LeaveType[] = ["annual", "medical", "emergency", "unpaid"];
+
+type TabId = LeaveStatus | "all";
+
+/**
+ * Status is a tab rather than a filter field. Pending comes first and is the
+ * default, because it is the one list that asks something of the person
+ * reading it; the others are records.
+ */
+const TAB_ORDER: TabId[] = ["pending", "approved", "rejected", "cancelled", "all"];
 
 const tableHeaders = [
   "Employee",
   "Type",
   "Dates",
   "Duration",
-  "Reason",
   "Status",
-  "Applied on",
-  "Actions",
+  "Applied",
+  <span key="action" className="sr-only">
+    Action
+  </span>,
 ];
 
 export default function AdminLeavePage() {
@@ -55,9 +73,11 @@ export default function AdminLeavePage() {
   }, []);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
-  // Server-side filters: the API already implements these.
-  const [statusFilter, setStatusFilter] = useState("");
+  const [activeTab, setActiveTab] = useState<TabId>("pending");
+
+  // Server-side filter: the API already implements it.
   const [employeeFilter, setEmployeeFilter] = useState("");
 
   // Client-side filters, applied over the rows the API returned.
@@ -67,17 +87,11 @@ export default function AdminLeavePage() {
 
   const [page, setPage] = useState(1);
 
-  const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
-
-  const [decisionStatus, setDecisionStatus] = useState<
+  const [reviewLeave, setReviewLeave] = useState<LeaveRequest | null>(null);
+  const [adminComment, setAdminComment] = useState("");
+  const [pendingDecision, setPendingDecision] = useState<
     "approved" | "rejected" | null
   >(null);
-
-  const [isUpdatingDecision, setIsUpdatingDecision] = useState(false);
-
-  const [adminComment, setAdminComment] = useState("");
-
-  const [detailsLeave, setDetailsLeave] = useState<LeaveRequest | null>(null);
 
   // The employee filter is a server query, so it is debounced: without this
   // every keystroke fires a request against an endpoint with no pagination.
@@ -86,13 +100,18 @@ export default function AdminLeavePage() {
     SEARCH_DEBOUNCE_MS,
   );
 
+  /*
+   * Status is applied client-side now, not sent to the server. The endpoint is
+   * unpaginated either way, so the rows are the same; fetching every status
+   * once is what lets each tab show an accurate count. Sending the status
+   * would have made every tab but the open one read zero.
+   */
   useEffect(() => {
     async function loadLeaves() {
       setIsLoading(true);
 
       try {
         const data = await getAllLeaveRequests({
-          status: statusFilter || undefined,
           employee: debouncedEmployeeFilter || undefined,
         });
         setLeaves(data);
@@ -106,21 +125,19 @@ export default function AdminLeavePage() {
     }
 
     void loadLeaves();
-  }, [statusFilter, debouncedEmployeeFilter]);
+  }, [debouncedEmployeeFilter]);
 
   /**
    * Type and date-range filtering, client-side.
    *
    * The range uses OVERLAP, not containment: a request counts if any part of
    * it falls inside the window. Containment would hide a two-week leave from
-   * someone filtering a single week, which is the opposite of useful. This
-   * also generalises what the API's single-date filter already does
-   * (`$date BETWEEN start_date AND end_date`) from one day to a window.
+   * someone filtering a single week, which is the opposite of useful.
    *
    * Comparison is lexicographic on "YYYY-MM-DD", which is exactly correct for
    * that format and avoids Date parsing entirely.
    */
-  const visibleLeaves = useMemo(
+  const filteredLeaves = useMemo(
     () =>
       leaves.filter((leave) => {
         if (typeFilter && leave.leaveType !== typeFilter) return false;
@@ -144,134 +161,178 @@ export default function AdminLeavePage() {
     [leaves, typeFilter, rangeStart, rangeEnd],
   );
 
-  // Every count on the page is derived from the final filtered array, so the
-  // badges can never disagree with the rows below them.
+  // Counted after the other filters and before the tab, so every tab's badge
+  // agrees with what that tab will show when opened.
   const statusCounts = useMemo(() => {
-    const counts: Record<LeaveStatus, number> = {
+    const counts: Record<TabId, number> = {
       pending: 0,
       approved: 0,
       rejected: 0,
       cancelled: 0,
+      all: filteredLeaves.length,
     };
-
-    for (const leave of visibleLeaves) {
-      counts[leave.status] += 1;
-    }
-
+    for (const leave of filteredLeaves) counts[leave.status] += 1;
     return counts;
-  }, [visibleLeaves]);
+  }, [filteredLeaves]);
+
+  const tabLeaves = useMemo(
+    () =>
+      activeTab === "all"
+        ? filteredLeaves
+        : filteredLeaves.filter((leave) => leave.status === activeTab),
+    [filteredLeaves, activeTab],
+  );
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, debouncedEmployeeFilter, typeFilter, rangeStart, rangeEnd]);
+  }, [activeTab, debouncedEmployeeFilter, typeFilter, rangeStart, rangeEnd]);
 
-  const pageCount = Math.max(1, Math.ceil(visibleLeaves.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(tabLeaves.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
 
   const pageLeaves = useMemo(
-    () => visibleLeaves.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [visibleLeaves, safePage],
+    () => tabLeaves.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [tabLeaves, safePage],
   );
 
-  const activeFilterCount = [
-    statusFilter,
-    employeeFilter,
-    typeFilter,
-    rangeStart,
-    rangeEnd,
-  ].filter(Boolean).length;
+  const activeFilterCount = [employeeFilter, typeFilter, rangeStart, rangeEnd].filter(
+    Boolean,
+  ).length;
 
   function clearFilters() {
-    setStatusFilter("");
     setEmployeeFilter("");
     setTypeFilter("");
     setRangeStart("");
     setRangeEnd("");
   }
 
-  function openDecision(leave: LeaveRequest, status: "approved" | "rejected") {
-    setSelectedLeave(leave);
-    setDecisionStatus(status);
+  function openReview(leave: LeaveRequest) {
+    setReviewLeave(leave);
+    setAdminComment("");
+    setNotice("");
+  }
+
+  function closeReview() {
+    if (pendingDecision) return;
+    setReviewLeave(null);
     setAdminComment("");
   }
 
-  function closeDecision() {
-    if (isUpdatingDecision) return;
-
-    setSelectedLeave(null);
-    setDecisionStatus(null);
-    setAdminComment("");
-  }
-
-  async function confirmDecision() {
-    if (!selectedLeave || !decisionStatus) {
-      return;
-    }
+  /*
+   * One panel for reading and deciding. It used to be two dialogs - details,
+   * then a separate confirmation - which meant the decision was made on a
+   * second screen after the request had been closed. The request, its reason,
+   * its duration and the comment box are now all on screen at the moment
+   * Approve or Reject is pressed. Same endpoint, same payload.
+   */
+  async function decide(status: "approved" | "rejected") {
+    if (!reviewLeave) return;
 
     try {
-      setIsUpdatingDecision(true);
+      setPendingDecision(status);
+      setError("");
 
-      const updatedLeave = await updateLeaveStatus(selectedLeave.id, {
-        status: decisionStatus,
+      const updatedLeave = await updateLeaveStatus(reviewLeave.id, {
+        status,
         adminComment,
       });
 
       setLeaves((currentLeaves) =>
         currentLeaves.map((leave) =>
-          leave.id === selectedLeave.id ? updatedLeave : leave,
+          leave.id === reviewLeave.id ? updatedLeave : leave,
         ),
       );
 
-      setSelectedLeave(null);
-      setDecisionStatus(null);
+      setNotice(
+        `${reviewLeave.employeeName ?? "The"} request was ${status === "approved" ? "approved" : "rejected"}.`,
+      );
+      setReviewLeave(null);
       setAdminComment("");
     } catch (requestError) {
       setError(
         getApiErrorMessage(requestError, "Unable to update leave request."),
       );
     } finally {
-      setIsUpdatingDecision(false);
+      setPendingDecision(null);
     }
   }
 
-  const isDecisionOpen = Boolean(selectedLeave && decisionStatus);
+  const tabs: TabItem[] = TAB_ORDER.map((id) => ({
+    id,
+    label: id === "all" ? "All requests" : leaveStatusMeta(id).label,
+    count: statusCounts[id],
+  }));
+
+  const actionFor = (leave: LeaveRequest) =>
+    leave.status === "pending" ? (
+      <Button size="sm" variant="secondary" onClick={() => openReview(leave)}>
+        Review
+      </Button>
+    ) : (
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={Eye}
+        onClick={() => openReview(leave)}
+        aria-label={`View request from ${leave.employeeName ?? "employee"}`}
+        title="View request"
+      />
+    );
+
+  const emptyForTab =
+    activeFilterCount > 0 ? (
+      <EmptyState
+        icon={CalendarDays}
+        title="No requests match these filters"
+        description="Adjust or clear the filters to see more."
+        action={
+          <Button variant="secondary" size="sm" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        }
+      />
+    ) : activeTab === "pending" ? (
+      <EmptyState
+        icon={CircleCheck}
+        title="Nothing awaiting a decision"
+        description="New requests appear here as employees submit them."
+        action={
+          statusCounts.all > 0 ? (
+            <Button variant="secondary" size="sm" onClick={() => setActiveTab("all")}>
+              View all requests
+            </Button>
+          ) : undefined
+        }
+      />
+    ) : (
+      <EmptyState
+        icon={CalendarDays}
+        title={
+          activeTab === "all"
+            ? "No leave requests yet"
+            : `No ${leaveStatusMeta(activeTab).label.toLowerCase()} requests`
+        }
+        description="Requests submitted by employees appear here."
+      />
+    );
 
   return (
     <section className="mx-auto max-w-7xl space-y-6">
       <PageHeader
-        title="Leave management"
-        description="Review and manage employee leave requests."
+        title="Leave"
+        description="Review requests, then manage each employee's entitlements."
       />
 
-      {error && <Alert tone="danger">{error}</Alert>}
-
-      <EmployeeEntitlementPanel employees={employees} directoryFailed={directoryFailed} />
+      {notice && <Alert tone="success" onDismiss={() => setNotice("")}>{notice}</Alert>}
+      {error && <Alert tone="danger" onDismiss={() => setError("")}>{error}</Alert>}
 
       <FilterPanel
-        columns={3}
+        title="Filter requests"
+        columns={4}
         activeCount={activeFilterCount}
         onClear={clearFilters}
       >
-        <FormField id="leave-status" label="Status">
-          <SelectInput
-            id="leave-status"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            <option value="">All statuses</option>
-            {statusOptions.map((option) => (
-              <option key={option} value={option}>
-                {leaveStatusMeta(option).label}
-              </option>
-            ))}
-          </SelectInput>
-        </FormField>
-
-        <FormField
-          id="leave-employee"
-          label="Employee"
-          hint="Searches as you type."
-        >
+        <FormField id="leave-employee" label="Employee" hint="Searches as you type.">
           <TextInput
             id="leave-employee"
             aria-describedby={fieldDescribedBy("leave-employee", { hint: true })}
@@ -321,298 +382,194 @@ export default function AdminLeavePage() {
         </FormField>
       </FilterPanel>
 
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-fg">
-            <CalendarDays size={18} className="text-primary" aria-hidden="true" />
-            Leave requests
-          </h2>
-
-          {!isLoading && visibleLeaves.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {statusOptions.map((option) => {
-                const meta = leaveStatusMeta(option);
-
-                return (
-                  <StatusBadge
-                    key={option}
-                    {...meta}
-                    label={`${meta.label}: ${statusCounts[option]}`}
-                  />
-                );
-              })}
-
-              <p className="text-sm text-fg-muted">
-                <span className="font-semibold text-fg">
-                  {visibleLeaves.length}
-                </span>{" "}
-                total
-              </p>
-            </div>
-          )}
-        </div>
-
-        <DataTable
-          headers={tableHeaders}
-          caption="Leave requests matching the current filters"
-          minWidthClass="min-w-275"
-          isLoading={isLoading}
-          loadingLabel="Loading leave requests..."
-          isEmpty={pageLeaves.length === 0}
-          emptyState={
-            activeFilterCount > 0 ? (
-              <EmptyState
-                icon={CalendarDays}
-                title="No requests match these filters"
-                description="There are leave requests in the system, but none match the current combination."
-                action={
-                  <Button variant="secondary" size="sm" onClick={clearFilters}>
-                    Clear all filters
-                  </Button>
-                }
-              />
-            ) : (
-              <EmptyState
-                icon={CalendarDays}
-                title="No leave requests yet"
-                description="Requests submitted by employees will appear here for review."
-              />
-            )
-          }
-        >
-          {pageLeaves.map((leave) => (
-            <tr key={leave.id}>
-              <td className="px-5 py-4">
-                <p className="font-medium text-fg">
-                  {leave.employeeName ?? "—"}
-                </p>
-                <p className="mt-0.5 text-xs text-fg-subtle">
-                  {leave.departmentName ?? "No department"}
-                </p>
-              </td>
-
-              <td className="px-5 py-4">
-                <StatusBadge {...leaveTypeMeta(leave.leaveType)} />
-              </td>
-
-              <td className="px-5 py-4 text-fg-muted">
-                {formatDate(leave.startDate)} &rarr; {formatDate(leave.endDate)}
-              </td>
-
-              <td className="px-5 py-4 text-fg-muted">
-                {formatLeaveDaysBetween(leave.startDate, leave.endDate)}
-              </td>
-
-              <td className="max-w-56 px-5 py-4 text-fg-muted">
-                {leave.reason}
-              </td>
-
-              <td className="px-5 py-4">
-                <StatusBadge {...leaveStatusMeta(leave.status)} />
-              </td>
-
-              <td className="px-5 py-4 text-fg-muted">
-                {formatDateTime(leave.createdAt)}
-              </td>
-
-              <td className="px-5 py-4">
-                {/* One action per row. Approve and Reject live inside the
-                    details modal, so a decision is always made with the reason
-                    and dates on screen rather than from a truncated row. */}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={Eye}
-                  onClick={() => setDetailsLeave(leave)}
-                >
-                  View
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </DataTable>
-
-        <Pagination
-          page={safePage}
-          pageSize={PAGE_SIZE}
-          totalItems={visibleLeaves.length}
-          onPageChange={setPage}
-          className="mt-3 rounded-card border border-line bg-surface shadow-card"
+      <section className="space-y-4">
+        <Tabs
+          tabs={tabs}
+          active={activeTab}
+          onChange={(id) => setActiveTab(id as TabId)}
         />
+
+        <div
+          role="tabpanel"
+          id={`panel-${activeTab}`}
+          aria-labelledby={`tab-${activeTab}`}
+          className="space-y-3"
+        >
+          <DataTable
+            headers={tableHeaders}
+            caption={`${tabs.find((tab) => tab.id === activeTab)?.label} leave requests`}
+            minWidthClass="min-w-200"
+            isLoading={isLoading}
+            loadingLabel="Loading leave requests"
+            isEmpty={pageLeaves.length === 0}
+            emptyState={emptyForTab}
+            mobileCards={pageLeaves.map((leave) => (
+              <RecordCard
+                key={leave.id}
+                leading={<Avatar name={leave.employeeName ?? "Employee"} size="md" />}
+                title={leave.employeeName ?? "Unknown employee"}
+                subtitle={formatDateRange(leave.startDate, leave.endDate)}
+                badge={<StatusBadge {...leaveStatusMeta(leave.status)} />}
+                meta={[
+                  { label: "Type", value: leaveTypeMeta(leave.leaveType).label },
+                  { label: "Duration", value: formatLeaveDuration(leave) },
+                ]}
+                actions={actionFor(leave)}
+              />
+            ))}
+          >
+            {pageLeaves.map((leave) => (
+              <tr key={leave.id} className="transition-colors hover:bg-surface-muted">
+                <td className="px-3 py-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={leave.employeeName ?? "Employee"} size="sm" />
+                    <div className="min-w-0 max-w-44">
+                      <p className="truncate font-medium text-fg" title={leave.employeeName}>
+                        {leave.employeeName ?? "—"}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-fg-subtle">
+                        {leave.departmentName ?? "No department"}
+                      </p>
+                    </div>
+                  </div>
+                </td>
+
+                <td className="px-3 py-3">
+                  <StatusBadge {...leaveTypeMeta(leave.leaveType)} />
+                </td>
+
+                <td className="whitespace-nowrap px-3 py-3 text-fg">
+                  {formatDateRange(leave.startDate, leave.endDate)}
+                </td>
+
+                <td className="whitespace-nowrap px-3 py-3 text-fg-muted">
+                  {formatLeaveDuration(leave)}
+                </td>
+
+                <td className="px-3 py-3">
+                  <StatusBadge {...leaveStatusMeta(leave.status)} />
+                </td>
+
+                <td className="whitespace-nowrap px-3 py-3 text-fg-muted">
+                  {formatDate(leave.createdAt)}
+                </td>
+
+                <td className="px-2 py-3 text-right">{actionFor(leave)}</td>
+              </tr>
+            ))}
+          </DataTable>
+
+          <Pagination
+            page={safePage}
+            pageSize={PAGE_SIZE}
+            totalItems={tabLeaves.length}
+            onPageChange={setPage}
+            className="rounded-card border border-line bg-surface shadow-card"
+          />
+        </div>
       </section>
 
+      {/* Balances are a separate job from review - adjusting what someone is
+          entitled to rather than deciding one request - so they sit below the
+          queue instead of above it, where they used to push every request
+          down the page behind an empty "Select an employee" box. */}
+      <EmployeeEntitlementPanel employees={employees} directoryFailed={directoryFailed} />
+
       <Modal
-        isOpen={isDecisionOpen}
-        onClose={closeDecision}
-        title={
-          decisionStatus === "approved"
-            ? "Approve leave request"
-            : "Reject leave request"
+        isOpen={reviewLeave !== null}
+        onClose={closeReview}
+        title={reviewLeave?.status === "pending" ? "Review leave request" : "Leave request"}
+        description={
+          reviewLeave?.status === "pending"
+            ? "Your comment is saved with the decision and is visible to the employee."
+            : undefined
         }
-        description="The comment is saved with the decision and is visible to the employee."
-        icon={
-          decisionStatus === "approved" ? (
-            <CircleCheck size={22} />
-          ) : (
-            <CircleX size={22} />
-          )
-        }
-        tone={decisionStatus === "rejected" ? "danger" : "primary"}
         size="lg"
-        isDismissDisabled={isUpdatingDecision}
+        isDismissDisabled={pendingDecision !== null}
       >
-        {selectedLeave && (
-          <div className="space-y-5">
-            <LeaveSummary leave={selectedLeave} />
-
-            <FormField id="admin-comment" label="Admin comment">
-              <TextArea
-                id="admin-comment"
-                rows={3}
-                value={adminComment}
-                onChange={(event) => setAdminComment(event.target.value)}
-                placeholder="Add a comment"
-              />
-            </FormField>
-
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <SecondaryButton
-                onClick={closeDecision}
-                disabled={isUpdatingDecision}
-              >
-                Cancel
-              </SecondaryButton>
-
-              <Button
-                variant={decisionStatus === "rejected" ? "danger" : "primary"}
-                onClick={() => void confirmDecision()}
-                isLoading={isUpdatingDecision}
-                loadingLabel="Updating..."
-              >
-                Confirm
-              </Button>
+        {reviewLeave && (
+          <div className="mt-5 space-y-5">
+            <div className="flex items-center gap-3 rounded-xl bg-surface-muted p-4">
+              <Avatar name={reviewLeave.employeeName ?? "Employee"} size="lg" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-fg">
+                  {reviewLeave.employeeName ?? "Unknown employee"}
+                </p>
+                <p className="truncate text-sm text-fg-muted">
+                  {reviewLeave.departmentName ?? "No department"}
+                </p>
+              </div>
+              <StatusBadge {...leaveStatusMeta(reviewLeave.status)} />
             </div>
-          </div>
-        )}
-      </Modal>
 
-      <Modal
-        isOpen={detailsLeave !== null}
-        onClose={() => setDetailsLeave(null)}
-        title="Leave request details"
-        icon={<Eye size={22} />}
-        size="lg"
-      >
-        {detailsLeave && (
-          <div className="space-y-5">
-            <LeaveSummary leave={detailsLeave} showReason={false} />
+            <DescriptionList
+              items={[
+                {
+                  label: "Leave type",
+                  value: <StatusBadge {...leaveTypeMeta(reviewLeave.leaveType)} />,
+                },
+                { label: "Duration", value: formatLeaveDuration(reviewLeave) },
+                {
+                  label: "Dates",
+                  value: formatDateRange(reviewLeave.startDate, reviewLeave.endDate),
+                },
+                { label: "Applied", value: formatDateTime(reviewLeave.createdAt) },
+                { label: "Reason", value: reviewLeave.reason, wide: true },
+                ...(reviewLeave.status !== "pending"
+                  ? [
+                      { label: "Reviewed", value: reviewLeave.reviewedAt ? formatDateTime(reviewLeave.reviewedAt) : null },
+                      { label: "Admin comment", value: reviewLeave.adminComment, wide: true },
+                    ]
+                  : []),
+              ]}
+            />
 
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <Detail label="Status">
-                <StatusBadge {...leaveStatusMeta(detailsLeave.status)} />
-              </Detail>
+            {reviewLeave.status === "pending" ? (
+              <>
+                <FormField id="admin-comment" label="Comment for the employee">
+                  <TextArea
+                    id="admin-comment"
+                    rows={3}
+                    value={adminComment}
+                    onChange={(event) => setAdminComment(event.target.value)}
+                    placeholder="Optional"
+                    disabled={pendingDecision !== null}
+                  />
+                </FormField>
 
-              <Detail label="Applied on">
-                {formatDateTime(detailsLeave.createdAt)}
-              </Detail>
-
-              <Detail label="Reviewed on">
-                {formatDateTime(detailsLeave.reviewedAt)}
-              </Detail>
-
-              <Detail label="Department">
-                {detailsLeave.departmentName ?? "No department"}
-              </Detail>
-
-              <Detail label="Reason" className="sm:col-span-2">
-                {detailsLeave.reason}
-              </Detail>
-
-              <Detail label="Admin comment" className="sm:col-span-2">
-                {detailsLeave.adminComment ?? "—"}
-              </Detail>
-            </dl>
-
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <SecondaryButton onClick={() => setDetailsLeave(null)}>
-                Close
-              </SecondaryButton>
-
-              {detailsLeave.status === "pending" && (
-                <>
-                  <Button
-                    icon={CircleCheck}
-                    onClick={() => {
-                      const leave = detailsLeave;
-                      setDetailsLeave(null);
-                      openDecision(leave, "approved");
-                    }}
-                  >
-                    Approve
-                  </Button>
-
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <SecondaryButton onClick={closeReview} disabled={pendingDecision !== null}>
+                    Cancel
+                  </SecondaryButton>
                   <Button
                     variant="danger"
                     icon={CircleX}
-                    onClick={() => {
-                      const leave = detailsLeave;
-                      setDetailsLeave(null);
-                      openDecision(leave, "rejected");
-                    }}
+                    onClick={() => void decide("rejected")}
+                    isLoading={pendingDecision === "rejected"}
+                    loadingLabel="Rejecting..."
+                    disabled={pendingDecision === "approved"}
                   >
                     Reject
                   </Button>
-                </>
-              )}
-            </div>
+                  <Button
+                    icon={CircleCheck}
+                    onClick={() => void decide("approved")}
+                    isLoading={pendingDecision === "approved"}
+                    loadingLabel="Approving..."
+                    disabled={pendingDecision === "rejected"}
+                  >
+                    Approve
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-end">
+                <SecondaryButton onClick={closeReview}>Close</SecondaryButton>
+              </div>
+            )}
           </div>
         )}
       </Modal>
     </section>
-  );
-}
-
-function LeaveSummary({
-  leave,
-  showReason = true,
-}: {
-  leave: LeaveRequest;
-  showReason?: boolean;
-}) {
-  return (
-    <div className="rounded-lg border border-line bg-surface-muted p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-semibold text-fg">{leave.employeeName ?? "—"}</p>
-        <StatusBadge {...leaveTypeMeta(leave.leaveType)} />
-      </div>
-
-      <p className="mt-2 text-sm text-fg-muted">
-        {formatDate(leave.startDate)} &rarr; {formatDate(leave.endDate)} ·{" "}
-        {formatLeaveDaysBetween(leave.startDate, leave.endDate)}
-      </p>
-
-      {showReason && (
-        <p className="mt-2 text-sm text-fg-muted">{leave.reason}</p>
-      )}
-    </div>
-  );
-}
-
-function Detail({
-  label,
-  className,
-  children,
-}: {
-  label: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className={className}>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-        {label}
-      </dt>
-      <dd className="mt-1 text-sm text-fg">{children}</dd>
-    </div>
   );
 }
