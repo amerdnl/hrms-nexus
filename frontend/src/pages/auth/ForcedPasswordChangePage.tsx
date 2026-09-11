@@ -2,6 +2,7 @@ import { KeyRound, LogOut, ShieldAlert } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { changePasswordRequest } from "../../api/profile";
+import AuthLayout from "../../components/auth/AuthLayout";
 import Alert from "../../components/ui/Alert";
 import FormField from "../../components/ui/FormField";
 import PasswordInput from "../../components/ui/PasswordInput";
@@ -68,76 +69,78 @@ export default function ForcedPasswordChangePage() {
   };
 
   return (
-    <div className="grid min-h-screen place-items-center bg-canvas px-4 py-10">
-      <div className="w-full max-w-md space-y-6">
-        <div className="space-y-2 text-center">
-          <span className="inline-flex size-12 items-center justify-center rounded-full bg-warning-soft text-warning-fg">
-            <ShieldAlert className="size-6" aria-hidden="true" />
-          </span>
-          <h1 className="text-xl font-semibold text-fg">Choose a new password</h1>
-          <p className="text-sm text-fg-muted">
-            Your account is still using a temporary password that was issued to you.
-            Replace it before continuing.
-          </p>
-          {user && <p className="text-xs text-fg-subtle">Signed in as {user.email}</p>}
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-xl border border-line bg-surface p-6 shadow-sm"
-        >
-          {error && <Alert tone="danger">{error}</Alert>}
-
-          <FormField id="forced-current-password" label="Temporary password">
-            <PasswordInput
-              id="forced-current-password"
-              autoComplete="current-password"
-              value={form.currentPassword}
-              onChange={(event) => update("currentPassword")(event.target.value)}
-              required
-            />
-          </FormField>
-
-          <FormField
-            id="forced-new-password"
-            label="New password"
-            hint="At least 8 characters."
-          >
-            <PasswordInput
-              id="forced-new-password"
-              autoComplete="new-password"
-              value={form.newPassword}
-              onChange={(event) => update("newPassword")(event.target.value)}
-              required
-            />
-          </FormField>
-
-          <FormField id="forced-confirm-password" label="Confirm new password">
-            <PasswordInput
-              id="forced-confirm-password"
-              autoComplete="new-password"
-              value={form.confirmPassword}
-              onChange={(event) => update("confirmPassword")(event.target.value)}
-              required
-            />
-          </FormField>
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <PrimaryButton type="submit" icon={KeyRound} isLoading={isSaving} className="sm:flex-1">
-              Set new password
-            </PrimaryButton>
-
-            {/* Always available: a forced change must not be a trap. */}
-            <SecondaryButton type="button" icon={LogOut} onClick={() => void logout()}>
-              Sign out
-            </SecondaryButton>
-          </div>
-        </form>
-
-        <p className="text-center text-xs text-fg-subtle">
-          Until this is done, the rest of the application is unavailable to this account.
+    <AuthLayout>
+      <span className="inline-flex size-11 items-center justify-center rounded-xl bg-warning-soft text-warning-fg">
+        <ShieldAlert className="size-5" aria-hidden="true" />
+      </span>
+      <h1 className="mt-5 text-2xl font-bold tracking-tight text-fg sm:text-3xl">
+        Choose a new password
+      </h1>
+      <p className="mt-2 text-sm leading-6 text-fg-muted">
+        Your account is still using a temporary password that was issued to you.
+        Replace it before continuing.
+      </p>
+      {user && (
+        <p className="mt-3 text-xs text-fg-subtle [overflow-wrap:anywhere]">
+          Signed in as <span className="font-medium text-fg-muted">{user.email}</span>
         </p>
-      </div>
-    </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        {error && <Alert tone="danger">{error}</Alert>}
+
+        <FormField id="forced-current-password" label="Temporary password">
+          <PasswordInput
+            id="forced-current-password"
+            className="min-h-11"
+            autoComplete="current-password"
+            value={form.currentPassword}
+            onChange={(event) => update("currentPassword")(event.target.value)}
+            required
+          />
+        </FormField>
+
+        <FormField
+          id="forced-new-password"
+          label="New password"
+          hint="At least 8 characters."
+        >
+          <PasswordInput
+            id="forced-new-password"
+            className="min-h-11"
+            autoComplete="new-password"
+            value={form.newPassword}
+            onChange={(event) => update("newPassword")(event.target.value)}
+            required
+          />
+        </FormField>
+
+        <FormField id="forced-confirm-password" label="Confirm new password">
+          <PasswordInput
+            id="forced-confirm-password"
+            className="min-h-11"
+            autoComplete="new-password"
+            value={form.confirmPassword}
+            onChange={(event) => update("confirmPassword")(event.target.value)}
+            required
+          />
+        </FormField>
+
+        <div className="flex flex-col gap-3 pt-1 sm:flex-row">
+          <PrimaryButton type="submit" icon={KeyRound} isLoading={isSaving} className="min-h-11 sm:flex-1">
+            Set new password
+          </PrimaryButton>
+
+          {/* Always available: a forced change must not be a trap. */}
+          <SecondaryButton type="button" icon={LogOut} className="min-h-11" onClick={() => void logout()}>
+            Sign out
+          </SecondaryButton>
+        </div>
+      </form>
+
+      <p className="mt-8 border-t border-line pt-5 text-xs leading-5 text-fg-subtle">
+        Until this is done, the rest of the application is unavailable to this account.
+      </p>
+    </AuthLayout>
   );
 }
