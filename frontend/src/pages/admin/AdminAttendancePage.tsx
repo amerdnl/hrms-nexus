@@ -7,6 +7,7 @@ import {
   updateAttendance,
 } from "../../api/attendanceApi";
 import { getApiErrorMessage } from "../../api/axios";
+import { getCompanySettings } from "../../api/companySettingsApi";
 import { getDepartments, type Department } from "../../api/departmentApi";
 import { getEmployeeLookup } from "../../api/employeeApi";
 import EditAttendanceForm from "../../components/attendance/EditAttendanceForm";
@@ -41,7 +42,7 @@ import type {
   UpdateAttendanceInput,
 } from "../../types/attendance";
 import type { EmployeeLookupEntry } from "../../types/employee";
-import { formatDate, formatTime, getMalaysiaDate } from "../../utils/datetime";
+import { formatDate, formatTime, getDateInZone, getMalaysiaDate } from "../../utils/datetime";
 import { formatWorkHoursBetween } from "../../utils/attendance";
 import { attendanceStatusMeta } from "../../utils/status";
 
@@ -75,14 +76,13 @@ const tableHeaders = [
 ];
 
 /**
- * First and last day of the current Malaysia month, as "YYYY-MM-DD".
+ * First and last day of the month containing `today`, as "YYYY-MM-DD".
  *
  * `/attendance` has no pagination, so an unscoped first load would pull every
  * record ever written. Defaulting to this month keeps the initial request
  * bounded; the admin can still clear the dates to see everything.
  */
-function currentMonthRange(): { startDate: string; endDate: string } {
-  const today = getMalaysiaDate();
+function monthRangeOf(today: string): { startDate: string; endDate: string } {
   const month = today.slice(0, 7);
   const [year, monthNumber] = today.split("-").map(Number);
 
@@ -115,7 +115,16 @@ function getErrorMessage(error: unknown): string {
 }
 
 function AdminAttendancePage() {
-  const [defaultRange] = useState(currentMonthRange);
+  /*
+   * The company's own date, in its Company Settings timezone - the zone the
+   * server uses to decide which day a record belongs to. This page used to
+   * default its overview date and its records month from a fixed Malaysia
+   * date, so for a company on any other zone it could open on the wrong day.
+   * Null until known; nothing loads before then, so the first request is
+   * already for the right day. If settings cannot be read, the previous
+   * Malaysia default is used rather than blocking the page.
+   */
+  const [companyToday, setCompanyToday] = useState<string | null>(null);
 
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [statistics, setStatistics] =
@@ -124,16 +133,30 @@ function AdminAttendancePage() {
   const [employeeId, setEmployeeId] = useState("");
   const [status, setStatus] = useState("");
   const [department, setDepartment] = useState("");
-  const [startDate, setStartDate] = useState(defaultRange.startDate);
-  const [endDate, setEndDate] = useState(defaultRange.endDate);
-  const [statisticsDate, setStatisticsDate] = useState(getMalaysiaDate());
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [statisticsDate, setStatisticsDate] = useState("");
 
   // Committed filters. `activeFilters` is what reaches the API; the department
   // is applied client-side because /attendance has no department parameter.
-  const [activeFilters, setActiveFilters] = useState<AttendanceFilters>({
-    startDate: defaultRange.startDate,
-    endDate: defaultRange.endDate,
-  });
+  const [activeFilters, setActiveFilters] = useState<AttendanceFilters>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    getCompanySettings()
+      .then((settings) => getDateInZone(settings.timezone))
+      .catch(() => getMalaysiaDate())
+      .then((today) => {
+        if (cancelled) return;
+        const range = monthRangeOf(today);
+        setStartDate(range.startDate);
+        setEndDate(range.endDate);
+        setActiveFilters(range);
+        setStatisticsDate(today);
+        setCompanyToday(today);
+      });
+    return () => { cancelled = true; };
+  }, []);
   const [activeDepartment, setActiveDepartment] = useState("");
 
   const [employees, setEmployees] = useState<EmployeeLookupEntry[]>([]);
@@ -153,6 +176,7 @@ function AdminAttendancePage() {
   const [error, setError] = useState("");
 
   const loadData = useCallback(async () => {
+    if (companyToday === null) return;
     setLoading(true);
     setError("");
 
@@ -169,7 +193,7 @@ function AdminAttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilters, statisticsDate]);
+  }, [activeFilters, statisticsDate, companyToday]);
 
   useEffect(() => {
     void loadData();

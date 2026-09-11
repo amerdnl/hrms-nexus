@@ -165,3 +165,24 @@ export function formatDateRange(start: string, end: string): string {
 
   return `${formatDate(start)} – ${formatDate(end)}`;
 }
+
+/**
+ * Today's date, "YYYY-MM-DD", in a named IANA time zone.
+ *
+ * For the company's own "today", pass the timezone from Company Settings -
+ * that, not the browser and not a fixed zone, is what the server uses to
+ * decide which day a record belongs to. Falls back to Malaysia time only if
+ * the zone is not one the browser recognises.
+ */
+export function getDateInZone(timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+  } catch {
+    return getMalaysiaDate();
+  }
+}
