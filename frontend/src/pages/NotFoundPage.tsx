@@ -1,5 +1,6 @@
 import { Compass } from "lucide-react";
 import { Navigate } from "react-router-dom";
+import SessionLoader from "../components/common/SessionLoader";
 import LinkButton from "../components/ui/LinkButton";
 import { useAuth } from "../context/useAuth";
 import { FORCED_PASSWORD_PATH } from "../routes/forcedPassword";
@@ -23,11 +24,7 @@ export default function NotFoundPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-canvas text-sm text-fg-muted">
-        Loading…
-      </div>
-    );
+    return <SessionLoader />;
   }
 
   if (!isAuthenticated || !user) {

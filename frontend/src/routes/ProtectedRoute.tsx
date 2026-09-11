@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import SessionLoader from "../components/common/SessionLoader";
 import { useAuth } from "../context/useAuth";
 import type { UserRole } from "../types/auth";
 import { FORCED_PASSWORD_PATH } from "./forcedPassword";
@@ -13,13 +14,7 @@ export default function ProtectedRoute({
   const location = useLocation();
 
   if (isLoading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-canvas">
-        <p className="text-sm font-medium text-fg-muted">
-          Restoring your session…
-        </p>
-      </div>
-    );
+    return <SessionLoader />;
   }
 
   if (!isAuthenticated || !user) {

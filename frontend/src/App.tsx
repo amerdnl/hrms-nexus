@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/layout/AppLayout";
+import SessionLoader from "./components/common/SessionLoader";
 import { useAuth } from "./context/useAuth";
 import ForcedPasswordChangePage from "./pages/auth/ForcedPasswordChangePage";
 import LoginPage from "./pages/auth/LoginPage";
@@ -34,11 +35,7 @@ function HomeRedirect() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-canvas text-sm text-fg-muted">
-        Loading…
-      </div>
-    );
+    return <SessionLoader />;
   }
 
   if (!user) return <Navigate to="/login" replace />;
@@ -59,11 +56,7 @@ function ForcedPasswordChangeRoute() {
   const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-canvas text-sm text-fg-muted">
-        Restoring your session…
-      </div>
-    );
+    return <SessionLoader />;
   }
 
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
