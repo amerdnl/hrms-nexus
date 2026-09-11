@@ -1,25 +1,17 @@
-import { CalendarCheck, Clock3, LogIn, Users } from "lucide-react";
+import { LogIn } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
+import AuthLayout from "../../components/auth/AuthLayout";
 import Alert from "../../components/ui/Alert";
+import Checkbox from "../../components/ui/Checkbox";
 import FormField from "../../components/ui/FormField";
-import ThemeToggle from "../../components/ui/ThemeToggle";
 import PasswordInput from "../../components/ui/PasswordInput";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import TextInput from "../../components/ui/TextInput";
 import { useAuth } from "../../context/useAuth";
-import { useTheme } from "../../context/useTheme";
 import { FORCED_PASSWORD_PATH } from "../../routes/forcedPassword";
 import { roleDashboard } from "../../routes/roleDashboard";
-
-/**
- * Two colourways of one mark, same silhouette and alpha: teal for light
- * surfaces, aqua for dark ones. Both the brand panel and the compact header
- * sit on surfaces that flip with the theme, so both pick by resolved theme.
- */
-const BRAND_ICON_ON_LIGHT = "/branding/hr-nexus-icon-transparent.png";
-const BRAND_ICON_ON_DARK = "/branding/hr-nexus-icon-light.png";
 
 /**
  * "Remember me" stores the email address only, so returning users do not
@@ -52,15 +44,8 @@ function writeRememberedEmail(email: string | null) {
   }
 }
 
-const highlights = [
-  { icon: Clock3, label: "Daily attendance, recorded in Malaysia time" },
-  { icon: CalendarCheck, label: "Leave requests and approvals in one queue" },
-  { icon: Users, label: "Employee and department records, always current" },
-];
-
 export default function LoginPage() {
   const { isAuthenticated, isLoading, login, user } = useAuth();
-  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const [email, setEmail] = useState(readRememberedEmail);
   const [rememberMe, setRememberMe] = useState(() => readRememberedEmail() !== "");
@@ -106,149 +91,62 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="relative grid min-h-screen bg-canvas lg:grid-cols-2">
-      {/* Top-right in both layouts: below lg the form column is the whole
-          page, and from lg it is the right-hand column, so this corner sits
-          over --canvas either way rather than over the dark brand panel. */}
-      <div className="absolute right-4 top-4 z-10">
-        <ThemeToggle compact />
-      </div>
+    <AuthLayout tagline>
+      <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">Welcome back</h1>
+      <p className="mt-2 text-sm text-fg-muted">Sign in with your work account.</p>
 
-      {/* Brand panel. Built on --sidebar so it reads as the same chrome as the
-          app shell, which means it now follows the theme too. Decoration is
-          two flat layers - a low-opacity brand wash and one blurred bloom -
-          rather than a full-bleed gradient. Those two are the only static
-          brand-ramp values left on this panel, and they may stay static
-          because they are aria-hidden washes behind text rather than text;
-          everything readable here comes from a --sidebar-* token. */}
-      <section className="relative hidden overflow-hidden bg-sidebar p-12 text-sidebar-fg lg:flex lg:flex-col lg:justify-between">
-        <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-600/25 via-transparent to-accent-600/20"
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-brand-500/20 blur-3xl"
-          aria-hidden="true"
-        />
-
-        <div className="relative flex items-center gap-3">
-          {/* This panel is bg-sidebar, and the sidebar now follows the theme,
-              so the mark has to as well - a white-on-dark mark would be
-              invisible on the light panel.
-              alt="" - the wordmark beside it announces the brand. */}
-          <img
-            src={resolvedTheme === "dark" ? BRAND_ICON_ON_DARK : BRAND_ICON_ON_LIGHT}
-            alt=""
-            className="h-9 w-9 shrink-0 object-contain"
+      <form className="mt-8 space-y-5" onSubmit={handleSubmit} noValidate>
+        <FormField id="login-email" label="Email address" required>
+          <TextInput
+            id="login-email"
+            className="min-h-11"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="name@company.com"
+            required
           />
-          <span className="text-lg font-bold tracking-wide text-sidebar-fg-strong">
-            HR NEXUS
-          </span>
-        </div>
+        </FormField>
 
-        <div className="relative max-w-lg">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sidebar-badge-fg">
-            One connected workplace
-          </p>
+        <FormField id="login-password" label="Password" required>
+          <PasswordInput
+            id="login-password"
+            className="min-h-11"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+        </FormField>
 
-          {/* Styled as a display heading but marked up as text: the form
-              column owns the page's <h1> so the document still has one at
-              viewports where this panel is display:none. */}
-          <p className="mt-5 text-4xl font-bold leading-tight text-sidebar-fg-strong xl:text-5xl">
-            People operations, made clearer.
-          </p>
+        <Checkbox
+          id="login-remember"
+          label="Remember my email"
+          checked={rememberMe}
+          onChange={(event) => setRememberMe(event.target.checked)}
+        />
 
-          <p className="mt-5 text-base leading-7 text-sidebar-fg">
-            Securely access your employee information and HR tools from one place.
-          </p>
+        {error && <Alert tone="danger">{error}</Alert>}
 
-          <ul className="mt-10 space-y-4">
-            {highlights.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-start gap-3 text-sm text-sidebar-fg">
-                <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-sidebar-badge-soft text-sidebar-badge-fg">
-                  <Icon size={15} aria-hidden="true" />
-                </span>
-                {label}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <PrimaryButton
+          type="submit"
+          fullWidth
+          className="min-h-11"
+          icon={LogIn}
+          isLoading={isSubmitting}
+          loadingLabel="Signing in…"
+          disabled={isLoading}
+        >
+          Sign in
+        </PrimaryButton>
+      </form>
 
-        <p className="relative text-xs text-sidebar-fg">
-          HR Nexus Employee Management System
-        </p>
-      </section>
-
-      <section className="flex items-center justify-center p-5 sm:p-10">
-        <div className="w-full max-w-md rounded-card border border-line bg-surface p-6 shadow-panel sm:p-9">
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            {/* This header sits on --canvas, which is light in the light
-                theme and near-navy in the dark one, so the colourway follows
-                the resolved theme instead of being fixed. */}
-            <img
-              src={resolvedTheme === "dark" ? BRAND_ICON_ON_DARK : BRAND_ICON_ON_LIGHT}
-              alt=""
-              className="h-8 w-8 shrink-0 object-contain"
-            />
-            <span className="text-base font-bold tracking-wide text-fg">HR NEXUS</span>
-          </div>
-
-          <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
-            Welcome back
-          </h1>
-          <p className="mt-2 text-sm text-fg-muted">Sign in with your work account.</p>
-
-          <form className="mt-8 space-y-5" onSubmit={handleSubmit} noValidate>
-            <FormField id="login-email" label="Email address" required>
-              <TextInput
-                id="login-email"
-                className="min-h-11"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="name@company.com"
-                required
-              />
-            </FormField>
-
-            <FormField id="login-password" label="Password" required>
-              <PasswordInput
-                id="login-password"
-                className="min-h-11"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </FormField>
-
-            <label className="flex w-fit cursor-pointer items-center gap-2.5 text-sm text-fg-muted">
-              <input
-                type="checkbox"
-                className="h-4 w-4 shrink-0 cursor-pointer rounded accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                checked={rememberMe}
-                onChange={(event) => setRememberMe(event.target.checked)}
-              />
-              Remember my email
-            </label>
-
-            {error && <Alert tone="danger">{error}</Alert>}
-
-            <PrimaryButton
-              type="submit"
-              fullWidth
-              className="min-h-11"
-              icon={LogIn}
-              isLoading={isSubmitting}
-              loadingLabel="Signing in…"
-              disabled={isLoading}
-            >
-              Sign in
-            </PrimaryButton>
-          </form>
-        </div>
-      </section>
-    </main>
+      {/* True of this product: there is no self sign-up or reset flow, so the
+          one place to go without an account or a password is HR. */}
+      <p className="mt-8 border-t border-line pt-5 text-xs leading-5 text-fg-subtle">
+        Accounts and temporary passwords are issued by your HR administrator.
+      </p>
+    </AuthLayout>
   );
 }
