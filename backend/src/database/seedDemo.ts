@@ -46,6 +46,8 @@ import {
   demoEmployeeAccount,
   demoEmployeeAccounts,
   demoEmployees,
+  demoProfiles,
+  demoTimeline,
   seededRandom,
 } from "./demoData.js";
 
@@ -117,6 +119,9 @@ async function main(): Promise<void> {
     if (!versions.includes("0010")) {
       fail(`the target is missing migration 0010 (reporting lines); its ledger is ${versions.join(",")}.`);
     }
+    if (!versions.includes("0011")) {
+      fail(`the target is missing migration 0011 (profiles and timeline); its ledger is ${versions.join(",")}.`);
+    }
 
     const password = process.env.DEMO_PASSWORD ?? randomBytes(12).toString("base64url");
     const generated = process.env.DEMO_PASSWORD === undefined;
@@ -173,6 +178,12 @@ async function main(): Promise<void> {
         [DEMO_ID_MIN, DEMO_ID_MAX],
       );
     }
+    // Profiles belong to demo employees; the timeline is append-only by design,
+    // which is one more reason a seeded demo is rebuilt rather than re-seeded.
+    await client.query(
+      "DELETE FROM public.employee_profiles WHERE employee_id BETWEEN $1 AND $2",
+      [DEMO_ID_MIN, DEMO_ID_MAX],
+    );
     // Reporting lines inside the range point at each other; clear them first so
     // no row is deleted while another in the range still names it as manager.
     await client.query(
@@ -223,6 +234,23 @@ async function main(): Promise<void> {
       await client.query(
         "UPDATE public.employees SET manager_id = $1 WHERE id = $2",
         [employee.managerId, employee.id],
+      );
+    }
+
+    // Colleague-facing profiles and a little company-visible history.
+    for (const profile of demoProfiles) {
+      await client.query(
+        `INSERT INTO public.employee_profiles (employee_id, about, skills, share_phone)
+         VALUES ($1, $2, $3, $4)`,
+        [profile.employeeId, profile.about, profile.skills, profile.sharePhone],
+      );
+    }
+    for (const event of demoTimeline) {
+      await client.query(
+        `INSERT INTO public.employee_events (employee_id, kind, visibility, occurred_on, title, source_type, source_id)
+         VALUES ($1, $2, 'company', $3, $4, 'demo_seed', $5)
+         ON CONFLICT DO NOTHING`,
+        [event.employeeId, event.kind, event.occurredOn, event.title, `${event.kind}:${event.occurredOn}`],
       );
     }
 

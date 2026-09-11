@@ -131,6 +131,38 @@ export function demoEmail(employee: DemoEmployee): string {
 }
 
 /**
+ * What some colleagues chose to say about themselves. Fictional, professional,
+ * and only the three fields a profile holds: About, skills and whether the
+ * work phone is shared.
+ */
+export const demoProfiles: Array<{ employeeId: number; about: string; skills: string[]; sharePhone: boolean }> = [
+  { employeeId: 9001, about: "I look after the people side of the company: hiring, onboarding and making sure policies make sense in practice. Come to me with anything about how we work.", skills: ["Employee relations", "Recruitment", "Policy design", "Onboarding"], sharePhone: true },
+  { employeeId: 9004, about: "I lead the engineering team that builds our internal platform. Happy to talk architecture, hiring or how to get a change shipped safely.", skills: ["Engineering management", "System design", "TypeScript", "Hiring"], sharePhone: true },
+  { employeeId: 9005, about: "Senior engineer on the payments and payroll services. I mentor our newer engineers.", skills: ["PostgreSQL", "Node.js", "Payroll systems", "Mentoring"], sharePhone: false },
+  { employeeId: 9006, about: "Software engineer. I mostly work on the web app and like making slow pages fast.", skills: ["React", "Accessibility", "Performance"], sharePhone: false },
+  { employeeId: 9008, about: "I keep our releases honest. Ask me about test plans.", skills: ["Test automation", "Release checks"], sharePhone: false },
+  { employeeId: 9010, about: "Finance manager: month-end close, budgets and payroll sign-off.", skills: ["Financial reporting", "Budgeting", "Payroll review"], sharePhone: true },
+  { employeeId: 9011, about: "I run payroll each month. If a payslip looks wrong, I am the person to ask.", skills: ["Payroll", "Excel", "Reconciliation"], sharePhone: false },
+  { employeeId: 9013, about: "Marketing lead. Brand, campaigns and the company newsletter.", skills: ["Brand strategy", "Copywriting", "Campaigns"], sharePhone: false },
+  { employeeId: 9015, about: "Graphic designer. I make slides, posters and anything that needs to look good.", skills: ["Illustration", "Figma", "Presentation design"], sharePhone: false },
+  { employeeId: 9017, about: "Operations manager: facilities, procurement and keeping the office running.", skills: ["Vendor management", "Facilities", "Procurement"], sharePhone: true },
+  { employeeId: 9021, about: "Sales director. I work with our largest clients and coach the sales team.", skills: ["Account management", "Negotiation", "Forecasting"], sharePhone: true },
+  { employeeId: 9025, about: "Managing Director. My door is open - book time with me any week.", skills: ["Strategy", "Leadership"], sharePhone: false },
+];
+
+/**
+ * A little history, so profile timelines are not empty in the demo. Company-
+ * visible role changes only; nothing private is invented.
+ */
+export const demoTimeline: Array<{ employeeId: number; kind: "job_title_changed" | "department_changed" | "manager_changed"; occurredOn: string; title: string }> = [
+  { employeeId: 9005, kind: "job_title_changed", occurredOn: "2025-01-06", title: "New role: Senior Software Engineer" },
+  { employeeId: 9004, kind: "job_title_changed", occurredOn: "2023-03-01", title: "New role: Engineering Manager" },
+  { employeeId: 9011, kind: "department_changed", occurredOn: "2023-07-03", title: "Moved to Finance" },
+  { employeeId: 9009, kind: "manager_changed", occurredOn: "2026-08-17", title: "Now reports to Priya Devi Ramasamy" },
+  { employeeId: 9022, kind: "job_title_changed", occurredOn: "2024-04-01", title: "New role: Account Manager" },
+];
+
+/**
  * A tiny deterministic generator (mulberry32).
  *
  * Attendance needs variation to look real, but the dataset must be identical on
