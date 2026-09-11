@@ -29,7 +29,7 @@ typecheck, Oxlint and production build pass; the entry chunk is 569.69 kB (161.7
 | --- | --- | --- |
 | M0 | Architecture & foundation | complete |
 | M1 | Roles, permissions & manager experience | complete |
-| M2 | People, directory, social profiles & org chart | — |
+| M2 | People, directory, social profiles & org chart | complete |
 | M3 | Action Center, search, notifications, calendar & announcements | — |
 | M4 | Onboarding & offboarding | — |
 | M5 | Recognition & employee timeline | — |
@@ -235,3 +235,61 @@ Verification:
 | Source fingerprint after apply | business digests identical; ledger 0001–0010; 18 base tables; 1/2/5; orphans `1:1,3:1,4:2,5:1,6:1`; September draft; 0 flagged |
 
 M1 status: **complete.** Cross-role authorization passes (org suite, mock suite, browser).
+
+## M2 — People, directory, social profiles & org chart (11 September 2026)
+
+Delivered:
+
+- **Migration 0011 `profiles_timeline`** (SHA-256 `1e1f92c588a7df8faf706d35ed0336879a3b5b1c17473df0f2e2c157e404b5d0`):
+  `employee_profiles` (About ≤ 2000, up to 30 skills, `share_phone` off by default) and the
+  append-only `employee_events` timeline with a visibility tier per event (company, self,
+  management), bounded detail, and idempotent source keys. New tables only.
+- **Directory** `GET /api/people`: working employees only, social fields only, search over
+  name, role, department and skills with LIKE wildcards escaped, department facets, bounded
+  pages.
+- **Social profile** `GET /api/people/:id`: one social layer for every viewer, the relation
+  (`self`, `manager`, `admin`, `coworker`) and the layers it may open; phone only when shared
+  (or for the person themselves); employment status only for self and HR; manager, reports,
+  peers and chain of command limited to visible people. A former employee is 404 to
+  colleagues and visible to HR.
+- **Timeline** `GET /api/people/:id/timeline`, filtered by relation tier; "Joined" derived from
+  the employment date (no back-fill); employee updates write role, department and reporting
+  line changes (company tier) and status changes (management tier), SAVEPOINT-contained.
+- **Org chart** `GET /api/org/chart`: the visible organisation as a flat list; anyone whose
+  manager has left becomes a root.
+- **About me** `GET/PUT /api/profile/about`: exactly three fields, audited as
+  `PROFILE_UPDATED` with the phone-sharing before/after but not the text.
+- **Frontend**: a Workplace navigation section for every role; `/people` (search and
+  department in the address), `/people/:id` (hero, About, skills, timeline, reports to,
+  direct reports, works with, chain of command, plus the viewer's own layer: My HR, the
+  manager's team view, or HR's record link), `/org` (an outline tree with counted
+  expanders, find-and-reveal, expand/collapse all, `?focus=`), and an About me editor on
+  My profile.
+- **Demo**: twelve colleague profiles and a little company-visible history. The V3 demo
+  database is now built from a fresh `schema.sql` baseline, so it holds only the fictional
+  company and no copy of the real source employee record.
+
+Source application of 0011, 11 September 2026 07:31 UTC, through the guarded procedure,
+before any shared code depended on it (evidence `.local-backups/0011-20260911/`): backup
+`8abe22d1…a87f906` restore-verified, rehearsal apply/no-op/rollback/re-apply, source apply and
+no-op, business data identical before and after, post-apply dump `307b80d5…f575d1`.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Backend typecheck (source and tests) | pass |
+| V3 migration suite | 0010 and 0011 each additive, idempotent and reversible; the whole chain applies to a fresh `schema.sql` |
+| Backend full laboratory suite | **478 pass, 0 fail, 0 skipped**, twice in a row (+18: people suite 13 checks and parent, V3 migration suite 3 checks and parent) |
+| Frontend typecheck, Oxlint, production build | pass |
+| M2 browser smoke on the V3 demo stack | **39/39**, no page errors: directory, skill search, colleague/self/manager/HR profiles, API leak checks, former-employee 404, org chart find-and-reveal, About editor, 390 and 375 dark with no overflow |
+| V2 navigation gate on the V3 bundle | 48/48 |
+| Source fingerprint | business digests identical; ledger 0001–0011 |
+
+Recorded for M9: one of three full runs failed at the import suite's teardown after all its
+checks had passed ("terminating connection due to administrator command" from the clone
+drop reaching a connection without an error listener). It is the same class as the V2
+intermittent in the settings and audit suites and did not reproduce in the next two runs;
+it will be fixed in the harness rather than retried away.
+
+M2 status: **complete.** Cross-role leakage cases pass in the people suite and the browser.
