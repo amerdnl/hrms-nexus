@@ -18,6 +18,19 @@ export interface Employee {
   email?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** The direct manager, when a reporting line is recorded. */
+  managerId: number | null;
+  managerName: string | null;
+  /** Only on the single-employee endpoint: everyone who reports here, any status. */
+  directReports?: EmployeeReport[];
+}
+
+export interface EmployeeReport {
+  id: number;
+  employeeNumber: string;
+  fullName: string;
+  jobTitle: string | null;
+  employmentStatus: string;
 }
 
 /**
@@ -32,6 +45,7 @@ export interface EmployeeLookupEntry {
   departmentId: number | null;
   departmentName: string | null;
   employmentStatus: string;
+  managerId: number | null;
 }
 
 export const employmentStatuses = [
@@ -83,6 +97,7 @@ export interface CreateEmployeeInput {
   emergency_contact_phone?: string | null;
   job_title?: string | null;
   employment_date?: string | null;
+  manager_id?: number | null;
 }
 
 export interface UpdateEmployeeInput {
@@ -98,4 +113,5 @@ export interface UpdateEmployeeInput {
   emergency_contact_phone?: string | null;
   job_title?: string | null;
   employment_date?: string | null;
+  manager_id?: number | null;
 }

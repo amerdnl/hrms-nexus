@@ -43,6 +43,15 @@ interface EmployeeApiData {
   email?: string | null;
   created_at: string;
   updated_at: string;
+  manager_id?: string | number | null;
+  manager_name?: string | null;
+  direct_reports?: Array<{
+    id: string | number;
+    employee_number: string;
+    full_name: string;
+    job_title: string | null;
+    employment_status: string;
+  }>;
 }
 
 interface EmployeeLookupApiData {
@@ -53,6 +62,7 @@ interface EmployeeLookupApiData {
   department_id: string | null;
   department_name: string | null;
   employment_status: string;
+  manager_id?: string | number | null;
 }
 
 function mapEmployee(data: EmployeeApiData): Employee {
@@ -75,6 +85,15 @@ function mapEmployee(data: EmployeeApiData): Employee {
     email: data.email ?? null,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
+    managerId: data.manager_id === null || data.manager_id === undefined ? null : Number(data.manager_id),
+    managerName: data.manager_name ?? null,
+    directReports: data.direct_reports?.map((report) => ({
+      id: Number(report.id),
+      employeeNumber: report.employee_number,
+      fullName: report.full_name,
+      jobTitle: report.job_title,
+      employmentStatus: report.employment_status,
+    })),
   };
 }
 
@@ -116,6 +135,7 @@ export async function getEmployeeLookup(): Promise<EmployeeLookupEntry[]> {
     departmentId: entry.department_id ? Number(entry.department_id) : null,
     departmentName: entry.department_name,
     employmentStatus: entry.employment_status,
+    managerId: entry.manager_id === null || entry.manager_id === undefined ? null : Number(entry.manager_id),
   }));
 }
 

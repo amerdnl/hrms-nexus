@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
 import { getDepartments } from "../../api/departmentApi";
 import { getEmployeeById, updateEmployee } from "../../api/employeeApi";
+import ManagerSelect from "../../components/employees/ManagerSelect";
 import Alert from "../../components/ui/Alert";
 import ErrorState from "../../components/ui/ErrorState";
 import FormField from "../../components/ui/FormField";
@@ -50,6 +51,7 @@ export default function EmployeeEditPage() {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [gender, setGender] = useState("");
   const [employmentDate, setEmploymentDate] = useState("");
+  const [managerId, setManagerId] = useState("");
 
   useEffect(() => {
     async function loadData() {
@@ -83,6 +85,7 @@ export default function EmployeeEditPage() {
         setDateOfBirth(employeeData.dateOfBirth?.slice(0, 10) ?? "");
         setGender(employeeData.gender ?? "");
         setEmploymentDate(employeeData.employmentDate?.slice(0, 10) ?? "");
+        setManagerId(employeeData.managerId ? String(employeeData.managerId) : "");
       } catch (requestError) {
         setError(getApiErrorMessage(requestError, "Unable to load employee."));
       } finally {
@@ -129,6 +132,7 @@ export default function EmployeeEditPage() {
         date_of_birth: dateOfBirth || null,
         gender: gender.trim() || null,
         employment_date: employmentDate || null,
+        manager_id: managerId ? Number(managerId) : null,
         ...(email.trim() ? { email: email.trim() } : {}),
       });
 
@@ -303,6 +307,13 @@ export default function EmployeeEditPage() {
                 disabled={isSubmitting}
               />
             </FormField>
+
+            <ManagerSelect
+              employeeId={employee.id}
+              value={managerId}
+              onChange={setManagerId}
+              disabled={isSubmitting}
+            />
           </div>
         </SectionCard>
 

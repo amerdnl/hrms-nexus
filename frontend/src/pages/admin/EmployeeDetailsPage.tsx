@@ -1,6 +1,6 @@
-import { Pencil } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Pencil, UsersRound } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link, useParams } from "react-router-dom";
 import { getApiErrorMessage, resolveProfileImageUrl } from "../../api/axios";
 import { getEmployeeById } from "../../api/employeeApi";
 import Avatar from "../../components/ui/Avatar";
@@ -33,6 +33,19 @@ const TABS: TabItem[] = [
   { id: "employment", label: "Employment" },
 ];
 
+/** The manager as a link to their own record, or nothing recorded. */
+function managerLink(employee: Employee): ReactNode {
+  if (employee.managerId === null) return null;
+  return (
+    <Link
+      to={`/admin/employees/${employee.managerId}`}
+      className="font-medium text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    >
+      {employee.managerName ?? `Employee #${employee.managerId}`}
+    </Link>
+  );
+}
+
 function panelFor(employee: Employee, tab: string): DescriptionEntry[] {
   const date = (value: string | null) => (value ? formatDate(value) : null);
 
@@ -53,6 +66,7 @@ function panelFor(employee: Employee, tab: string): DescriptionEntry[] {
       { label: "Employee number", value: employee.employeeNumber },
       { label: "Job title", value: employee.jobTitle },
       { label: "Department", value: employee.departmentName },
+      { label: "Reports to", value: managerLink(employee) },
       { label: "Employment date", value: date(employee.employmentDate) },
       {
         label: "Employment status",
@@ -68,6 +82,7 @@ function panelFor(employee: Employee, tab: string): DescriptionEntry[] {
     { label: "Employee number", value: employee.employeeNumber },
     { label: "Job title", value: employee.jobTitle },
     { label: "Department", value: employee.departmentName },
+    { label: "Reports to", value: managerLink(employee) },
     { label: "Employment date", value: date(employee.employmentDate) },
     { label: "Phone", value: employee.phone },
     { label: "Emergency contact", value: employee.emergencyContactName },
@@ -215,6 +230,41 @@ export default function EmployeeDetailsPage() {
           </SectionCard>
         </div>
       </div>
+
+      {/* Every direct report, current or former: this is the HR record, and a
+          former report is still part of what an administrator reviews. */}
+      <SectionCard
+        title="Direct reports"
+        description={
+          (employee.directReports?.length ?? 0) === 0
+            ? `No one reports to ${employee.fullName}.`
+            : undefined
+        }
+        icon={UsersRound}
+        padded={(employee.directReports?.length ?? 0) > 0}
+      >
+        {(employee.directReports?.length ?? 0) > 0 && (
+          <ul className="divide-y divide-line">
+            {employee.directReports!.map((report) => (
+              <li key={report.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <Avatar name={report.fullName} size="sm" />
+                <div className="min-w-0">
+                  <Link
+                    to={`/admin/employees/${report.id}`}
+                    className="text-sm font-medium text-fg hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [overflow-wrap:anywhere]"
+                  >
+                    {report.fullName}
+                  </Link>
+                  <p className="text-xs text-fg-subtle [overflow-wrap:anywhere]">
+                    {[report.jobTitle, report.employeeNumber].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+                <StatusBadge {...employmentStatusMeta(report.employmentStatus)} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionCard>
     </section>
   );
 }

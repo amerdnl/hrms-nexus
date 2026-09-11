@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
 import { getDepartments } from "../../api/departmentApi";
 import { createEmployee } from "../../api/employeeApi";
+import ManagerSelect from "../../components/employees/ManagerSelect";
 import Alert from "../../components/ui/Alert";
 import FormField from "../../components/ui/FormField";
 import { fieldDescribedBy } from "../../components/ui/fieldStyles";
@@ -48,6 +49,7 @@ export default function EmployeeFormPage() {
   const [departmentId, setDepartmentId] = useState("");
   const [employmentDate, setEmploymentDate] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState("active");
+  const [managerId, setManagerId] = useState("");
 
   useEffect(() => {
     async function loadDepartments() {
@@ -109,6 +111,7 @@ export default function EmployeeFormPage() {
         department_id: Number(departmentId),
         employment_date: employmentDate || null,
         employment_status: employmentStatus,
+        manager_id: managerId ? Number(managerId) : null,
       });
 
       navigate("/admin/employees");
@@ -249,6 +252,13 @@ export default function EmployeeFormPage() {
                 disabled={isSubmitting}
               />
             </FormField>
+
+            <ManagerSelect
+              employeeId={null}
+              value={managerId}
+              onChange={setManagerId}
+              disabled={isSubmitting}
+            />
           </div>
         </SectionCard>
 
