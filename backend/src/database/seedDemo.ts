@@ -44,6 +44,7 @@ import {
   demoDepartments,
   demoEmail,
   demoEmployeeAccount,
+  demoEmployeeAccounts,
   demoEmployees,
   seededRandom,
 } from "./demoData.js";
@@ -111,6 +112,11 @@ async function main(): Promise<void> {
       fail(`the target is missing migration 0007; its ledger is ${versions.join(",") || "empty"}.`);
     }
     const auditReady = versions.includes("0008");
+    // Reporting lines are part of the V3 demo: managers, their teams and the
+    // org chart all read them.
+    if (!versions.includes("0010")) {
+      fail(`the target is missing migration 0010 (reporting lines); its ledger is ${versions.join(",")}.`);
+    }
 
     const password = process.env.DEMO_PASSWORD ?? randomBytes(12).toString("base64url");
     const generated = process.env.DEMO_PASSWORD === undefined;
@@ -167,6 +173,12 @@ async function main(): Promise<void> {
         [DEMO_ID_MIN, DEMO_ID_MAX],
       );
     }
+    // Reporting lines inside the range point at each other; clear them first so
+    // no row is deleted while another in the range still names it as manager.
+    await client.query(
+      "UPDATE public.employees SET manager_id = NULL WHERE id BETWEEN $1 AND $2",
+      [DEMO_ID_MIN, DEMO_ID_MAX],
+    );
     await client.query("DELETE FROM public.users WHERE id BETWEEN $1 AND $2", [DEMO_ID_MIN, DEMO_ID_MAX]);
     await client.query(
       "DELETE FROM public.users WHERE employee_id BETWEEN $1 AND $2", [DEMO_ID_MIN, DEMO_ID_MAX],
@@ -204,8 +216,19 @@ async function main(): Promise<void> {
       );
     }
 
-    // Sign-in accounts: one administrator, one employee. Everyone else is a
-    // personnel record without a login, which is what a real company looks like.
+    // Reporting lines, once every employee exists. Applied in id order; the
+    // 0010 trigger would refuse any loop, and the dataset has none.
+    for (const employee of demoEmployees) {
+      if (employee.managerId === undefined) continue;
+      await client.query(
+        "UPDATE public.employees SET manager_id = $1 WHERE id = $2",
+        [employee.managerId, employee.id],
+      );
+    }
+
+    // Sign-in accounts: one administrator and three employees - two managers
+    // and one engineer. Everyone else is a personnel record without a login,
+    // which is what a real company looks like.
     //
     // must_change_password is FALSE, stated rather than left to the column
     // default so the intent is visible. These two are not temporary credentials
@@ -219,15 +242,17 @@ async function main(): Promise<void> {
        VALUES ($1, NULL, $2, $3, 'admin', TRUE, FALSE)`,
       [demoAdmin.id, demoAdmin.email, passwordHash],
     );
-    await client.query(
-      // An explicit id, like the administrator's: every row this script writes
-      // must sit inside the reserved range, or the isolation guarantee above is
-      // only true of most of them.
-      `INSERT INTO public.users
-         (id, employee_id, email, password_hash, role, is_active, must_change_password)
-       VALUES ($1, $1, $2, $3, 'employee', TRUE, FALSE)`,
-      [demoEmployeeAccount.id, demoEmployeeAccount.email, passwordHash],
-    );
+    for (const account of demoEmployeeAccounts) {
+      await client.query(
+        // An explicit id, like the administrator's: every row this script writes
+        // must sit inside the reserved range, or the isolation guarantee above is
+        // only true of most of them.
+        `INSERT INTO public.users
+           (id, employee_id, email, password_hash, role, is_active, must_change_password)
+         VALUES ($1, $1, $2, $3, 'employee', TRUE, FALSE)`,
+        [account.id, account.email, passwordHash],
+      );
+    }
 
     // ---------------------------------------------------------- compensation
     for (const employee of demoEmployees) {
@@ -436,6 +461,7 @@ async function main(): Promise<void> {
       auditEventsRecorded: auditReady,
       adminAccount: demoAdmin.email,
       employeeAccount: demoEmployeeAccount.email,
+      employeeAccounts: demoEmployeeAccounts.map((account) => account.email),
     }, null, 2));
 
     // Printed once, to the operator, and stored nowhere.
