@@ -2,10 +2,13 @@ import { Router } from "express";
 import {
   changePassword,
   deleteProfileImage,
+  getAbout,
   getProfile,
+  updateAbout,
   uploadProfileImage,
   updateProfile,
 } from "../controllers/profileController.js";
+import { requireEmployeeRecord } from "../auth/guards.js";
 import {
   authenticateForPasswordChange,
   authenticateToken,
@@ -33,5 +36,9 @@ router.post(
   uploadProfileImage,
 );
 router.delete("/image", authorizeRoles("employee"), deleteProfileImage);
+// What the employee shares with colleagues. Their own record only: the
+// employee id comes from the session, and nothing here touches an HR field.
+router.get("/about", requireEmployeeRecord, getAbout);
+router.put("/about", requireEmployeeRecord, updateAbout);
 
 export default router;

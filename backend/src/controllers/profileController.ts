@@ -435,3 +435,142 @@ export async function deleteProfileImage(
     data: { user },
   });
 }
+
+// ------------------------------------------------------------ social profile
+
+const ABOUT_MAX = 2000;
+const SKILLS_MAX = 30;
+const SKILL_MAX = 40;
+
+function hasControlCharactersExceptNewlines(value: string): boolean {
+  return [...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return (code < 32 && ![10, 13].includes(code)) || code === 127;
+  });
+}
+
+/** GET /api/profile/about - what this employee shares with colleagues. */
+export async function getAbout(request: Request, response: Response): Promise<void> {
+  const result = await pool.query<{ about: string | null; skills: string[]; share_phone: boolean }>(
+    "SELECT about, skills, share_phone FROM employee_profiles WHERE employee_id = $1",
+    [request.user!.employeeId],
+  );
+  const row = result.rows[0];
+  response.status(200).json({
+    success: true,
+    data: { about: row?.about ?? null, skills: row?.skills ?? [], sharePhone: row?.share_phone ?? false },
+  });
+}
+
+/**
+ * PUT /api/profile/about - replaces About, skills and the phone-sharing choice.
+ *
+ * All three are required, so a client that did not display a field cannot
+ * silently wipe it, and nothing else is accepted: this endpoint cannot reach a
+ * single HR field.
+ */
+export async function updateAbout(request: Request, response: Response): Promise<void> {
+  const body = (request.body ?? {}) as Record<string, unknown>;
+  const errors: Record<string, string> = {};
+
+  const unsupported = Object.keys(body).filter((key) => !["about", "skills", "sharePhone"].includes(key));
+  if (unsupported.length > 0) {
+    response.status(400).json({
+      success: false,
+      message: `The request contains unsupported fields: ${unsupported.sort().join(", ")}.`,
+    });
+    return;
+  }
+
+  let about: string | null = null;
+  if (body.about !== null && body.about !== undefined) {
+    if (typeof body.about !== "string") {
+      errors.about = "Enter text, or leave About empty.";
+    } else {
+      const cleaned = body.about.trim();
+      if (cleaned.length > ABOUT_MAX || hasControlCharactersExceptNewlines(cleaned)) {
+        errors.about = `Write up to ${ABOUT_MAX} characters.`;
+      } else {
+        about = cleaned || null;
+      }
+    }
+  }
+
+  const skills: string[] = [];
+  if (!Array.isArray(body.skills)) {
+    errors.skills = "Send skills as a list, which may be empty.";
+  } else if (body.skills.length > SKILLS_MAX) {
+    errors.skills = `List up to ${SKILLS_MAX} skills.`;
+  } else {
+    const seen = new Set<string>();
+    for (const raw of body.skills) {
+      if (typeof raw !== "string") { errors.skills = "Each skill must be text."; break; }
+      const skill = raw.trim().replace(/\s+/g, " ");
+      if (!skill) continue;
+      if (skill.length > SKILL_MAX || hasControlCharactersExceptNewlines(skill) || /[\r\n]/.test(skill)) {
+        errors.skills = `Keep each skill to ${SKILL_MAX} characters on one line.`;
+        break;
+      }
+      const key = skill.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      skills.push(skill);
+    }
+  }
+
+  if (typeof body.sharePhone !== "boolean") errors.sharePhone = "Choose whether to share your phone.";
+
+  if (Object.keys(errors).length > 0) {
+    response.status(400).json({ success: false, message: "Check the highlighted profile fields.", errors });
+    return;
+  }
+
+  const employeeId = request.user!.employeeId!;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const before = await client.query<{ about: string | null; skills: string[]; share_phone: boolean }>(
+      "SELECT about, skills, share_phone FROM employee_profiles WHERE employee_id = $1 FOR UPDATE",
+      [employeeId],
+    );
+    const saved = await client.query<{ about: string | null; skills: string[]; share_phone: boolean }>(
+      `INSERT INTO employee_profiles (employee_id, about, skills, share_phone, updated_by)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (employee_id) DO UPDATE SET
+         about = EXCLUDED.about, skills = EXCLUDED.skills, share_phone = EXCLUDED.share_phone,
+         updated_at = CURRENT_TIMESTAMP, updated_by = EXCLUDED.updated_by
+       RETURNING about, skills, share_phone`,
+      [employeeId, about, skills, body.sharePhone, request.user!.id],
+    );
+
+    const previous = before.rows[0];
+    // The fact of the change, not the text: About is the employee's own words
+    // and does not need a second copy in the audit trail. Phone sharing is a
+    // privacy choice, so its before/after is recorded.
+    await recordAudit({
+      actor: actorFromUser(request.user, request.user?.email),
+      action: "PROFILE_UPDATED",
+      entityType: "employee",
+      entityId: employeeId,
+      summary: "Updated their colleague-facing profile",
+      changes: {
+        about_changed: (previous?.about ?? null) !== about,
+        skills: { before: previous?.skills.length ?? 0, after: skills.length },
+        share_phone: { before: previous?.share_phone ?? false, after: body.sharePhone },
+      },
+    }, client);
+
+    await client.query("COMMIT");
+    const row = saved.rows[0]!;
+    response.status(200).json({
+      success: true,
+      message: "Your profile was saved.",
+      data: { about: row.about, skills: row.skills, sharePhone: row.share_phone },
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}

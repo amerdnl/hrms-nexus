@@ -4,6 +4,9 @@ import type { PoolClient } from "pg";
 import pool from "../config/db.js";
 import { actorFromUser, recordAudit } from "../services/auditService.js";
 import { diffChanges } from "../utils/auditRedaction.js";
+import { recordTimelineEvent } from "../services/timelineService.js";
+import { companyToday } from "../utils/companyClock.js";
+import { employmentStatusLabel } from "../utils/employeeLabels.js";
 import {
   eligibleEmploymentStatuses,
   isEmployeeAccountActive,
@@ -83,6 +86,62 @@ function reportingLineRefusal(response: Response, error: unknown): boolean {
     return true;
   }
   return false;
+}
+
+/**
+ * Timeline events for an employment change, in the update's transaction.
+ *
+ * Role, department and reporting line are already social facts, so their
+ * changes are company-visible. Employment status is not: its change is for the
+ * manager and HR only. Each write is SAVEPOINT-contained, so a timeline failure
+ * can never undo the update itself.
+ */
+async function recordEmploymentTimeline(
+  client: PoolClient,
+  request: Request,
+  employeeId: number,
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  managerAfter: number | null,
+): Promise<void> {
+  const occurredOn = await companyToday(client);
+  const base = { employeeId, occurredOn, actorUserId: request.user?.id ?? null };
+
+  if ((before.job_title ?? null) !== (after.job_title ?? null) && after.job_title) {
+    await recordTimelineEvent({
+      ...base, kind: "job_title_changed", visibility: "company",
+      title: `New role: ${String(after.job_title)}`,
+      detail: { from: before.job_title ?? null, to: after.job_title },
+    }, client);
+  }
+
+  if (String(before.department_id ?? "") !== String(after.department_id ?? "") && after.department_id) {
+    const department = await client.query<{ name: string }>(
+      "SELECT name FROM departments WHERE id = $1", [after.department_id],
+    );
+    await recordTimelineEvent({
+      ...base, kind: "department_changed", visibility: "company",
+      title: `Moved to ${department.rows[0]?.name ?? "a new department"}`,
+    }, client);
+  }
+
+  if (String(before.manager_id ?? "") !== String(after.manager_id ?? "")) {
+    const manager = managerAfter === null ? null : await client.query<{ full_name: string }>(
+      "SELECT full_name FROM employees WHERE id = $1", [managerAfter],
+    );
+    await recordTimelineEvent({
+      ...base, kind: "manager_changed", visibility: "company",
+      title: manager?.rows[0] ? `Now reports to ${manager.rows[0].full_name}` : "No longer has a recorded manager",
+    }, client);
+  }
+
+  if ((before.employment_status ?? null) !== (after.employment_status ?? null)) {
+    await recordTimelineEvent({
+      ...base, kind: "status_changed", visibility: "management",
+      title: `Employment status: ${employmentStatusLabel(String(after.employment_status))}`,
+      detail: { from: before.employment_status ?? null, to: after.employment_status },
+    }, client);
+  }
 }
 
 /** Records a reporting-line change as its own, filterable audit event. */
@@ -708,6 +767,8 @@ export const updateEmployee = async (request: Request, response: Response) => {
     if (managerBefore !== managerAfter) {
       await auditManagerChange(client, request, after, managerBefore, managerAfter);
     }
+
+    await recordEmploymentTimeline(client, request, id, locked.before ?? {}, after, managerAfter);
 
     await client.query("COMMIT");
 
