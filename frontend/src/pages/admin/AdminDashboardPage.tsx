@@ -63,6 +63,11 @@ function payrollTone(status: string | undefined) {
   return "neutral" as const;
 }
 
+/** "approved" -> "Approved", as the payroll page labels a period. */
+function capitalize(status: string) {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 export default function AdminDashboardPage() {
   const [dashboard, setDashboard] = useState<AdminDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -131,7 +136,7 @@ export default function AdminDashboardPage() {
           description="Overview of employees, attendance, and leave activity."
         />
         <div
-          className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4"
+          className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4"
           aria-busy="true"
         >
           {/* One live message for the whole region. The skeletons themselves
@@ -142,9 +147,9 @@ export default function AdminDashboardPage() {
           {Array.from({ length: 4 }, (_, index) => (
             <div
               key={index}
-              className="rounded-card border border-line bg-surface p-5 shadow-card"
+              className="rounded-card border border-line bg-surface p-4 shadow-card sm:p-5"
             >
-              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-4 w-24 max-w-full" />
               <Skeleton className="mt-4 h-8 w-16" />
             </div>
           ))}
@@ -224,7 +229,9 @@ export default function AdminDashboardPage() {
         description="Overview of employees, attendance, and leave activity."
       />
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Two-up on a phone as well: seven full-width cards were more than a
+          screen of scrolling before any content. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
         <StatCard
           label="Total employees"
           value={dashboard.totalEmployees}
@@ -283,13 +290,13 @@ export default function AdminDashboardPage() {
         />
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3">
         <StatCard
           label="On leave today"
           value={dashboard.onLeaveToday}
           icon={CalendarDays}
           tone={dashboard.onLeaveToday > 0 ? "info" : "neutral"}
-          hint={`Approved leave covering ${dashboard.today}`}
+          hint={`Approved leave covering ${formatDate(dashboard.today)}`}
           to="/admin/leave"
         />
 
@@ -314,9 +321,10 @@ export default function AdminDashboardPage() {
           }
           icon={Wallet}
           tone={payrollTone(dashboard.payrollStatus?.status)}
+          className="col-span-2 xl:col-span-1"
           hint={
             dashboard.payrollStatus
-              ? `${dashboard.payrollStatus.status} · ${dashboard.payrollStatus.records} employees · net ${formatSen(dashboard.payrollStatus.netSen)}`
+              ? `${capitalize(dashboard.payrollStatus.status)} · ${dashboard.payrollStatus.records} employees · net RM ${formatSen(dashboard.payrollStatus.netSen)}`
               : "Open a payroll period to begin"
           }
           to="/admin/payroll"
@@ -341,7 +349,7 @@ export default function AdminDashboardPage() {
             <EmptyState
               icon={Clock3}
               title="No attendance recorded today yet"
-              description={`Nothing has been recorded for ${dashboard.today}. Check-ins appear here as they happen.`}
+              description={`Nothing has been recorded for ${formatDate(dashboard.today)}. Check-ins appear here as they happen.`}
             />
           ) : (
             <SegmentedBar
@@ -363,7 +371,10 @@ export default function AdminDashboardPage() {
           }
         >
           {leaveSummaryState === "loading" ? (
-            <p className="text-sm text-fg-muted">Loading leave summary...</p>
+            <div aria-busy="true">
+              <p className="sr-only" aria-live="polite">Loading leave summary</p>
+              <SkeletonText lines={4} />
+            </div>
           ) : leaveSummaryState === "failed" ? (
             <Alert tone="warning">
               The leave type summary could not be loaded. The rest of this
@@ -466,17 +477,15 @@ export default function AdminDashboardPage() {
               {recentAttendance.map((attendance) => (
                 <li
                   key={attendance.id}
-                  className="border-b border-line pb-3 last:border-0 last:pb-0"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 border-b border-line pb-3 last:border-0 last:pb-0"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="min-w-0 truncate text-sm font-medium text-fg">
-                      {attendance.employeeName}
-                    </p>
+                  <p className="text-sm font-medium text-fg [overflow-wrap:anywhere]">
+                    {attendance.employeeName}
+                  </p>
 
-                    <StatusBadge {...attendanceStatusMeta(attendance.status)} />
-                  </div>
+                  <StatusBadge {...attendanceStatusMeta(attendance.status)} />
 
-                  <p className="mt-1 text-xs text-fg-subtle">
+                  <p className="col-span-2 mt-1 text-xs text-fg-subtle">
                     {formatDate(attendance.attendanceDate)}
                   </p>
                 </li>
@@ -497,17 +506,15 @@ export default function AdminDashboardPage() {
               {recentLeaves.map((leave) => (
                 <li
                   key={leave.id}
-                  className="border-b border-line pb-3 last:border-0 last:pb-0"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 border-b border-line pb-3 last:border-0 last:pb-0"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="min-w-0 truncate text-sm font-medium text-fg">
-                      {leave.employeeName ?? "—"}
-                    </p>
+                  <p className="text-sm font-medium text-fg [overflow-wrap:anywhere]">
+                    {leave.employeeName ?? "—"}
+                  </p>
 
-                    <StatusBadge {...leaveStatusMeta(leave.status)} />
-                  </div>
+                  <StatusBadge {...leaveStatusMeta(leave.status)} />
 
-                  <p className="mt-1 text-xs text-fg-subtle">
+                  <p className="col-span-2 mt-1 text-xs text-fg-subtle">
                     {leaveTypeMeta(leave.leaveType).label} ·{" "}
                     {formatDate(leave.startDate)} &rarr;{" "}
                     {formatDate(leave.endDate)}

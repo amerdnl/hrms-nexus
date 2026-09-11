@@ -70,7 +70,7 @@ export default function StatCard({
         {iconPlacement === "trailing" && iconTile}
       </div>
 
-      <p className="mt-3 text-3xl font-bold tracking-tight text-fg">
+      <p className="mt-3 text-2xl font-bold tracking-tight text-fg sm:text-3xl">
         {/* An em dash rather than a spinner: these sit in grids of 4-5 cards,
             and spinners in every tile read as an error state. */}
         {isLoading ? <span className="text-fg-subtle">&mdash;</span> : value}
@@ -85,7 +85,8 @@ export default function StatCard({
   );
 
   const shared = cn(
-    "block rounded-card border border-line bg-surface p-5 shadow-card",
+    // p-4 below sm, where the dashboard sets these two-up on a phone.
+    "block rounded-card border border-line bg-surface p-4 shadow-card sm:p-5",
     className,
   );
 
