@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   BadgeCheck,
   CalendarDays,
   CalendarOff,
@@ -6,7 +7,6 @@ import {
   Clock3,
   LogIn,
   LogOut,
-  Receipt,
   ShieldAlert,
   UserRound,
   Wallet,
@@ -18,10 +18,11 @@ import VerifiedClockPanel from "../../components/attendance/VerifiedClockPanel";
 import Alert from "../../components/ui/Alert";
 import Button from "../../components/ui/Button";
 import EmptyState from "../../components/ui/EmptyState";
+import ErrorState from "../../components/ui/ErrorState";
 import LinkButton from "../../components/ui/LinkButton";
-import PageHeader from "../../components/ui/PageHeader";
+import ProgressBar from "../../components/ui/ProgressBar";
 import SectionCard from "../../components/ui/SectionCard";
-import StatCard from "../../components/ui/StatCard";
+import Skeleton, { SkeletonText } from "../../components/ui/Skeleton";
 import StatusBadge from "../../components/ui/StatusBadge";
 import type {
   EmployeeAttendanceEntry,
@@ -29,7 +30,10 @@ import type {
   EmployeeLeaveEntry,
 } from "../../types/dashboard";
 import { formatPeriod, formatSen } from "../../types/payroll";
-import { formatDate, formatTime } from "../../utils/datetime";
+import { formatWorkHoursBetween } from "../../utils/attendance";
+import { cn } from "../../utils/cn";
+import { formatDate, formatDateRange, formatTime } from "../../utils/datetime";
+import { formatLeaveDuration } from "../../utils/leave";
 import {
   attendanceStatusMeta,
   leaveStatusMeta,
@@ -42,14 +46,6 @@ const notRecordedMeta: StatusMeta = {
   tone: "neutral",
   icon: Clock3,
 };
-
-/** Inclusive whole days, computed on plain YYYY-MM-DD text. */
-function inclusiveDays(start: string, end: string): number {
-  const from = Date.parse(`${start}T00:00:00Z`);
-  const to = Date.parse(`${end}T00:00:00Z`);
-  if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return 0;
-  return Math.round((to - from) / 86_400_000) + 1;
-}
 
 export default function EmployeeDashboardPage() {
   const [dashboard, setDashboard] = useState<EmployeeDashboardData | null>(null);
@@ -77,19 +73,38 @@ export default function EmployeeDashboardPage() {
   }, [load]);
 
   if (isLoading) {
-    return <p className="text-sm text-fg-muted">Loading dashboard...</p>;
-  }
-
-  if (error) {
     return (
-      <section className="mx-auto max-w-7xl space-y-4">
-        <Alert tone="danger">{error}</Alert>
-        <Button onClick={() => { setIsLoading(true); void load(); }}>Try again</Button>
+      <section className="mx-auto max-w-7xl space-y-6" aria-busy="true">
+        <p className="sr-only" aria-live="polite">Loading your dashboard</p>
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-72" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <div className="grid items-start gap-6 lg:grid-cols-3">
+          <SectionCard className="lg:col-span-2">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="mt-4 h-10 w-56" />
+            <SkeletonText lines={2} className="mt-6" />
+          </SectionCard>
+          <SectionCard><SkeletonText lines={5} /></SectionCard>
+        </div>
       </section>
     );
   }
 
-  if (!dashboard) return null;
+  if (error || !dashboard) {
+    return (
+      <section className="mx-auto max-w-3xl">
+        <SectionCard>
+          <ErrorState
+            title="Your dashboard could not be loaded"
+            description={error || "No dashboard data was returned."}
+            onRetry={() => { setIsLoading(true); void load(); }}
+          />
+        </SectionCard>
+      </section>
+    );
+  }
 
   const {
     employee, todayAttendance, recentAttendance, leaveBalances, leaveYear,
@@ -110,311 +125,337 @@ export default function EmployeeDashboardPage() {
   // listed in full below. Absent rather than zero when it could not be read.
   const annual = leaveBalances?.find((balance) => balance.leaveType === "annual") ?? null;
 
+  // The next thing to do today, stated once. Never offered when it is already
+  // done, so the primary button always means what it says.
+  const nextAction = !hasCheckedIn ? "check-in" : !hasCheckedOut ? "check-out" : null;
+
   return (
     <section className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        title={`Welcome, ${employee.fullName}`}
-        description={`${employee.jobTitle ?? "Employee"} · ${employee.departmentName ?? "No department"} · ${employee.employeeNumber}`}
-      />
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
+          {greeting()}, {givenName(employee.fullName)}
+        </h1>
+        <p className="mt-1 text-sm text-fg-muted">
+          {formatDate(dashboard.today)} · {employee.jobTitle ?? "Employee"}
+          {employee.departmentName ? `, ${employee.departmentName}` : ""}
+        </p>
+      </header>
 
-      {message && <Alert tone="success">{message}</Alert>}
+      {message && <Alert tone="success" onDismiss={() => setMessage("")}>{message}</Alert>}
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Today's attendance"
-          value={todayMeta.label}
-          icon={todayMeta.icon}
-          tone={todayMeta.tone}
-          hint={
-            todayAttendance
-              ? `In ${formatTime(todayAttendance.checkInTime)} · Out ${formatTime(todayAttendance.checkOutTime)}`
-              : `Nothing recorded for ${formatDate(dashboard.today)}`
-          }
-          to="/employee/attendance"
-        />
-
-        <StatCard
-          label="Annual leave remaining"
-          value={
-            balancesUnavailable ? "Unavailable" : annual ? `${annual.remainingDays} days` : "—"
-          }
-          icon={balancesUnavailable ? ShieldAlert : CalendarDays}
-          tone={balancesUnavailable ? "neutral" : annual && annual.remainingDays > 0 ? "success" : "neutral"}
-          hint={
-            balancesUnavailable
-              ? "Could not be loaded. Open Leave to check."
-              : annual
-                ? `${annual.availableDays} available after pending · ${leaveYear}`
-                : "No annual leave policy is active"
-          }
-          to="/employee/leave"
-        />
-
-        <StatCard
-          label="Pending leave requests"
-          value={pendingLeaveCount}
-          icon={Clock3}
-          tone={pendingLeaveCount > 0 ? "warning" : "neutral"}
-          hint={pendingLeaveCount > 0 ? "Awaiting a decision" : "Nothing awaiting a decision"}
-          to="/employee/leave"
-        />
-
-        <StatCard
-          label="Latest payslip"
-          value={
-            payslipUnavailable
-              ? "Unavailable"
-              : latestPayslip
-                ? formatSen(latestPayslip.netSen)
-                : "None yet"
-          }
-          icon={payslipUnavailable ? ShieldAlert : Wallet}
-          tone={payslipUnavailable ? "neutral" : latestPayslip ? "info" : "neutral"}
-          hint={
-            payslipUnavailable
-              ? "Could not be loaded. Open Payslips to check."
-              : latestPayslip
-                ? `Net pay · ${formatPeriod(latestPayslip.periodYear, latestPayslip.periodMonth)}`
-                : "A payslip appears once payroll is approved"
-          }
-          to="/employee/payroll"
-        />
-      </div>
-
-      {/* ------------------------------------------------- clock in and out */}
-      <SectionCard
-        title="Record today's attendance"
-        description="Scan the office QR code to record verified attendance. The official time is set by the server."
-        icon={Clock3}
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <Button
-            icon={LogIn}
-            onClick={() => { setClockMode("check-in"); setMessage(""); }}
-            disabled={hasCheckedIn || clockMode !== null}
-          >
-            Check in
-          </Button>
-
-          <Button
-            icon={LogOut}
-            onClick={() => { setClockMode("check-out"); setMessage(""); }}
-            disabled={!hasCheckedIn || hasCheckedOut || clockMode !== null}
-          >
-            Check out
-          </Button>
-
-          {todayAttendance?.verificationStatus && (
-            <span className="inline-flex items-center gap-2 self-center text-xs text-fg-subtle">
-              <BadgeCheck className="size-4" aria-hidden="true" />
-              {verificationLabel(todayAttendance.verificationStatus)}
-            </span>
-          )}
-        </div>
-      </SectionCard>
-
-      {clockMode && (
-        <VerifiedClockPanel
-          mode={clockMode}
-          onRecorded={() => {
-            setClockMode(null);
-            setMessage(
-              clockMode === "check-in" ? "Checked in successfully." : "Checked out successfully.",
-            );
-            // Re-read from the server rather than patching local state, so the
-            // dashboard shows what was actually recorded.
-            void load();
-          }}
-          onCancel={() => setClockMode(null)}
-        />
-      )}
-
-      <SectionCard title="Quick links">
-        <div className="flex flex-wrap gap-3">
-          <LinkButton to="/employee/attendance" variant="secondary" icon={Clock3}>
-            Attendance
-          </LinkButton>
-
-          <LinkButton to="/employee/leave" variant="secondary" icon={CalendarPlus}>
-            Apply leave
-          </LinkButton>
-
-          <LinkButton to="/employee/payroll" variant="secondary" icon={Receipt}>
-            Payslips
-          </LinkButton>
-
-          <LinkButton to="/employee/profile" variant="secondary" icon={UserRound}>
-            My profile
-          </LinkButton>
-        </div>
-      </SectionCard>
-
-      {/* ------------------------------------------------------- leave */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <SectionCard
-          title="Leave balance"
-          description={leaveYear ? `Leave year ${leaveYear}` : undefined}
-          icon={CalendarDays}
-          padded={!balancesUnavailable && (leaveBalances?.length ?? 0) > 0}
-        >
-          {balancesUnavailable ? (
-            <EmptyState
-              icon={ShieldAlert}
-              title="Your leave balance could not be loaded"
-              description="This is a temporary problem reading the balance, not a balance of zero. Open the Leave page to check."
-              action={<LinkButton to="/employee/leave" variant="secondary">Open Leave</LinkButton>}
-            />
-          ) : (leaveBalances?.length ?? 0) === 0 ? (
-            <EmptyState
-              icon={CalendarOff}
-              title="No leave types are active"
-              description="Once a leave policy is active your entitlement appears here."
-            />
-          ) : (
-            <ul className="space-y-3">
-              {leaveBalances!.map((balance) => (
-                <li
-                  key={balance.leaveType}
-                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3 last:border-0 last:pb-0"
+      {/*
+        Three regions on one grid. Today leads; the side column (leave, pay,
+        recent attendance) spans both rows; the lists and employment sit under
+        Today. The first row is sized by Today alone (auto) and the second
+        takes the rest (1fr), so the side column's extra height lands at the
+        very bottom instead of opening a gap under Today. DOM order is Today,
+        side, lists - which is also the phone order, so checking in is the
+        first thing on a small screen.
+      */}
+      <div className="grid items-start gap-6 lg:grid-cols-3 lg:grid-rows-[auto_1fr]">
+        <div className="space-y-6 lg:col-span-2">
+          <SectionCard title="Today" description={formatDate(dashboard.today)} icon={Clock3}>
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <span
+                  className={cn("grid h-14 w-14 shrink-0 place-items-center rounded-2xl", HERO_TONE[todayMeta.tone])}
+                  aria-hidden="true"
                 >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-fg">
-                      {leaveTypeMeta(balance.leaveType).label}
-                      {!balance.isPaid && (
-                        <span className="ml-2 text-xs font-normal text-fg-subtle">unpaid</span>
-                      )}
-                    </p>
-                    <p className="mt-0.5 text-xs text-fg-subtle">
-                      {balance.deductsBalance
-                        ? `${balance.usedDays} used · ${balance.pendingDays} pending of ${balance.entitledDays}`
-                        : "Does not deduct from a balance"}
-                    </p>
-                  </div>
-
-                  {balance.deductsBalance ? (
-                    <p className="text-sm font-semibold text-fg">
-                      {balance.remainingDays}
-                      <span className="ml-1 text-xs font-normal text-fg-subtle">left</span>
+                  <todayMeta.icon size={26} />
+                </span>
+                <div>
+                  <p className="text-2xl font-bold tracking-tight text-fg">{todayMeta.label}</p>
+                  {todayAttendance?.verificationStatus ? (
+                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-fg-subtle">
+                      <BadgeCheck className="size-3.5" aria-hidden="true" />
+                      {verificationLabel(todayAttendance.verificationStatus)}
                     </p>
                   ) : (
-                    <p className="text-sm text-fg-muted">{balance.usedDays} taken</p>
+                    <p className="mt-0.5 text-xs text-fg-subtle">Nothing recorded yet today</p>
                   )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </SectionCard>
+                </div>
+              </div>
 
-        <SectionCard
-          title="Leave"
-          icon={CalendarDays}
-          padded={recentLeaves.length > 0 || upcomingLeave !== null}
-        >
-          {upcomingLeave ? (
-            <div className="mb-4 rounded-lg bg-info-soft px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-info-fg">
-                Next approved leave
-              </p>
-              <p className="mt-1 text-sm font-medium text-fg">
-                {leaveTypeMeta(upcomingLeave.leaveType).label} ·{" "}
-                {upcomingLeave.workingDays ?? inclusiveDays(upcomingLeave.startDate, upcomingLeave.endDate)}{" "}
-                {(upcomingLeave.workingDays ?? 0) === 1 ? "day" : "days"}
-              </p>
-              <p className="mt-0.5 text-xs text-fg-muted">
-                {formatDate(upcomingLeave.startDate)} &rarr; {formatDate(upcomingLeave.endDate)}
-              </p>
+              {/* Check-in and check-out both open the same verified flow; only
+                  the one that applies right now is offered as the main action. */}
+              <div className="flex flex-col gap-2 sm:items-end">
+                {nextAction ? (
+                  <Button
+                    icon={nextAction === "check-in" ? LogIn : LogOut}
+                    onClick={() => { setClockMode(nextAction); setMessage(""); }}
+                    disabled={clockMode !== null}
+                    className="sm:min-w-40"
+                  >
+                    {nextAction === "check-in" ? "Check in" : "Check out"}
+                  </Button>
+                ) : (
+                  <StatusBadge label="Done for today" tone="success" icon={BadgeCheck} />
+                )}
+                <p className="text-xs text-fg-subtle">Verified with the office QR code</p>
+              </div>
             </div>
-          ) : recentLeaves.length > 0 ? (
-            <p className="mb-4 text-xs text-fg-subtle">No approved leave is scheduled.</p>
-          ) : null}
 
-          {recentLeaves.length === 0 ? (
-            <EmptyState
-              icon={CalendarOff}
-              title="No leave requests found"
-              description="Requests you submit will be listed here with their status."
-              action={<LinkButton to="/employee/leave" variant="secondary">Apply for leave</LinkButton>}
+            <dl className="mt-6 grid grid-cols-3 gap-3 border-t border-line pt-5">
+              <Fact label="Check-in" value={formatTime(todayAttendance?.checkInTime)} />
+              <Fact label="Check-out" value={formatTime(todayAttendance?.checkOutTime)} />
+              <Fact
+                label="Worked"
+                value={formatWorkHoursBetween(todayAttendance?.checkInTime, todayAttendance?.checkOutTime)}
+              />
+            </dl>
+            {todayAttendance?.lateMinutes !== null && todayAttendance?.lateMinutes !== undefined && todayAttendance.lateMinutes > 0 && (
+              <p className="mt-3 text-xs text-warning-fg">Checked in {todayAttendance.lateMinutes} minutes late.</p>
+            )}
+          </SectionCard>
+
+          {clockMode && (
+            <VerifiedClockPanel
+              mode={clockMode}
+              onRecorded={() => {
+                setClockMode(null);
+                setMessage(
+                  clockMode === "check-in" ? "Checked in successfully." : "Checked out successfully.",
+                );
+                // Re-read from the server rather than patching local state, so the
+                // dashboard shows what was actually recorded.
+                void load();
+              }}
+              onCancel={() => setClockMode(null)}
             />
-          ) : (
-            <ul className="space-y-3">
-              {recentLeaves.map((leave) => (
-                <LeaveRow key={leave.id} leave={leave} />
-              ))}
-            </ul>
           )}
-        </SectionCard>
-      </div>
 
-      {/* --------------------------------------------- attendance and pay */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <SectionCard
-          title="Recent attendance"
-          icon={Clock3}
-          padded={recentAttendance.length > 0}
-        >
-          {recentAttendance.length === 0 ? (
-            <EmptyState
-              icon={Clock3}
-              title="No attendance records found"
-              description="Your check-ins will appear here once you start recording them."
-            />
-          ) : (
-            <ul className="space-y-3">
-              {recentAttendance.map((entry) => (
-                <AttendanceRow key={entry.id} entry={entry} />
-              ))}
-            </ul>
-          )}
-        </SectionCard>
+        </div>
 
-        <SectionCard title="Employment" icon={UserRound}>
-          <dl className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-6 lg:col-start-3 lg:row-span-2 lg:row-start-1">
+          <SectionCard title="Annual leave" icon={CalendarDays} actions={<LinkButton to="/employee/leave" variant="ghost" size="sm">Leave</LinkButton>}>
+            {balancesUnavailable ? (
+              <p className="text-sm text-fg-muted">
+                Your balance could not be loaded. This is a temporary problem, not a balance of zero.
+              </p>
+            ) : annual ? (
+              <>
+                <p className="text-3xl font-bold tracking-tight text-fg">
+                  {annual.remainingDays}
+                  <span className="ml-1.5 text-sm font-medium text-fg-muted">
+                    of {annual.entitledDays} days left
+                  </span>
+                </p>
+                <ProgressBar
+                  className="mt-3"
+                  tone="primary"
+                  value={annual.remainingDays}
+                  max={annual.entitledDays}
+                  label={`${annual.remainingDays} of ${annual.entitledDays} annual leave days remaining`}
+                  isDecorative
+                />
+                <p className="mt-2 text-xs text-fg-subtle">
+                  {annual.availableDays} available after pending
+                  {pendingLeaveCount > 0 ? ` · ${pendingLeaveCount} request${pendingLeaveCount === 1 ? "" : "s"} pending` : ""}
+                  {leaveYear ? ` · ${leaveYear}` : ""}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-fg-muted">No annual leave policy is active.</p>
+            )}
+          </SectionCard>
+
+          <SectionCard title="Latest payslip" icon={Wallet} actions={<LinkButton to="/employee/payroll" variant="ghost" size="sm">Payslips</LinkButton>}>
+            {payslipUnavailable ? (
+              <p className="text-sm text-fg-muted">
+                Could not be loaded. This is a temporary problem, not an absence of pay records.
+              </p>
+            ) : latestPayslip ? (
+              <>
+                <p className="text-xs font-medium text-fg-muted">
+                  {formatPeriod(latestPayslip.periodYear, latestPayslip.periodMonth)} · net pay
+                </p>
+                <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-fg">
+                  <span className="mr-1 text-base font-semibold text-fg-muted">RM</span>
+                  {formatSen(latestPayslip.netSen)}
+                </p>
+                <p className="mt-2 text-xs text-fg-subtle">
+                  Gross {formatSen(latestPayslip.grossSen)} · deductions {formatSen(latestPayslip.deductionsSen)}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-fg-muted">
+                No payslip yet. One appears once a payroll period has been approved.
+              </p>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title="Recent attendance"
+            icon={Clock3}
+            actions={
+                <LinkButton
+                  to="/employee/attendance"
+                  variant="ghost"
+                  size="sm"
+                  icon={ArrowRight}
+                  aria-label="Attendance history"
+                  title="Attendance history"
+                />
+              }
+          >
+            {recentAttendance.length === 0 ? (
+              <EmptyState
+                icon={Clock3}
+                title="No attendance recorded yet"
+                description="Your check-ins appear here once you start recording them."
+                className="py-6"
+              />
+            ) : (
+              <ul className="divide-y divide-line">
+                {recentAttendance.map((entry) => (
+                  <AttendanceRow key={entry.id} entry={entry} />
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+        </div>
+
+        <div className="space-y-6 lg:col-span-2 lg:row-start-2">
+          <div className="grid items-start gap-6 md:grid-cols-2">
+            <SectionCard
+              title="Leave balances"
+              description={leaveYear ? `Leave year ${leaveYear}` : undefined}
+              icon={CalendarDays}
+            >
+              {balancesUnavailable ? (
+                <EmptyState
+                  icon={ShieldAlert}
+                  title="Your leave balance could not be loaded"
+                  description="This is a temporary problem reading the balance, not a balance of zero."
+                  action={<LinkButton to="/employee/leave" variant="secondary">Open Leave</LinkButton>}
+                  className="py-6"
+                />
+              ) : (leaveBalances?.length ?? 0) === 0 ? (
+                <EmptyState
+                  icon={CalendarOff}
+                  title="No leave types are active"
+                  description="Once a leave policy is active your entitlement appears here."
+                  className="py-6"
+                />
+              ) : (
+                <ul className="space-y-4">
+                  {leaveBalances!.map((balance) => {
+                    const meta = leaveTypeMeta(balance.leaveType);
+                    return (
+                      <li key={balance.leaveType}>
+                        <div className="flex items-baseline justify-between gap-3 text-sm">
+                          <span className="font-medium text-fg">
+                            {meta.label}
+                            {!balance.isPaid && <span className="ml-2 text-xs font-normal text-fg-subtle">unpaid</span>}
+                          </span>
+                          {balance.deductsBalance ? (
+                            <span className="tabular-nums text-fg">
+                              <span className="font-semibold">{balance.remainingDays}</span>
+                              <span className="text-fg-subtle"> / {balance.entitledDays}</span>
+                            </span>
+                          ) : (
+                            <span className="text-xs text-fg-muted">{balance.usedDays} taken</span>
+                          )}
+                        </div>
+                        {balance.deductsBalance ? (
+                          <ProgressBar
+                            className="mt-2"
+                            size="sm"
+                            tone={meta.tone}
+                            value={balance.remainingDays}
+                            max={balance.entitledDays}
+                            label={`${meta.label}: ${balance.remainingDays} of ${balance.entitledDays} days remaining`}
+                            isDecorative
+                          />
+                        ) : (
+                          <p className="mt-1 text-xs text-fg-subtle">Does not deduct from a balance</p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </SectionCard>
+
+            <SectionCard
+              title="Leave"
+              icon={CalendarDays}
+              actions={<LinkButton to="/employee/leave" variant="ghost" size="sm" icon={CalendarPlus}>Apply</LinkButton>}
+            >
+              {upcomingLeave && (
+                <div className="mb-4 rounded-xl bg-info-soft p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-info-fg">Next approved leave</p>
+                  <p className="mt-1 text-sm font-semibold text-fg">
+                    {formatDateRange(upcomingLeave.startDate, upcomingLeave.endDate)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-fg-muted">
+                    {leaveTypeMeta(upcomingLeave.leaveType).label} · {formatLeaveDuration(upcomingLeave)}
+                  </p>
+                </div>
+              )}
+
+              {recentLeaves.length === 0 ? (
+                <EmptyState
+                  icon={CalendarOff}
+                  title="No leave requests yet"
+                  description="Requests you submit are listed here with their status."
+                  className="py-6"
+                />
+              ) : (
+                <ul className="divide-y divide-line">
+                  {recentLeaves.map((leave) => (
+                    <LeaveRow key={leave.id} leave={leave} />
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+
+          </div>
+        <SectionCard title="Employment" icon={UserRound} actions={<LinkButton to="/employee/profile" variant="ghost" size="sm">Profile</LinkButton>}>
+          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <Fact label="Employee number" value={employee.employeeNumber} />
             <Fact label="Job title" value={employee.jobTitle ?? "Not recorded"} />
             <Fact label="Department" value={employee.departmentName ?? "Not assigned"} />
-            <Fact
-              label="Employment status"
-              value={employee.employmentStatus.replaceAll("_", " ")}
-              capitalize
-            />
-            <Fact
-              label="Joined"
-              value={employee.employmentDate ? formatDate(employee.employmentDate) : "Not recorded"}
-            />
-            <Fact label="Company date" value={formatDate(dashboard.today)} />
+            <Fact label="Employment status" value={employee.employmentStatus.replaceAll("_", " ")} capitalize />
+            <Fact label="Joined" value={employee.employmentDate ? formatDate(employee.employmentDate) : "Not recorded"} />
           </dl>
-
-          {payslipUnavailable ? (
-            <p className="mt-4 border-t border-line pt-4 text-xs text-fg-subtle">
-              Your latest payslip could not be loaded. This is a temporary problem, not
-              an absence of pay records.
-            </p>
-          ) : latestPayslip ? (
-            <div className="mt-4 border-t border-line pt-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-fg-subtle">
-                Latest payslip · {formatPeriod(latestPayslip.periodYear, latestPayslip.periodMonth)}
-              </p>
-              <dl className="mt-2 grid gap-2 sm:grid-cols-3">
-                <Fact label="Gross" value={formatSen(latestPayslip.grossSen)} />
-                <Fact label="Deductions" value={formatSen(latestPayslip.deductionsSen)} />
-                <Fact label="Net pay" value={formatSen(latestPayslip.netSen)} />
-              </dl>
-              <div className="mt-3">
-                <LinkButton to="/employee/payroll" variant="secondary" icon={Receipt}>
-                  View payslips
-                </LinkButton>
-              </div>
-            </div>
-          ) : (
-            <p className="mt-4 border-t border-line pt-4 text-xs text-fg-subtle">
-              No payslip is available yet. A payslip appears here once a payroll period
-              has been approved.
-            </p>
-          )}
         </SectionCard>
+        </div>
       </div>
     </section>
   );
+}
+
+/** Solid-tinted tiles for the Today status, matching StatusBadge's tones. */
+const HERO_TONE: Record<StatusMeta["tone"], string> = {
+  success: "bg-success-soft text-success-fg",
+  warning: "bg-warning-soft text-warning-fg",
+  danger: "bg-danger-soft text-danger-fg",
+  info: "bg-info-soft text-info-fg",
+  primary: "bg-primary-soft text-primary",
+  neutral: "bg-surface-muted text-fg-muted",
+};
+
+/**
+ * Greeting word from the viewer's clock. Cosmetic only - nothing here decides
+ * a date; the company-local date shown beside it comes from the server.
+ */
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+/**
+ * The name to greet someone by. For a patronymic name the given name is
+ * everything before "bin", "binti", "a/l" or "a/p" - "Nurul Aisyah binti
+ * Kamal" is greeted as "Nurul Aisyah", not "Nurul". Otherwise the first word.
+ */
+function givenName(fullName: string): string {
+  const match = fullName.match(/^(.+?)\s+(?:bin|binti|bte|a\/l|a\/p)\s/i);
+  if (match) return match[1];
+  return fullName.split(/\s+/)[0] || fullName;
 }
 
 /**
@@ -429,7 +470,7 @@ function Fact(
   return (
     <div className="min-w-0">
       <dt className="text-xs text-fg-subtle">{label}</dt>
-      <dd className={`mt-0.5 truncate text-sm font-medium text-fg${capitalize ? " capitalize" : ""}`}>
+      <dd className={`mt-0.5 break-words text-sm font-medium text-fg${capitalize ? " capitalize" : ""}`}>
         {value}
       </dd>
     </div>
@@ -448,11 +489,11 @@ function verificationLabel(status: "verified" | "manual" | "exception"): string 
 
 function AttendanceRow({ entry }: { entry: EmployeeAttendanceEntry }) {
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3 last:border-0 last:pb-0">
+    <li className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
       <div className="min-w-0">
         <p className="text-sm font-medium text-fg">{formatDate(entry.attendanceDate)}</p>
-        <p className="mt-0.5 text-xs text-fg-subtle">
-          {formatTime(entry.checkInTime)} &rarr; {formatTime(entry.checkOutTime)}
+        <p className="mt-0.5 text-xs tabular-nums text-fg-subtle">
+          {formatTime(entry.checkInTime)} – {formatTime(entry.checkOutTime)}
           {entry.lateMinutes !== null && entry.lateMinutes > 0 && (
             <span className="ml-2 text-warning-fg">{entry.lateMinutes} min late</span>
           )}
@@ -466,17 +507,16 @@ function AttendanceRow({ entry }: { entry: EmployeeAttendanceEntry }) {
 
 function LeaveRow({ leave }: { leave: EmployeeLeaveEntry }) {
   return (
-    <li className="border-b border-line pb-3 last:border-0 last:pb-0">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-fg">
+    <li className="py-3 first:pt-0 last:pb-0">
+      <div className="flex items-center justify-between gap-2">
+        <p className="min-w-0 truncate text-sm font-medium text-fg">
           {leaveTypeMeta(leave.leaveType).label} leave
         </p>
         <StatusBadge {...leaveStatusMeta(leave.status)} />
       </div>
 
-      <p className="mt-1 text-xs text-fg-subtle">
-        {formatDate(leave.startDate)} &rarr; {formatDate(leave.endDate)}
-        {leave.workingDays !== null && ` · ${leave.workingDays} working days`}
+      <p className="mt-0.5 text-xs text-fg-subtle">
+        {formatDateRange(leave.startDate, leave.endDate)} · {formatLeaveDuration(leave)}
       </p>
 
       {leave.adminComment && (
