@@ -5,6 +5,7 @@ import pool from "../config/db.js";
 import { actorFromUser, recordAudit } from "../services/auditService.js";
 import { diffChanges } from "../utils/auditRedaction.js";
 import {
+  eligibleEmploymentStatuses,
   isEmployeeAccountActive,
   parseEmployeeListQuery,
   parseIdParam,
@@ -30,7 +31,84 @@ const employeeColumns = `
   e.employment_status,
   e.profile_image,
   e.created_at,
-  e.updated_at`;
+  e.updated_at,
+  e.manager_id,
+  m.full_name AS manager_name`;
+
+/** The join `employeeColumns` needs for the manager's name. */
+const managerJoin = "LEFT JOIN employees m ON m.id = e.manager_id";
+
+/**
+ * Checks a proposed manager against the database, returning a field error or
+ * null. The 0010 trigger is the authority on loops; this catches the cases that
+ * deserve a plain explanation before the database has to refuse them.
+ */
+async function managerProblem(
+  client: PoolClient,
+  employeeId: number | null,
+  managerId: number,
+): Promise<string | null> {
+  if (employeeId !== null && managerId === employeeId) {
+    return "An employee cannot report to themselves.";
+  }
+  const manager = await client.query<{ employment_status: string }>(
+    "SELECT employment_status FROM employees WHERE id = $1",
+    [managerId],
+  );
+  if (!manager.rows[0]) return "That manager does not exist.";
+  if (!eligibleEmploymentStatuses.includes(manager.rows[0].employment_status as never)) {
+    return "Choose an active or probation employee as manager.";
+  }
+  return null;
+}
+
+/** Maps the reporting-line guards in 0010 to a clear response. */
+function reportingLineRefusal(response: Response, error: unknown): boolean {
+  const constraint = constraintName(error);
+  if (databaseErrorCode(error) === "23514" && constraint === "employees_manager_cycle") {
+    response.status(409).json({
+      success: false,
+      code: "reporting_cycle",
+      message: "That reporting line would loop back to this employee. Choose a manager who is not below them.",
+      errors: { manager_id: "This manager reports, directly or indirectly, to this employee." },
+    });
+    return true;
+  }
+  if (databaseErrorCode(error) === "23514" && constraint === "employees_manager_not_self") {
+    response.status(400).json({
+      success: false,
+      message: "Check the highlighted employee fields.",
+      errors: { manager_id: "An employee cannot report to themselves." },
+    });
+    return true;
+  }
+  return false;
+}
+
+/** Records a reporting-line change as its own, filterable audit event. */
+async function auditManagerChange(
+  client: PoolClient,
+  request: Request,
+  employee: { id: number; employee_number: string; full_name: string },
+  before: number | null,
+  after: number | null,
+): Promise<void> {
+  const names = await client.query<{ id: string; full_name: string }>(
+    "SELECT id, full_name FROM employees WHERE id = ANY($1::int[])",
+    [[before, after].filter((value): value is number => value !== null)],
+  );
+  const nameOf = (id: number | null) =>
+    id === null ? "no manager" : names.rows.find((row) => Number(row.id) === id)?.full_name ?? `employee #${id}`;
+
+  await recordAudit({
+    actor: actorFromUser(request.user, request.user?.email),
+    action: "MANAGER_CHANGED",
+    entityType: "employee",
+    entityId: employee.id,
+    summary: `${employee.full_name} (${employee.employee_number}) now reports to ${nameOf(after)}, previously ${nameOf(before)}`,
+    changes: { manager_id: { before, after } },
+  }, client);
+}
 
 // Both indexes protect the same account identity; either violation is a conflict
 // for the caller, never a 500.
@@ -120,6 +198,7 @@ export const getEmployees = async (request: Request, response: Response) => {
        FROM employees e
        LEFT JOIN departments d ON e.department_id = d.id
        LEFT JOIN users u ON u.employee_id = e.id
+       ${managerJoin}
        ${whereClause}
        ORDER BY e.id${limitClause}`,
       values,
@@ -167,7 +246,8 @@ export const getEmployeeLookup = async (_request: Request, response: Response) =
   try {
     const result = await pool.query(
       `SELECT e.id, e.employee_number, e.full_name, e.job_title,
-              e.department_id, d.name AS department_name, e.employment_status
+              e.department_id, d.name AS department_name, e.employment_status,
+              e.manager_id
        FROM employees e
        LEFT JOIN departments d ON d.id = e.department_id
        ORDER BY e.full_name ASC, e.id ASC`,
@@ -214,6 +294,7 @@ export const getEmployeeById = async (request: Request, response: Response) => {
        FROM employees e
        LEFT JOIN departments d ON e.department_id = d.id
        LEFT JOIN users u ON u.employee_id = e.id
+       ${managerJoin}
        WHERE e.id = $1`,
       [id],
     );
@@ -223,7 +304,19 @@ export const getEmployeeById = async (request: Request, response: Response) => {
       return;
     }
 
-    response.status(200).json({ success: true, data: result.rows[0] });
+    // Every direct report, whatever their status: this is the HR record, and a
+    // former report is still part of the history an administrator reviews.
+    const reports = await pool.query(
+      `SELECT id, employee_number, full_name, job_title, employment_status
+       FROM employees WHERE manager_id = $1
+       ORDER BY (employment_status IN ('active', 'probation')) DESC, full_name, id`,
+      [id],
+    );
+
+    response.status(200).json({
+      success: true,
+      data: { ...result.rows[0], direct_reports: reports.rows },
+    });
   } catch (error) {
     console.error("Error fetching employee:", error);
     response.status(500).json({ success: false, message: "Failed to fetch employee" });
@@ -298,13 +391,26 @@ export const createEmployee = async (request: Request, response: Response) => {
       return;
     }
 
+    if (employee.manager_id !== undefined && employee.manager_id !== null) {
+      const problem = await managerProblem(client, null, employee.manager_id);
+      if (problem) {
+        await safeRollback(client);
+        response.status(400).json({
+          success: false,
+          message: "Check the highlighted employee fields.",
+          errors: { manager_id: problem },
+        });
+        return;
+      }
+    }
+
     const created = await client.query(
       `INSERT INTO employees (
          employee_number, full_name, phone, address, date_of_birth, gender,
          emergency_contact_name, emergency_contact_phone, job_title,
-         department_id, employment_date, employment_status
+         department_id, employment_date, employment_status, manager_id
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        RETURNING *`,
       [
         employee.employee_number,
@@ -319,6 +425,7 @@ export const createEmployee = async (request: Request, response: Response) => {
         employee.department_id,
         employee.employment_date ?? null,
         employee.employment_status,
+        employee.manager_id ?? null,
       ],
     );
 
@@ -355,8 +462,13 @@ export const createEmployee = async (request: Request, response: Response) => {
         department_id: record.department_id,
         employment_status: record.employment_status,
         job_title: record.job_title,
+        manager_id: record.manager_id,
       },
     }, client);
+
+    if (record.manager_id !== null) {
+      await auditManagerChange(client, request, record, null, Number(record.manager_id));
+    }
 
     await client.query("COMMIT");
 
@@ -368,6 +480,8 @@ export const createEmployee = async (request: Request, response: Response) => {
   } catch (error) {
     await safeRollback(client);
     const code = databaseErrorCode(error);
+
+    if (reportingLineRefusal(response, error)) return;
 
     if (code === "23505" && emailConflictConstraints.has(constraintName(error) ?? "")) {
       response.status(409).json({ success: false, message: "Email already exists" });
@@ -452,7 +566,7 @@ async function lockEmployee(
 const updatableColumns: Array<keyof EmployeeFieldValues> = [
   "full_name", "phone", "address", "date_of_birth", "gender",
   "emergency_contact_name", "emergency_contact_phone", "job_title",
-  "department_id", "employment_date",
+  "department_id", "employment_date", "manager_id",
 ];
 
 export const updateEmployee = async (request: Request, response: Response) => {
@@ -508,6 +622,19 @@ export const updateEmployee = async (request: Request, response: Response) => {
       await safeRollback(client);
       response.status(404).json({ success: false, message: "Department not found" });
       return;
+    }
+
+    if (employee.manager_id !== undefined && employee.manager_id !== null) {
+      const problem = await managerProblem(client, id, employee.manager_id);
+      if (problem) {
+        await safeRollback(client);
+        response.status(400).json({
+          success: false,
+          message: "Check the highlighted employee fields.",
+          errors: { manager_id: problem },
+        });
+        return;
+      }
     }
 
     if (employee.email !== undefined) {
@@ -576,6 +703,12 @@ export const updateEmployee = async (request: Request, response: Response) => {
       ]),
     }, client);
 
+    const managerBefore = locked.before?.manager_id == null ? null : Number(locked.before.manager_id);
+    const managerAfter = after.manager_id == null ? null : Number(after.manager_id);
+    if (managerBefore !== managerAfter) {
+      await auditManagerChange(client, request, after, managerBefore, managerAfter);
+    }
+
     await client.query("COMMIT");
 
     response.status(200).json({
@@ -586,6 +719,8 @@ export const updateEmployee = async (request: Request, response: Response) => {
   } catch (error) {
     await safeRollback(client);
     const code = databaseErrorCode(error);
+
+    if (reportingLineRefusal(response, error)) return;
 
     if (code === "23505" && emailConflictConstraints.has(constraintName(error) ?? "")) {
       response.status(409).json({ success: false, message: "Email already exists" });

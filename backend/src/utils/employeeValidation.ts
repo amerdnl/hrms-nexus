@@ -48,6 +48,8 @@ export interface EmployeeFieldValues {
   department_id?: number;
   employment_date?: string | null;
   employment_status?: EmploymentStatus;
+  /** Direct manager's employee id; null clears it, absent leaves it unchanged. */
+  manager_id?: number | null;
 }
 
 export type ValidationResult =
@@ -58,6 +60,7 @@ const createFields = [
   "employee_number", "full_name", "email", "temporary_password", "phone", "address",
   "date_of_birth", "gender", "emergency_contact_name", "emergency_contact_phone",
   "job_title", "department_id", "employment_date", "employment_status",
+  "manager_id",
 ];
 
 // employee_number and temporary_password are deliberately absent: the business
@@ -65,7 +68,7 @@ const createFields = [
 const updateFields = [
   "full_name", "email", "phone", "address", "date_of_birth", "gender",
   "emergency_contact_name", "emergency_contact_phone", "job_title",
-  "department_id", "employment_date", "employment_status",
+  "department_id", "employment_date", "employment_status", "manager_id",
 ];
 
 function hasControlCharacters(value: string): boolean {
@@ -267,6 +270,28 @@ function readFields(
       errors.department_id = "Select a department.";
     } else {
       data.department_id = parsed;
+    }
+  }
+
+  // Optional in both modes: absent leaves the reporting line alone, null clears
+  // it. Whether the manager exists, is employed and would not create a loop is
+  // decided against the database by the controller and the 0010 trigger.
+  if (supplied("manager_id")) {
+    const raw = value.manager_id;
+    if (raw === null || raw === "") {
+      data.manager_id = null;
+    } else {
+      const parsed =
+        typeof raw === "number"
+          ? raw
+          : typeof raw === "string" && /^\d+$/.test(raw.trim())
+            ? Number(raw.trim())
+            : Number.NaN;
+      if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+        errors.manager_id = "Choose a manager from the list, or none.";
+      } else {
+        data.manager_id = parsed;
+      }
     }
   }
 
