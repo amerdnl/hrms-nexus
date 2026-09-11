@@ -2,7 +2,11 @@ import axios from "axios";
 import { Building2, Clock3, MapPin } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { getApiErrorMessage } from "../../api/axios";
-import { getCompanySettings, saveCompanySettings, type CompanySettings } from "../../api/companySettingsApi";
+import {
+  getCompanySettings,
+  saveCompanySettings,
+  type CompanySettings,
+} from "../../api/companySettingsApi";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import Alert from "../../components/ui/Alert";
 import Button from "../../components/ui/Button";
@@ -12,16 +16,41 @@ import SectionCard from "../../components/ui/SectionCard";
 import TextArea from "../../components/ui/TextArea";
 import TextInput from "../../components/ui/TextInput";
 
-const textFields = ["company_name", "registration_number", "address", "email", "phone", "timezone",
-  "work_start_time", "work_end_time", "grace_period_minutes", "office_latitude", "office_longitude", "attendance_radius_meters"] as const;
+const textFields = [
+  "company_name",
+  "registration_number",
+  "address",
+  "email",
+  "phone",
+  "timezone",
+  "work_start_time",
+  "work_end_time",
+  "grace_period_minutes",
+  "office_latitude",
+  "office_longitude",
+  "attendance_radius_meters",
+] as const;
+
 type Field = typeof textFields[number];
 type Draft = Record<Field, string> & { working_days: number[] };
+
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const timezones = ["UTC", ...(typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [])];
+
+const timezones = [
+  "UTC",
+  ...(typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : []),
+];
+
 function draftOf(settings: CompanySettings): Draft {
-  return { ...Object.fromEntries(textFields.map((field) => [field, String(settings[field] ?? "")])) as Record<Field, string>, working_days: [...settings.working_days] };
+  return {
+    ...(Object.fromEntries(
+      textFields.map((field) => [field, String(settings[field] ?? "")]),
+    ) as Record<Field, string>),
+    working_days: [...settings.working_days],
+  };
 }
-const numeric = (value: string) => value.trim() === "" ? null : Number(value);
+
+const numeric = (value: string) => (value.trim() === "" ? null : Number(value));
 
 export default function CompanySettingsPage() {
   const [saved, setSaved] = useState<CompanySettings | null>(null);
@@ -35,74 +64,135 @@ export default function CompanySettingsPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [conflict, setConflict] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  const dirty = saved && draft ? JSON.stringify(draft) !== JSON.stringify(draftOf(saved)) : false;
+
+  const dirty = saved && draft
+    ? JSON.stringify(draft) !== JSON.stringify(draftOf(saved))
+    : false;
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    void getCompanySettings(controller.signal).then((settings) => {
-      if (controller.signal.aborted) return;
-      setSaved(settings); setDraft(draftOf(settings)); setConflict(false); setErrors({}); setSuccess("");
-    }).catch((cause: unknown) => {
-      if (!controller.signal.aborted) setError(getApiErrorMessage(cause, "Unable to load company settings."));
-    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+
+    void getCompanySettings(controller.signal)
+      .then((settings) => {
+        if (controller.signal.aborted) return;
+        setSaved(settings);
+        setDraft(draftOf(settings));
+        setConflict(false);
+        setErrors({});
+        setSuccess("");
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) {
+          setError(getApiErrorMessage(cause, "Unable to load company settings."));
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
     return () => controller.abort();
   }, [reload]);
 
   useEffect(() => {
-    if (Object.keys(errors).length) formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    if (Object.keys(errors).length) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
   }, [errors]);
 
   useEffect(() => {
     if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
   function change(field: Field, value: string) {
-    setDraft((current) => current ? { ...current, [field]: value } : current);
+    setDraft((current) => (current ? { ...current, [field]: value } : current));
     setSuccess("");
   }
+
   function reloadSettings() {
     if (dirty) setConfirmReload(true);
     else setReload((value) => value + 1);
   }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!draft || !saved || saving || conflict) return;
-    const invalidNumbers = [...(formRef.current?.querySelectorAll<HTMLInputElement>('input[type="number"]') ?? [])]
-      .filter((element) => element.validity.badInput);
+
+    const invalidNumbers = [
+      ...(formRef.current?.querySelectorAll<HTMLInputElement>('input[type="number"]') ?? []),
+    ].filter((element) => element.validity.badInput);
+
     if (invalidNumbers.length) {
-      setErrors(Object.fromEntries(invalidNumbers.map((element) => [element.id, "Enter a valid number."])));
-      setError("Check the highlighted settings fields."); setSuccess("");
+      setErrors(
+        Object.fromEntries(invalidNumbers.map((element) => [element.id, "Enter a valid number."])),
+      );
+      setError("Check the highlighted settings fields.");
+      setSuccess("");
       return;
     }
-    setSaving(true); setErrors({}); setError(""); setSuccess("");
+
+    setSaving(true);
+    setErrors({});
+    setError("");
+    setSuccess("");
+
     try {
       const result = await saveCompanySettings({
-        ...draft, revision: saved.revision,
+        ...draft,
+        revision: saved.revision,
         grace_period_minutes: numeric(draft.grace_period_minutes) as number,
-        office_latitude: numeric(draft.office_latitude), office_longitude: numeric(draft.office_longitude),
+        office_latitude: numeric(draft.office_latitude),
+        office_longitude: numeric(draft.office_longitude),
         attendance_radius_meters: numeric(draft.attendance_radius_meters) as number,
       });
-      setSaved(result); setDraft(draftOf(result)); setSuccess("Company settings saved.");
+      setSaved(result);
+      setDraft(draftOf(result));
+      setSuccess("Company settings saved.");
     } catch (cause) {
       setError(getApiErrorMessage(cause, "Unable to save settings. Your edits are still here."));
       if (axios.isAxiosError<{ errors?: Record<string, string> }>(cause)) {
         setErrors(cause.response?.data.errors ?? {});
         if (cause.response?.status === 409) setConflict(true);
       }
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function input(field: Field, label: string, options: { type?: string; required?: boolean; maxLength?: number; min?: number; max?: number; step?: string; hint?: string; list?: string } = {}) {
+  function input(
+    field: Field,
+    label: string,
+    options: {
+      type?: string;
+      required?: boolean;
+      maxLength?: number;
+      min?: number;
+      max?: number;
+      step?: string;
+      hint?: string;
+      list?: string;
+    } = {},
+  ) {
     const { hint, ...props } = options;
-    return <FormField id={field} label={label} required={props.required} error={errors[field]} hint={hint}>
-      <TextInput id={field} value={draft?.[field] ?? ""} onChange={(event) => change(field, event.target.value)}
-        invalid={Boolean(errors[field])} aria-describedby={errors[field] ? `${field}-error` : hint ? `${field}-hint` : undefined} {...props} />
-    </FormField>;
+    return (
+      <FormField id={field} label={label} required={props.required} error={errors[field]} hint={hint}>
+        <TextInput
+          id={field}
+          value={draft?.[field] ?? ""}
+          onChange={(event) => change(field, event.target.value)}
+          invalid={Boolean(errors[field])}
+          aria-describedby={errors[field] ? `${field}-error` : hint ? `${field}-hint` : undefined}
+          {...props}
+        />
+      </FormField>
+    );
   }
 
   return <section className="mx-auto max-w-4xl space-y-6">
