@@ -3,7 +3,9 @@ import { formatPeriod, formatSen, type PayrollRecordDetail } from "../../types/p
 
 /**
  * One payslip, shared by the administrator's record view and the employee's own
- * payslip. Every total is the sum of the lines shown above it, so a figure can
+ * payslip. Money is set in the body face with tabular figures rather than a
+ * monospace one, matching every other amount in the app; the decimal points
+ * still line up. Every total is the sum of the lines shown above it, so a figure can
  * always be explained rather than taken on trust.
  */
 export default function PayslipView({ detail }: { detail: PayrollRecordDetail }) {
@@ -14,7 +16,7 @@ export default function PayslipView({ detail }: { detail: PayrollRecordDetail })
   const Row = ({ label, amount, muted }: { label: string; amount: string; muted?: boolean }) => (
     <div className="flex items-baseline justify-between gap-4 py-1.5">
       <span className={muted ? "text-sm text-fg-muted" : "text-sm text-fg"}>{label}</span>
-      <span className="font-mono text-sm tabular-nums text-fg">{amount}</span>
+      <span className="text-sm tabular-nums text-fg">{amount}</span>
     </div>
   );
 
@@ -57,7 +59,7 @@ export default function PayslipView({ detail }: { detail: PayrollRecordDetail })
           </div>
           <div className="mt-2 flex items-baseline justify-between gap-4 border-t border-line-strong pt-2">
             <span className="text-sm font-semibold text-fg">Gross pay</span>
-            <span className="font-mono text-sm font-semibold tabular-nums text-fg">
+            <span className="text-sm font-semibold tabular-nums text-fg">
               {formatSen(record.gross_sen)}
             </span>
           </div>
@@ -84,16 +86,19 @@ export default function PayslipView({ detail }: { detail: PayrollRecordDetail })
           </div>
           <div className="mt-2 flex items-baseline justify-between gap-4 border-t border-line-strong pt-2">
             <span className="text-sm font-semibold text-fg">Total deductions</span>
-            <span className="font-mono text-sm font-semibold tabular-nums text-fg">
+            <span className="text-sm font-semibold tabular-nums text-fg">
               {formatSen(record.deductions_sen)}
             </span>
           </div>
         </section>
       </div>
 
-      <div className="flex items-baseline justify-between gap-4 rounded-card bg-surface-muted px-4 py-3">
+      {/* The one figure a payslip is read for, so it carries the most weight
+          on the page - in the brand tint rather than a grey box. */}
+      <div className="flex items-baseline justify-between gap-4 rounded-xl bg-primary-soft px-5 py-4">
         <span className="text-sm font-semibold text-fg">Net pay</span>
-        <span className="font-mono text-lg font-semibold tabular-nums text-fg">
+        <span className="text-2xl font-bold tracking-tight tabular-nums text-fg">
+          <span className="mr-1 text-sm font-semibold text-fg-muted">RM</span>
           {formatSen(record.net_sen)}
         </span>
       </div>
