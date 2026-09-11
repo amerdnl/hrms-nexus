@@ -16,7 +16,7 @@ function groupCode(code: string): string {
  * The office display. Codes are short-lived, so this reissues shortly before
  * expiry and keeps a live countdown; an employee always sees a valid code.
  */
-export default function OfficeQrDisplay() {
+export default function OfficeQrDisplay({ className }: { className?: string } = {}) {
   const [challenge, setChallenge] = useState<OfficeQrChallenge | null>(null);
   const [active, setActive] = useState(false);
   const [error, setError] = useState("");
@@ -79,6 +79,7 @@ export default function OfficeQrDisplay() {
 
   return (
     <SectionCard
+      className={className}
       title="Office attendance code"
       description="Display this where employees clock in. Each code lasts under a minute and refreshes itself."
       icon={QrCode}
@@ -95,21 +96,29 @@ export default function OfficeQrDisplay() {
       {error && <Alert tone="danger">{error}</Alert>}
 
       {!active && !error && (
-        <p className="text-sm text-fg-muted">
-          Employees scan this code and share their location once, so attendance is
-          checked against the office rather than taken on trust.
-        </p>
+        <div className="flex flex-col items-center gap-3 py-4 text-center">
+          <span
+            className="grid h-14 w-14 place-items-center rounded-2xl bg-primary-soft text-primary"
+            aria-hidden="true"
+          >
+            <QrCode size={26} />
+          </span>
+          <p className="max-w-xs text-sm text-fg-muted">
+            Employees scan this code and share their location once, so attendance
+            is checked against the office rather than taken on trust.
+          </p>
+        </div>
       )}
 
       {active && challenge && (
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-center gap-4">
           <img
             src={challenge.qr_svg}
             alt="Current office attendance QR code"
             className="h-56 w-56 shrink-0 rounded-card border border-line bg-white p-2"
           />
 
-          <div className="min-w-0 space-y-3 text-center sm:text-left">
+          <div className="min-w-0 space-y-3 text-center">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-fg-subtle">
                 Or type this code
@@ -119,7 +128,7 @@ export default function OfficeQrDisplay() {
               </p>
             </div>
 
-            <p className="flex items-center justify-center gap-2 text-sm text-fg-muted sm:justify-start">
+            <p className="flex items-center justify-center gap-2 text-sm text-fg-muted">
               <RefreshCw size={15} aria-hidden="true" />
               {/* Announced politely so a countdown does not spam a screen reader. */}
               <span aria-live="polite">

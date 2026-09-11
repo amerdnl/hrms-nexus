@@ -1,4 +1,4 @@
-import { CalendarDays, ChartPie, Pencil, Plus } from "lucide-react";
+import { CalendarDays, ChartPie, Pencil, Plus, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createManualAttendance,
@@ -9,11 +9,11 @@ import {
 import { getApiErrorMessage } from "../../api/axios";
 import { getDepartments, type Department } from "../../api/departmentApi";
 import { getEmployeeLookup } from "../../api/employeeApi";
-import AttendanceStatsCards from "../../components/attendance/AttendanceStatsCards";
 import EditAttendanceForm from "../../components/attendance/EditAttendanceForm";
 import ManualAttendanceForm from "../../components/attendance/ManualAttendanceForm";
 import OfficeQrDisplay from "../../components/attendance/OfficeQrDisplay";
 import Alert from "../../components/ui/Alert";
+import Avatar from "../../components/ui/Avatar";
 import Button from "../../components/ui/Button";
 import DataTable from "../../components/ui/DataTable";
 import DonutChart, {
@@ -26,8 +26,10 @@ import { fieldDescribedBy } from "../../components/ui/fieldStyles";
 import PageHeader from "../../components/ui/PageHeader";
 import Pagination from "../../components/ui/Pagination";
 import PrimaryButton from "../../components/ui/PrimaryButton";
+import RecordCard from "../../components/ui/RecordCard";
 import SectionCard from "../../components/ui/SectionCard";
 import SelectInput from "../../components/ui/SelectInput";
+import Skeleton, { SkeletonText } from "../../components/ui/Skeleton";
 import StatusBadge from "../../components/ui/StatusBadge";
 import TextInput from "../../components/ui/TextInput";
 import type {
@@ -40,6 +42,7 @@ import type {
 } from "../../types/attendance";
 import type { EmployeeLookupEntry } from "../../types/employee";
 import { formatDate, formatTime, getMalaysiaDate } from "../../utils/datetime";
+import { formatWorkHoursBetween } from "../../utils/attendance";
 import { attendanceStatusMeta } from "../../utils/status";
 
 const emptyStatistics: AttendanceStatistics = {
@@ -62,12 +65,13 @@ const PAGE_SIZE = 25;
 const tableHeaders = [
   "Employee",
   "Date",
-  "Check-in",
-  "Check-out",
+  "Time",
+  "Hours",
   "Status",
   "Source",
-  "Note",
-  "Action",
+  <span key="action" className="sr-only">
+    Action
+  </span>,
 ];
 
 /**
@@ -350,14 +354,31 @@ function AdminAttendancePage() {
     },
   ];
 
+  const recordName = (record: AttendanceRecord) =>
+    employeeMap.get(record.employeeId)?.fullName ?? `Employee #${record.employeeId}`;
+
+  // Icon-only, named for assistive tech and titled for pointer users. A
+  // labelled button made this column 123px wide, which on its own was what
+  // pushed the action off the right edge at 1280.
+  const correctButton = (record: AttendanceRecord) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      icon={Pencil}
+      onClick={() => setEditingRecord(record)}
+      aria-label={`Correct attendance for ${recordName(record)}`}
+      title="Correct this record"
+    />
+  );
+
   return (
     <section className="mx-auto max-w-7xl space-y-6">
       <PageHeader
-        title="Attendance management"
-        description="Monitor, create and correct employee attendance."
+        title="Attendance"
+        description="Daily records, how each one was verified, and corrections."
         actions={
           <PrimaryButton icon={Plus} onClick={() => setShowManualForm(true)}>
-            Add manual attendance
+            Record attendance
           </PrimaryButton>
         }
       />
@@ -365,45 +386,60 @@ function AdminAttendancePage() {
       {message && <Alert tone="success">{message}</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
 
-      <OfficeQrDisplay />
+      <div className="grid gap-6 lg:grid-cols-5">
+        {/* One card for one day. The statistics endpoint is single-date, so
+            the date picker belongs to this card rather than floating above the
+            page, where it read as a filter for the records table too. */}
+        <SectionCard
+          className="lg:col-span-3"
+          title="Day overview"
+          description={formatDate(statisticsDate)}
+          icon={ChartPie}
+          actions={
+            <>
+              <label htmlFor="statistics-date" className="sr-only">
+                Overview date
+              </label>
+              <TextInput
+                id="statistics-date"
+                type="date"
+                className="w-auto py-1.5"
+                value={statisticsDate}
+                onChange={(event) => setStatisticsDate(event.target.value)}
+              />
+            </>
+          }
+        >
+          {loading ? (
+            <div className="flex flex-col items-center gap-6 sm:flex-row" aria-busy="true">
+              <span className="sr-only" aria-live="polite">Loading the day overview</span>
+              <Skeleton className="h-40 w-40 shrink-0 rounded-full" />
+              <SkeletonText lines={4} className="w-full" />
+            </div>
+          ) : statistics.total === 0 ? (
+            // Four "0 0%" rows around an empty ring said nothing and read as a
+            // chart that failed. This is a day with no records, which is a
+            // different statement from a day on which nobody was present.
+            <EmptyState
+              icon={CalendarDays}
+              title="No attendance recorded for this date"
+              description="Records appear here as employees check in, or when one is recorded manually."
+              className="py-8"
+            />
+          ) : (
+            <DonutChart
+              title={`Attendance by status on ${formatDate(statisticsDate)}`}
+              centerCaption="records"
+              segments={donutSegments}
+            />
+          )}
+        </SectionCard>
 
-      <FormField
-        id="statistics-date"
-        label="Statistics date"
-        hint="Drives the summary cards and breakdown below, for this single date. Applies immediately."
-        className="max-w-xs"
-      >
-        <TextInput
-          id="statistics-date"
-          aria-describedby={fieldDescribedBy("statistics-date", { hint: true })}
-          type="date"
-          value={statisticsDate}
-          onChange={(event) => setStatisticsDate(event.target.value)}
-        />
-      </FormField>
-
-      <AttendanceStatsCards
-        statistics={statistics}
-        loading={loading}
-        dateLabel={formatDate(statisticsDate)}
-      />
-
-      <SectionCard
-        title={`Attendance breakdown — ${formatDate(statisticsDate)}`}
-        // Stated explicitly because the endpoint is single-date
-        // (`WHERE attendance_date = $1`), while the table below runs on its
-        // own independent date range.
-        description="Counts for this one date only. The records table below uses its own filters."
-        icon={ChartPie}
-      >
-        <DonutChart
-          title={`Attendance by status on ${formatDate(statisticsDate)}`}
-          centerCaption="records"
-          segments={donutSegments}
-        />
-      </SectionCard>
+        <OfficeQrDisplay className="lg:col-span-2" />
+      </div>
 
       <FilterPanel
+        title="Filter records"
         columns={3}
         activeCount={activeFilterCount}
         isBusy={loading}
@@ -489,14 +525,15 @@ function AdminAttendancePage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-base font-semibold text-fg">
             <CalendarDays size={18} className="text-primary" aria-hidden="true" />
-            Attendance records
+            Records
           </h2>
 
           {!loading && (
             <p className="text-sm text-fg-muted">
-              {activeDepartment
-                ? `${visibleRecords.length} of ${records.length} records`
-                : `${records.length} records`}
+              <span className="font-semibold text-fg">
+                {activeDepartment ? visibleRecords.length : records.length}
+              </span>
+              {activeDepartment ? ` of ${records.length}` : ""} records
             </p>
           )}
         </div>
@@ -521,78 +558,128 @@ function AdminAttendancePage() {
         <DataTable
           headers={tableHeaders}
           caption="Attendance records for the applied filters"
-          minWidthClass="min-w-250"
+          // Was min-w-250 with eight columns, and the action column clipped at
+          // 1280. Check-in and check-out now share a column, worked hours sit
+          // beside them, and the note moved under its source - seven columns
+          // that fit the content column.
+          minWidthClass="min-w-200"
           isLoading={loading}
-          loadingLabel="Loading attendance records..."
+          loadingLabel="Loading attendance records"
           isEmpty={pageRecords.length === 0}
           emptyState={
             <EmptyState
               icon={CalendarDays}
-              title="No attendance records found"
-              description="Adjust the filters and apply them again, or clear the dates to load every record."
+              title={activeFilterCount > 0 ? "No records match these filters" : "No attendance records yet"}
+              description={
+                activeFilterCount > 0
+                  ? "Adjust the filters and apply them again, or clear the dates to load every record."
+                  : "Records appear as employees check in."
+              }
+              action={
+                activeFilterCount > 0 ? (
+                  <Button variant="secondary" size="sm" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                ) : undefined
+              }
             />
           }
+          mobileCards={pageRecords.map((record) => {
+            const employee = employeeMap.get(record.employeeId);
+            return (
+              <RecordCard
+                key={record.id}
+                leading={<Avatar name={recordName(record)} size="md" />}
+                title={recordName(record)}
+                subtitle={`${formatDate(record.attendanceDate)}${employee ? ` · ${employee.employeeNumber}` : ""}`}
+                badge={<StatusBadge {...attendanceStatusMeta(record.status)} />}
+                meta={[
+                  {
+                    label: "Time",
+                    value: `${formatTime(record.checkInTime)} – ${formatTime(record.checkOutTime)}`,
+                  },
+                  {
+                    label: "Hours",
+                    value: formatWorkHoursBetween(record.checkInTime, record.checkOutTime),
+                  },
+                  { label: "Source", value: sourceLabel(record) },
+                  ...(record.adminNote ? [{ label: "Note", value: record.adminNote }] : []),
+                ]}
+                actions={correctButton(record)}
+              />
+            );
+          })}
         >
           {pageRecords.map((record) => {
             const employee = employeeMap.get(record.employeeId);
+            const distance = record.verification?.checkInDistanceMeters;
 
             return (
-              <tr key={record.id}>
-                <td className="px-5 py-4">
-                  <p className="font-medium text-fg">
-                    {employee?.fullName ?? `#${record.employeeId}`}
-                  </p>
-
-                  <p className="mt-0.5 text-xs text-fg-subtle">
-                    {employee
-                      ? `${employee.employeeNumber}${employee.departmentName ? ` · ${employee.departmentName}` : ""}`
-                      : "Not in the employee directory"}
-                  </p>
+              <tr key={record.id} className="transition-colors hover:bg-surface-muted">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={recordName(record)} size="sm" />
+                    {/* Capped so one long name cannot widen the whole column;
+                        the full name stays available as a tooltip. */}
+                    <div className="min-w-0 max-w-44">
+                      <p className="truncate font-medium text-fg" title={recordName(record)}>
+                        {recordName(record)}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-fg-subtle">
+                        {employee
+                          ? `${employee.employeeNumber}${employee.departmentName ? ` · ${employee.departmentName}` : ""}`
+                          : "Not in the employee directory"}
+                      </p>
+                    </div>
+                  </div>
                 </td>
 
-                <td className="px-5 py-4 text-fg-muted">
+                <td className="whitespace-nowrap px-4 py-3 text-fg-muted">
                   {formatDate(record.attendanceDate)}
                 </td>
 
-                <td className="px-5 py-4 text-fg-muted">
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-fg">
                   {formatTime(record.checkInTime)}
-                </td>
-
-                <td className="px-5 py-4 text-fg-muted">
+                  <span className="mx-1.5 text-fg-subtle" aria-hidden="true">→</span>
+                  <span className="sr-only"> to </span>
                   {formatTime(record.checkOutTime)}
                 </td>
 
-                <td className="px-5 py-4">
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-fg-muted">
+                  {formatWorkHoursBetween(record.checkInTime, record.checkOutTime)}
+                </td>
+
+                <td className="px-4 py-3">
                   <StatusBadge {...attendanceStatusMeta(record.status)} />
                 </td>
 
-                {/* Says how the record was established, and how far away the
+                {/* How the record was established, and how far away the
                     employee was, so a verified scan is distinguishable from a
-                    declared one at a glance. */}
-                <td className="px-5 py-4 text-fg-muted">
-                  <p>{sourceLabel(record)}</p>
-                  {record.verification?.checkInDistanceMeters !== null &&
-                    record.verification?.checkInDistanceMeters !== undefined && (
-                      <p className="mt-0.5 text-xs text-fg-subtle">
-                        {Math.round(record.verification.checkInDistanceMeters)} m from office
-                      </p>
+                    declared one at a glance. Distance only - never the
+                    coordinates themselves. */}
+                <td className="max-w-56 px-4 py-3 text-fg-muted">
+                  <p className="flex items-center gap-1.5 whitespace-nowrap">
+                    {record.verification?.verificationMethod === "QR_LOCATION" && (
+                      <ShieldCheck size={14} className="shrink-0 text-success-fg" aria-hidden="true" />
                     )}
+                    {sourceLabel(record)}
+                  </p>
+                  {distance !== null && distance !== undefined && (
+                    <p className="mt-0.5 whitespace-nowrap text-xs text-fg-subtle">
+                      {Math.round(distance)} m from office
+                    </p>
+                  )}
+                  {/* The note lives with the source because it almost always
+                      explains one: why a record was entered by hand or
+                      corrected. As its own column it was a line of dashes. */}
+                  {record.adminNote && (
+                    <p className="mt-0.5 truncate text-xs italic text-fg-subtle" title={record.adminNote}>
+                      {record.adminNote}
+                    </p>
+                  )}
                 </td>
 
-                <td className="max-w-60 truncate px-5 py-4 text-fg-muted">
-                  {record.adminNote ?? "—"}
-                </td>
-
-                <td className="px-5 py-4">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={Pencil}
-                    onClick={() => setEditingRecord(record)}
-                  >
-                    Correct
-                  </Button>
-                </td>
+                <td className="px-2 py-3 text-right">{correctButton(record)}</td>
               </tr>
             );
           })}
