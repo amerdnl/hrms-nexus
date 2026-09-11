@@ -13,6 +13,7 @@ import {
   updateLeavePolicy,
   updateLeaveStatus,
 } from "../controllers/leaveController.js";
+import { authorizeLeaveDecision } from "../auth/guards.js";
 import { authenticateToken } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 
@@ -36,7 +37,10 @@ router.get("/", authorizeRoles("admin"), getAllLeaveRequests);
 router.post("/", authorizeRoles("employee"), createLeaveRequest);
 
 router.get("/:id", authorizeRoles("employee"), getLeaveRequestById);
-router.put("/:id/status", authorizeRoles("admin"), updateLeaveStatus);
+// An administrator, or a manager for a current direct report only. The guard
+// admits managers; the controller limits them to their team inside the
+// transaction that locks the request, and refuses anyone's own request.
+router.put("/:id/status", authorizeLeaveDecision, updateLeaveStatus);
 // Either role: the controller enforces that an employee may only cancel their own.
 router.post("/:id/cancel", cancelLeaveRequest);
 

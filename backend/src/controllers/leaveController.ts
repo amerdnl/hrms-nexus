@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { actingRole, isTeamMember } from "../auth/policy.js";
 import { actorFromUser, recordAudit } from "../services/auditService.js";
 import type { PoolClient } from "pg";
 import pool from "../config/db.js";
@@ -414,6 +415,34 @@ export async function updateLeaveStatus(
       return;
     }
 
+    const actor = request.user!;
+
+    // Nobody decides their own request - not a manager, and not an
+    // administrator whose account is linked to an employee record either.
+    if (actor.employeeId !== null && Number(leave.employee_id) === actor.employeeId) {
+      await safeRollback(client);
+      response.status(403).json({
+        success: false,
+        code: "own_request",
+        message: "You cannot decide your own leave request.",
+      });
+      return;
+    }
+
+    // A manager decides only for a current direct report. Checked here, inside
+    // the transaction that holds the request's lock, against the reporting line
+    // as it is now - not as it was when the manager's page loaded. Anything
+    // else is "not found", so a request outside the team is not confirmed to
+    // exist.
+    const viaManagerScope = actor.role !== "admin";
+    if (viaManagerScope
+        && (actor.employeeId === null
+          || !(await isTeamMember(actor.employeeId, Number(leave.employee_id), client)))) {
+      await safeRollback(client);
+      response.status(404).json({ success: false, message: "Leave request not found" });
+      return;
+    }
+
     if (leave.status !== "pending") {
       await safeRollback(client);
       response.status(409).json({
@@ -476,7 +505,12 @@ export async function updateLeaveStatus(
 
     const decided = updated.rows[0];
     await recordAudit({
-      actor: actorFromUser(request.user, request.user?.email),
+      actor: {
+        ...actorFromUser(request.user, request.user?.email),
+        // Says which authority was exercised: "manager" when decided through
+        // team scope, so the log can tell it apart from an HR decision.
+        role: actingRole(actor, viaManagerScope),
+      },
       action: status === "approved" ? "LEAVE_APPROVED" : "LEAVE_REJECTED",
       entityType: "leave",
       entityId: leaveId,
