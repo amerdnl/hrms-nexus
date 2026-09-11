@@ -66,14 +66,16 @@ export default function RecordCard({
                 title
               )}
             </p>
-
-            {subtitle && (
-              <p className="mt-0.5 text-xs text-fg-subtle [overflow-wrap:anywhere]">{subtitle}</p>
-            )}
           </div>
 
           {badge && <div className="shrink-0">{badge}</div>}
         </div>
+
+        {/* Below the badge row rather than beside the badge, so a code such
+            as "OPS-002" has the card's full width and is not split. */}
+        {subtitle && (
+          <p className="mt-0.5 text-xs text-fg-subtle [overflow-wrap:anywhere]">{subtitle}</p>
+        )}
 
         {meta && meta.length > 0 && (
           <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
