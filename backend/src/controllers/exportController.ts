@@ -13,14 +13,13 @@
  * the audit table.
  */
 import type { Request, Response } from "express";
-import pool from "../config/db.js";
 import {
   actorFromUser, recordAudit,
 } from "../services/auditService.js";
 import {
   datasets, datasetsByKey, loadDataset, type Dataset, type ExportContext,
 } from "../services/exportService.js";
-import { getZonedNow } from "../utils/attendanceVerification.js";
+import { companyToday } from "../utils/companyClock.js";
 import { buildCsv, csvFilename, ExportTooLargeError, MAX_EXPORT_ROWS } from "../utils/csv.js";
 import {
   buildWorkbook, MAX_WORKBOOK_ROWS, WorkbookTooLargeError, xlsxFilename, type SheetSpec,
@@ -40,18 +39,6 @@ function tooLarge(response: Response, error: unknown): boolean {
     return true;
   }
   return false;
-}
-
-/** The company's own calendar date, not the database server's. */
-async function companyToday(): Promise<string> {
-  const settings = await pool.query<{ timezone: string }>(
-    "SELECT timezone FROM public.company_settings WHERE id = 1",
-  );
-  try {
-    return getZonedNow(settings.rows[0]?.timezone ?? "UTC").date;
-  } catch {
-    return getZonedNow("UTC").date;
-  }
 }
 
 async function exportContext(): Promise<ExportContext> {

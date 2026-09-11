@@ -1,6 +1,7 @@
-import type { PoolClient } from "pg";
 import pool from "../config/db.js";
-import { getZonedNow } from "../utils/attendanceVerification.js";
+// The company's date, not the database server's and not the browser's, so the
+// dashboard agrees with the day attendance files a check-in under.
+import { companyToday } from "../utils/companyClock.js";
 import type { LeaveBalance, LeaveType } from "../utils/leaveCalculation.js";
 import { ensureEntitlements, getBalances } from "./leaveBalanceService.js";
 
@@ -160,24 +161,6 @@ function mapLeave(row: LeaveRow): DashboardLeaveRequest {
     reviewedAt: toIso(row.reviewed_at),
     createdAt: toIso(row.created_at)!,
   };
-}
-
-/**
- * The company's date, not the database server's and not the browser's.
- *
- * Attendance decides which calendar day a clock action belongs to using the
- * Company Settings timezone. The dashboard has to agree with it, or across
- * midnight an employee is told they have not checked in on a day they have.
- */
-async function companyToday(db: Pick<PoolClient, "query">): Promise<string> {
-  const settings = await db.query<{ timezone: string }>(
-    "SELECT timezone FROM public.company_settings WHERE id = 1",
-  );
-  try {
-    return getZonedNow(settings.rows[0]?.timezone ?? "UTC").date;
-  } catch {
-    return getZonedNow("UTC").date;
-  }
 }
 
 /**

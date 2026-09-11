@@ -1,26 +1,9 @@
 import type { Request, Response } from "express";
 import pool from "../config/db.js";
-import { getZonedNow } from "../utils/attendanceVerification.js";
 import { buildEmployeeDashboard } from "../services/employeeDashboardService.js";
-
-/**
- * "Today" on the dashboard must be the same day attendance is judged against.
- *
- * The previous version used CURRENT_DATE, which is the database server's date.
- * Attendance decides which calendar day a clock action belongs to using the
- * timezone configured in Company Settings, so across midnight the two disagreed
- * and the dashboard reported a different set of people than the attendance page.
- */
-async function companyToday(): Promise<string> {
-  const settings = await pool.query<{ timezone: string }>(
-    "SELECT timezone FROM public.company_settings WHERE id = 1",
-  );
-  try {
-    return getZonedNow(settings.rows[0]?.timezone ?? "UTC").date;
-  } catch {
-    return getZonedNow("UTC").date;
-  }
-}
+// "Today" on the dashboard must be the same day attendance is judged against,
+// not the database server's CURRENT_DATE, which disagreed across midnight.
+import { companyToday } from "../utils/companyClock.js";
 
 export async function getAdminDashboard(
   request: Request,

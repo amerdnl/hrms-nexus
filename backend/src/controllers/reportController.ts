@@ -24,7 +24,7 @@ import {
   type DateRange,
   type DepartmentFilter,
 } from "../services/reportService.js";
-import { getZonedNow } from "../utils/attendanceVerification.js";
+import { companyToday } from "../utils/companyClock.js";
 import { buildCsv, csvFilename, ExportTooLargeError } from "../utils/csv.js";
 import { parseIdParam } from "../utils/employeeValidation.js";
 import { leaveStatuses, leaveTypes, parseDate } from "../utils/leaveCalculation.js";
@@ -39,19 +39,6 @@ function unavailable(response: Response, error: unknown, action: string): void {
     success: false,
     message: "The database is temporarily unavailable. Please try again.",
   });
-}
-
-/** The company's own calendar date, not the server's. */
-async function companyToday(): Promise<string> {
-  const settings = await pool.query<{ timezone: string }>(
-    "SELECT timezone FROM public.company_settings WHERE id = 1",
-  );
-  const timezone = settings.rows[0]?.timezone ?? "UTC";
-  try {
-    return getZonedNow(timezone).date;
-  } catch {
-    return getZonedNow("UTC").date;
-  }
 }
 
 type RangeResult =
