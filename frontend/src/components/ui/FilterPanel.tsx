@@ -1,5 +1,5 @@
-import { SlidersHorizontal } from "lucide-react";
-import type { ReactNode } from "react";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import { useId, useState, type ReactNode } from "react";
 import { cn } from "../../utils/cn";
 import Button from "./Button";
 
@@ -36,6 +36,23 @@ export default function FilterPanel({
   title = "Filters",
   className,
 }: FilterPanelProps) {
+  const bodyId = useId();
+  // Collapsed by default below md. Irrelevant from md up, where the body is
+  // always shown and the toggle is not rendered.
+  const [isOpen, setIsOpen] = useState(false);
+
+  const heading = (
+    <>
+      <SlidersHorizontal size={16} className="shrink-0 text-primary" aria-hidden="true" />
+      <span className="text-sm font-semibold text-fg">{title}</span>
+      {activeCount > 0 && (
+        <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-semibold text-primary">
+          {activeCount} active
+        </span>
+      )}
+    </>
+  );
+
   return (
     <section
       aria-label={title}
@@ -44,33 +61,58 @@ export default function FilterPanel({
         className,
       )}
     >
-      <div className="mb-4 flex items-center gap-2">
-        <SlidersHorizontal size={16} className="text-primary" aria-hidden="true" />
-        <h2 className="text-sm font-semibold text-fg">{title}</h2>
+      {/*
+        Below md the fields are behind a disclosure. Five stacked fields filled
+        a whole phone screen before a single record appeared, which put the
+        thing the page is FOR below the fold on every visit. From md up there is
+        room, so the panel is always open and the toggle is not rendered.
+      */}
+      {/* The button sits INSIDE the heading, not the other way round: a
+          button only accepts phrasing content, and this is also the shape the
+          ARIA disclosure pattern uses, so the heading stays in the outline. */}
+      <h2 className="md:hidden">
+        <button
+          type="button"
+          onClick={() => setIsOpen((open) => !open)}
+          aria-expanded={isOpen}
+          aria-controls={bodyId}
+          className="-m-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded-lg p-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          {heading}
+          <ChevronDown
+            size={18}
+            aria-hidden="true"
+            className={cn(
+              "ml-auto shrink-0 text-fg-muted transition-transform",
+              isOpen && "rotate-180",
+            )}
+          />
+        </button>
+      </h2>
 
-        {activeCount > 0 && (
-          <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-semibold text-primary">
-            {activeCount} active
-          </span>
+      <h2 className="mb-4 hidden items-center gap-2 md:flex">{heading}</h2>
+
+      <div
+        id={bodyId}
+        className={cn("mt-4 md:mt-0 md:block", isOpen ? "block" : "hidden")}
+      >
+        <div className={cn("grid gap-4", columnStyles[columns])}>{children}</div>
+
+        {(onApply || onClear) && (
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            {onClear && (
+              <Button variant="ghost" size="sm" onClick={onClear} disabled={isBusy}>
+                Clear
+              </Button>
+            )}
+            {onApply && (
+              <Button size="sm" onClick={onApply} isLoading={isBusy}>
+                Apply filters
+              </Button>
+            )}
+          </div>
         )}
       </div>
-
-      <div className={cn("grid gap-4", columnStyles[columns])}>{children}</div>
-
-      {(onApply || onClear) && (
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
-          {onClear && (
-            <Button variant="ghost" size="sm" onClick={onClear} disabled={isBusy}>
-              Clear
-            </Button>
-          )}
-          {onApply && (
-            <Button size="sm" onClick={onApply} isLoading={isBusy}>
-              Apply filters
-            </Button>
-          )}
-        </div>
-      )}
     </section>
   );
 }
