@@ -7,8 +7,15 @@ import { roleDashboard } from "./roleDashboard";
 
 export default function ProtectedRoute({
   allowedRoles,
+  requires,
 }: {
   allowedRoles?: UserRole[];
+  /**
+   * A scope on top of the role. "manager" admits only an account someone
+   * currently reports to. Convenience, like everything here: the team API
+   * refuses anyone else whatever this component decides.
+   */
+  requires?: "manager";
 }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
@@ -35,6 +42,10 @@ export default function ProtectedRoute({
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to={roleDashboard(user.role)} replace />;
+  }
+
+  if (requires === "manager" && !user.isManager) {
     return <Navigate to={roleDashboard(user.role)} replace />;
   }
 

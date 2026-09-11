@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import { useTheme } from "../../context/useTheme";
-import { navigationFor } from "../../routes/navigation";
+import { navigationSectionsFor } from "../../routes/navigation";
 import { cn } from "../../utils/cn";
 import ThemeToggle from "../ui/ThemeToggle";
 
@@ -37,8 +37,9 @@ export default function Sidebar() {
 
   if (!user) return null;
 
-  const navigation = navigationFor(user.role);
-  const portalLabel = user.role === "admin" ? "Admin portal" : "Employee portal";
+  const sections = navigationSectionsFor(user);
+  const portalLabel =
+    user.role === "admin" ? "Admin portal" : user.isManager ? "Manager portal" : "Employee portal";
 
   return (
     <aside
@@ -71,23 +72,42 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <nav aria-label="Primary" className="flex-1 space-y-1 overflow-y-auto px-4 py-6">
-        {navigation.map(({ icon: Icon, label, to }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              cn(
-                navigationItemBase,
-                isActive
-                  ? "bg-primary text-primary-fg"
-                  : "hover:bg-sidebar-hover hover:text-sidebar-fg-strong",
-              )
-            }
-          >
-            <Icon size={19} aria-hidden="true" />
-            {label}
-          </NavLink>
+      <nav aria-label="Primary" className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
+        {sections.map((section) => (
+          // A labelled group per section, so a screen reader hears "My team"
+          // before the three team links rather than one run of links. With a
+          // single section the heading would only repeat the portal badge.
+          <div key={section.id} role="group" aria-labelledby={sections.length > 1 ? `nav-${section.id}` : undefined}>
+            {sections.length > 1 && (
+              <p
+                id={`nav-${section.id}`}
+                className="mb-2 px-4 text-[11px] font-bold uppercase tracking-[0.12em] text-sidebar-fg"
+              >
+                {section.label}
+              </p>
+            )}
+            <div className="space-y-1">
+              {section.items.map(({ icon: Icon, label, to }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  // "/team" must not stay lit on "/team/leave".
+                  end={to === "/team"}
+                  className={({ isActive }) =>
+                    cn(
+                      navigationItemBase,
+                      isActive
+                        ? "bg-primary text-primary-fg"
+                        : "hover:bg-sidebar-hover hover:text-sidebar-fg-strong",
+                    )
+                  }
+                >
+                  <Icon size={19} aria-hidden="true" />
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 

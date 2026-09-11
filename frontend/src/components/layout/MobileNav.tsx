@@ -38,14 +38,19 @@ export default function MobileNav() {
 
   if (!user) return null;
 
-  const primary = mobilePrimaryFor(user.role);
-  const overflow = mobileOverflowFor(user.role);
-  const isOverflowActive = overflow.some((item) => pathname.startsWith(item.to));
+  const primary = mobilePrimaryFor(user);
+  const overflow = mobileOverflowFor(user);
+  // Exact for "/team" so the overview in the bar and the team pages behind
+  // "More" do not both light up.
+  const isOverflowActive = overflow.some((item) =>
+    item.to === "/team" ? pathname === "/team" : pathname.startsWith(item.to),
+  );
 
   const renderLink = ({ icon: Icon, label, shortLabel, to }: NavigationItem) => (
     <NavLink
       key={to}
       to={to}
+      end={to === "/team"}
       className={({ isActive }) =>
         cn(slot, isActive ? "text-primary" : "text-fg-muted hover:text-fg")
       }
@@ -113,13 +118,14 @@ export default function MobileNav() {
         isOpen={isMoreOpen}
         onClose={() => setIsMoreOpen(false)}
         title="More"
-        description="The rest of the administration area."
+        description={user.role === "admin" ? "The rest of the administration area." : "Everything else you can open."}
       >
         <ul className="mt-4 grid grid-cols-3 gap-2">
           {overflow.map(({ icon: Icon, label, to }) => (
             <li key={to}>
               <NavLink
                 to={to}
+                end={to === "/team"}
                 className={({ isActive }) =>
                   cn(
                     "flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border p-3 text-center text-xs font-medium transition-colors",

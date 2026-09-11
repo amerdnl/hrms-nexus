@@ -30,6 +30,12 @@ export interface CurrentUser {
    * an account regardless of what the browser believes or is made to believe.
    */
   mustChangePassword: boolean;
+  /**
+   * True while someone reports to this account's employee. Advisory, like the
+   * flag above: it decides which navigation to offer, while every team
+   * endpoint re-derives it from current reporting lines on the server.
+   */
+  isManager: boolean;
   employee: EmployeeProfile | null;
 }
 

@@ -13,6 +13,8 @@ import { getApiErrorMessage } from "../../api/axios";
 import { getEmployeeDashboard } from "../../api/dashboardApi";
 import TodayAttendanceCard from "../../components/attendance/TodayAttendanceCard";
 import VerifiedClockPanel from "../../components/attendance/VerifiedClockPanel";
+import TeamSummaryCard from "../../components/team/TeamSummaryCard";
+import { useAuth } from "../../context/useAuth";
 import Alert from "../../components/ui/Alert";
 import EmptyState from "../../components/ui/EmptyState";
 import ErrorState from "../../components/ui/ErrorState";
@@ -36,6 +38,7 @@ import {
 } from "../../utils/status";
 
 export default function EmployeeDashboardPage() {
+  const { user } = useAuth();
   const [dashboard, setDashboard] = useState<EmployeeDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -161,6 +164,10 @@ export default function EmployeeDashboardPage() {
         </div>
 
         <div className="space-y-6 lg:col-start-3 lg:row-span-2 lg:row-start-1">
+          {/* Only for someone who manages people; the card's own request is
+              refused by the server for anyone else. */}
+          {user?.isManager && <TeamSummaryCard />}
+
           <SectionCard title="Annual leave" icon={CalendarDays} actions={<LinkButton to="/employee/leave" variant="ghost" size="sm">Leave</LinkButton>}>
             {balancesUnavailable ? (
               <p className="text-sm text-fg-muted">

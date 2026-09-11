@@ -40,6 +40,11 @@ const EMPLOYEE: Record<string, string> = {
   payroll: "Payslips",
 };
 
+const TEAM: Record<string, string> = {
+  leave: "Leave",
+  attendance: "Attendance",
+};
+
 const patterns: Pattern[] = [
   // Employees
   { segments: ["admin", "employees", "new"],
@@ -69,6 +74,13 @@ export function breadcrumbsFor(pathname: string): Crumb[] {
   if (segments.length === 0) return [];
 
   const [scope, ...rest] = segments;
+
+  // The team area: its overview is a real page, so it is the linked root.
+  if (scope === "team") {
+    const leaf = rest[0] ? TEAM[rest[0]] : undefined;
+    return leaf ? [{ label: "My team", to: "/team" }, { label: leaf }] : [{ label: "My team" }];
+  }
+
   const root: Crumb = {
     label: scope === "admin" ? "Admin" : "Employee",
     // Not linked: the scope is a grouping, not a page. Breadcrumbs marks a

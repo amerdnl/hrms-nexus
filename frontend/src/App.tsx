@@ -46,6 +46,10 @@ const EmployeeAttendancePage = lazy(() => import("./pages/employee/EmployeeAtten
 const EmployeeLeavePage = lazy(() => import("./pages/employee/EmployeeLeavePage"));
 const EmployeePayslipsPage = lazy(() => import("./pages/employee/EmployeePayslipsPage"));
 
+const TeamOverviewPage = lazy(() => import("./pages/team/TeamOverviewPage"));
+const TeamLeavePage = lazy(() => import("./pages/team/TeamLeavePage"));
+const TeamAttendancePage = lazy(() => import("./pages/team/TeamAttendancePage"));
+
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
 
@@ -123,6 +127,16 @@ export default function App() {
             <Route path="/employee/attendance" element={<EmployeeAttendancePage />} />
             <Route path="/employee/leave" element={<EmployeeLeavePage />} />
             <Route path="/employee/payroll" element={<EmployeePayslipsPage />} />
+          </Route>
+        </Route>
+
+        {/* The manager's team layer. Either role, as long as someone reports
+            to the account's employee right now; the server checks again. */}
+        <Route element={<ProtectedRoute allowedRoles={["admin", "employee"]} requires="manager" />}>
+          <Route element={<AppLayout />}>
+            <Route path="/team" element={<TeamOverviewPage />} />
+            <Route path="/team/leave" element={<TeamLeavePage />} />
+            <Route path="/team/attendance" element={<TeamAttendancePage />} />
           </Route>
         </Route>
 

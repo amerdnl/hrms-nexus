@@ -35,7 +35,7 @@ export default function AppHeader() {
   const name =
     user.employee?.fullName ??
     (user.role === "admin" ? "Administrator" : "Employee");
-  const roleLabel = user.role === "admin" ? "Admin" : "Employee";
+  const roleLabel = user.role === "admin" ? "Admin" : user.isManager ? "Manager" : "Employee";
   const profileImageUrl = resolveProfileImageUrl(user.employee?.profileImage ?? null);
 
   const handleLogout = async () => {
