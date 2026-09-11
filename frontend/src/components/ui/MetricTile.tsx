@@ -67,7 +67,9 @@ export default function MetricTile({
       <p
         className={cn(
           "mt-3 font-bold tracking-tight text-fg tabular-nums",
-          emphasis ? "text-3xl" : "text-2xl",
+          // One step smaller below sm, where tiles run two to a row on a
+          // phone and a six-figure amount has about 130px to fit in.
+          emphasis ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl",
         )}
       >
         {value}

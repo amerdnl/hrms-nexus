@@ -96,22 +96,57 @@ export interface PayslipListEntry {
   paid_at: string | null;
 }
 
+/** A string holding a whole number of sen, the only shape BigInt may parse. */
+const INTEGER_SEN = /^-?\d+$/;
+
 /**
  * Renders sen as a decimal string using integer arithmetic only.
  *
  * Dividing by 100 in JavaScript would reintroduce the floating point problem the
  * whole payroll model exists to avoid, so the digits are split instead.
+ *
+ * Whole-number strings go through BigInt. Number.parseInt was exact for every
+ * realistic amount but silently lost precision beyond 2^53 sen, so the display
+ * was safe in practice rather than safe. Anything else keeps the previous
+ * parse, so no value that rendered before renders differently now.
  */
-export function formatSen(value: Sen): string {
-  const sen = typeof value === "string" ? Number.parseInt(value, 10) : Math.trunc(value);
-  if (!Number.isFinite(sen)) return "0.00";
+export function formatSen(value: Sen | bigint): string {
+  let sen: bigint;
 
-  const negative = sen < 0;
-  const absolute = Math.abs(sen);
-  const whole = Math.trunc(absolute / 100);
-  const fraction = String(absolute % 100).padStart(2, "0");
-  const grouped = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  if (typeof value === "bigint") {
+    sen = value;
+  } else if (typeof value === "string" && INTEGER_SEN.test(value.trim())) {
+    sen = BigInt(value.trim());
+  } else {
+    const parsed = typeof value === "string" ? Number.parseInt(value, 10) : Math.trunc(value);
+    if (!Number.isFinite(parsed)) return "0.00";
+    sen = BigInt(parsed);
+  }
+
+  const negative = sen < 0n;
+  const absolute = negative ? -sen : sen;
+  const whole = absolute / 100n;
+  const fraction = String(absolute % 100n).padStart(2, "0");
+  const grouped = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   return `${negative ? "-" : ""}${grouped}.${fraction}`;
+}
+
+/**
+ * Adds sen values exactly. For period totals, which are summed on this side
+ * from the records the page already holds - so they must be as exact as the
+ * records themselves. Returns a bigint for formatSen.
+ */
+export function sumSen(values: Sen[]): bigint {
+  let total = 0n;
+  for (const value of values) {
+    if (typeof value === "string" && INTEGER_SEN.test(value.trim())) {
+      total += BigInt(value.trim());
+    } else {
+      const parsed = typeof value === "string" ? Number.parseInt(value, 10) : Math.trunc(value);
+      if (Number.isFinite(parsed)) total += BigInt(parsed);
+    }
+  }
+  return total;
 }
 
 const monthNames = [
