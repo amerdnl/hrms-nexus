@@ -48,7 +48,10 @@ export default function RecordCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-fg">
+            {/* Wrapped, never truncated, like the meta below: a phone is where
+                the table's full column width is not available, so clipping
+                here is exactly where a long name or title would be lost. */}
+            <p className="text-sm font-semibold text-fg [overflow-wrap:anywhere]">
               {to ? (
                 <Link
                   to={to}
@@ -65,7 +68,7 @@ export default function RecordCard({
             </p>
 
             {subtitle && (
-              <p className="mt-0.5 truncate text-xs text-fg-subtle">{subtitle}</p>
+              <p className="mt-0.5 text-xs text-fg-subtle [overflow-wrap:anywhere]">{subtitle}</p>
             )}
           </div>
 
@@ -79,7 +82,7 @@ export default function RecordCard({
                 <dt className="truncate text-[11px] uppercase tracking-wide text-fg-subtle">
                   {entry.label}
                 </dt>
-                <dd className="truncate text-xs font-medium text-fg-muted">
+                <dd className="text-xs font-medium text-fg-muted [overflow-wrap:anywhere]">
                   {entry.value}
                 </dd>
               </div>

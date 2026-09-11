@@ -644,12 +644,13 @@ function AdminAttendancePage() {
                   <div className="flex items-center gap-3">
                     <Avatar name={recordName(record)} size="sm" />
                     {/* Capped so one long name cannot widen the whole column;
-                        the full name stays available as a tooltip. */}
+                        a longer name wraps inside the cap rather than being
+                        clipped - a tooltip reaches neither touch nor keyboard. */}
                     <div className="min-w-0 max-w-44">
-                      <p className="truncate font-medium text-fg" title={recordName(record)}>
+                      <p className="font-medium text-fg [overflow-wrap:anywhere]">
                         {recordName(record)}
                       </p>
-                      <p className="mt-0.5 truncate text-xs text-fg-subtle">
+                      <p className="mt-0.5 text-xs text-fg-subtle [overflow-wrap:anywhere]">
                         {employee
                           ? `${employee.employeeNumber}${employee.departmentName ? ` · ${employee.departmentName}` : ""}`
                           : "Not in the employee directory"}
