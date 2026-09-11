@@ -19,10 +19,13 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
+import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import type { Server } from "node:http";
+import os from "node:os";
+import path from "node:path";
 import jwt from "jsonwebtoken";
 import pg from "pg";
-import { runMigrations } from "../src/database/migrations.js";
+import { defaultMigrationDirectory, loadMigrations, runMigrations } from "../src/database/migrations.js";
 import { dropLabClones } from "./labClones.js";
 
 export const LAB_HOST = "hr-nexus-v2-migration-lab";
@@ -53,6 +56,11 @@ interface StartOptions {
   label: string;
   /** Skip booting Express, for suites that only exercise SQL. */
   withApp?: boolean;
+  /**
+   * Leave the clone at the baseline so the suite can migrate in stages, e.g.
+   * to prove a new migration is additive against the state just before it.
+   */
+  migrate?: boolean;
 }
 
 /**
@@ -96,7 +104,7 @@ export async function withLab(
   try {
     await cloneFromBaseline(admin, database);
     db = new pg.Pool({ host: LAB_HOST, user: "postgres", database });
-    await runMigrations(db, { mode: "apply", database });
+    if (options.migrate !== false) await runMigrations(db, { mode: "apply", database });
 
     let origin = "";
     if (options.withApp !== false) {
@@ -155,6 +163,72 @@ export async function withLab(
     await dropLabClones(admin, suffix, completed, t);
     await admin.end();
   }
+}
+
+/**
+ * Applies the chain only up to and including `lastVersion`, from byte-identical
+ * copies of the reviewed files, so the ledger it writes is exactly what the
+ * full chain expects to find when it continues afterwards.
+ */
+export async function applyMigrationsUpTo(
+  db: pg.Pool, database: string, lastVersion: string,
+): Promise<string[]> {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "hr-nexus-stage-"));
+  try {
+    for (const migration of await loadMigrations()) {
+      if (migration.version > lastVersion) break;
+      await copyFile(new URL(migration.filename, defaultMigrationDirectory), path.join(directory, migration.filename));
+    }
+    return (await runMigrations(db, { mode: "apply", database, directory })).newlyApplied;
+  } finally {
+    await rm(directory, { recursive: true });
+  }
+}
+
+/** Tables whose rows V2 put there and V3 must never rewrite. */
+const businessTables = [
+  "departments", "employees", "users", "leave_requests", "attendance", "company_settings",
+  "leave_policies", "leave_entitlements", "employee_compensation", "payroll_periods",
+  "payroll_records", "payroll_items", "audit_events", "import_jobs",
+];
+
+export type BusinessSnapshot = {
+  columns: Record<string, string[]>;
+  tables: Record<string, { count: number; digest: string }>;
+  sequences: Record<string, string>;
+};
+
+/**
+ * Row counts and complete content digests of every V2 business table, plus
+ * business sequence positions. Pass an earlier snapshot to compare only the
+ * columns that existed then, so an additive migration's new NULL column is not
+ * mistaken for business drift - while any change to an existing value is.
+ */
+export async function businessSnapshot(db: pg.Pool, since?: BusinessSnapshot): Promise<BusinessSnapshot> {
+  const columns: Record<string, string[]> = {};
+  const tables: Record<string, { count: number; digest: string }> = {};
+  for (const table of businessTables) {
+    const present = (await db.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position",
+      [table],
+    )).rows.map((row) => row.column_name as string);
+    columns[table] = since?.columns[table] ?? present;
+    const added = present.filter((column) => !columns[table]!.includes(column));
+    const row = (await db.query(
+      `SELECT count(*)::int AS count,
+              md5(COALESCE(string_agg((to_jsonb(t) - $1::text[])::text, '|' ORDER BY (to_jsonb(t) - $1::text[])::text), '')) AS digest
+       FROM public.${table} t`,
+      [added],
+    )).rows[0];
+    tables[table] = { count: row.count, digest: row.digest };
+  }
+  const sequences: Record<string, string> = {};
+  for (const row of (await db.query(
+    "SELECT sequencename, COALESCE(last_value, 0)::text AS last_value FROM pg_sequences WHERE schemaname='public' ORDER BY 1",
+  )).rows) {
+    if (!since || row.sequencename in since.sequences) sequences[row.sequencename] = row.last_value;
+  }
+  return { columns, tables, sequences };
 }
 
 /** Standard fixture password hash: unusable for sign-in, fine for token tests. */
