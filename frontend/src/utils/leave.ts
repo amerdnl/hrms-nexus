@@ -1,4 +1,3 @@
-import type { LeaveRequest } from "../types/leave";
 import { toIsoDate } from "./datetime";
 
 /**
@@ -33,52 +32,6 @@ export function calcLeaveDays(
   const days = Math.round((endMs - startMs) / 86_400_000) + 1;
 
   return days > 0 ? days : null;
-}
-
-/** Formats a day count as "1 day" / "3 days". */
-export function formatLeaveDays(
-  days: number | null,
-  fallback = "—",
-): string {
-  if (days === null) return fallback;
-
-  return `${days} ${days === 1 ? "day" : "days"}`;
-}
-
-/** Convenience for the common "compute then format" pairing in tables. */
-export function formatLeaveDaysBetween(
-  startDate: string | null | undefined,
-  endDate: string | null | undefined,
-  fallback = "—",
-): string {
-  return formatLeaveDays(calcLeaveDays(startDate, endDate), fallback);
-}
-
-/**
- * The employee's nearest approved leave that has not finished yet.
- *
- * Uses endDate >= today rather than startDate >= today so a leave currently in
- * progress still surfaces. Comparison is lexicographic on "YYYY-MM-DD", which
- * is exactly correct for that format and avoids Date parsing entirely.
- *
- * `today` should come from getMalaysiaDate() so this agrees with how the
- * backend stamps attendance, rather than with the viewer's local clock.
- */
-export function findUpcomingLeave(
-  leaves: LeaveRequest[],
-  today: string,
-): LeaveRequest | null {
-  const upcoming = leaves
-    .filter((leave) => {
-      if (leave.status !== "approved") return false;
-
-      const end = toIsoDate(leave.endDate);
-
-      return end !== "" && end >= today;
-    })
-    .sort((a, b) => toIsoDate(a.startDate).localeCompare(toIsoDate(b.startDate)));
-
-  return upcoming[0] ?? null;
 }
 
 /**
