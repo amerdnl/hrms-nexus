@@ -17,6 +17,7 @@ import SectionCard from "../../components/ui/SectionCard";
 import Skeleton, { SkeletonText } from "../../components/ui/Skeleton";
 import TextArea from "../../components/ui/TextArea";
 import TextInput from "../../components/ui/TextInput";
+import HolidaysCard from "../../components/settings/HolidaysCard";
 import { cn } from "../../utils/cn";
 
 const textFields = [
@@ -433,6 +434,9 @@ export default function CompanySettingsPage() {
               </div>
             </fieldset>
           </form>
+
+          {/* Saved on their own, row by row: not part of the settings form's revision. */}
+          <HolidaysCard />
         </>
       )}
 
