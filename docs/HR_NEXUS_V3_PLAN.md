@@ -31,7 +31,7 @@ typecheck, Oxlint and production build pass; the entry chunk is 569.69 kB (161.7
 | M1 | Roles, permissions & manager experience | complete |
 | M2 | People, directory, social profiles & org chart | complete |
 | M3 | Action Center, search, notifications, calendar & announcements | complete |
-| M4 | Onboarding & offboarding | — |
+| M4 | Onboarding & offboarding | complete |
 | M5 | Recognition & employee timeline | — |
 | M6 | Goals & performance reviews | — |
 | M7 | Attendance, leave & payroll V3 | — |
@@ -157,6 +157,17 @@ plus route-splitting build assertions and axe/keyboard browser checks.
 - **13 Sep 2026 — Who's out:** approved leave for everyone as a name and dates; pending
   requests only for the person, their manager and HR; the leave type only for the person,
   their team's manager and HR; reasons never.
+- **13 Sep 2026 — Lifecycle tasks belong to roles, not people.** A task is for the
+  employee, their manager or HR, resolved from current data on every request. A reporting
+  line that changes mid-plan hands the manager's tasks over at once, and nothing stored can
+  go stale.
+- **13 Sep 2026 — Onboarding completes itself; offboarding never does.** When the last
+  onboarding task is finished the plan closes. Offboarding is completed by HR only, on or
+  after the last working day, with no task pending and nobody still reporting to the
+  leaver. Completion runs the same employee lifecycle statements as HR's deactivate action,
+  and records `EMPLOYEE_DEACTIVATED` alongside `LIFECYCLE_PLAN_COMPLETED`.
+- **13 Sep 2026 — No "due soon" notifications.** They would need a scheduler, which V3 does
+  not run. Due and overdue tasks are shown in the Action Center and on My tasks instead.
 - **13 Sep 2026 — `/api/company/calendar-config` ships in M3,** because the calendar needs
   it. It exposes the timezone, working week, company today and holidays, and nothing else
   from settings. M7 builds the leave preview and cancellation fixes on it.
@@ -376,7 +387,7 @@ Verification:
 | M3 workplace suite | **18/18**: leakage through notification titles, search, calendar and the Action Center; dedupe and unsafe links; a stale token for a resigned employee; stale reporting lines; announcement audience, revisions, archive and audit redaction; holidays and events |
 | Backend full laboratory suite | **498 pass, 0 fail, 0 skipped** (+20: workplace 18, migration suite 2) |
 | Frontend typecheck, Oxlint (0 warnings), production build | pass |
-| Initial JS | 321.78 kB (gzip 105.51 kB), 99 chunks; +3.79 kB over M0 for the bell and search palette in the shell |
+| Initial JS | **345.17 kB (gzip 112.26 kB), 113 chunks** — corrected on 13 September, see M4. The bell and search palette, with the dialog they open, are in the shell |
 | M3 browser smoke on the V3 demo stack | **59/59**, no page errors: every role's Action Center and deep links, bell, palette, calendar grid and team view, announcement read state, HR publish, holidays, events, API leak checks, 390 light and 375 dark with no overflow |
 | V2 navigation gate on the V3 bundle | 48/48 |
 | Source fingerprint (13 September) | V2 business data, orphans and ledger identical to the post-0013 record; M3 tables empty on source |
@@ -397,8 +408,78 @@ Recorded:
   gained two audit entries: successful administrator sign-ins at 11:37:24 and 12:02:06 UTC
   on 13 September, made through the source app. This work did not sign in to source; its
   checks there were unauthenticated health reads.
+- **Initial JS correction (recorded in M4).** The figure first written here, 321.78 kB,
+  came from running the measuring script without a directory. It fell back to
+  `frontend/dist`, an earlier build this work never refreshes, instead of the M3 bundle.
+  Rebuilding commit `d2230c4` in a temporary worktree measured 345.17 kB. The script now
+  refuses to run without an explicit directory. Moving the search dialog and the
+  notification panel out of the shell is recorded for M9.
 - **Screenshots reviewed.** No defects. Holiday and event names are truncated inside
   month-grid cells, but each day button's accessible name and the day panel carry them in
   full. Fixed bars appear mid-page only in full-page captures.
 
 M3 status: **complete.**
+
+## M4 — Onboarding & offboarding (13 September 2026)
+
+Delivered:
+
+- **Migration 0014 `lifecycle`** (SHA-256 `0284a031967c01005de5bba675b6afcdda0e110b42e8785a8daa243edaed6503`):
+  checklists and their tasks; plans with one active plan per employee per kind (partial
+  unique index), a snapshot title, `exit_status` exactly for offboarding, and completion
+  and cancellation stamps; each plan's own copy of its tasks, assigned to a role and dated
+  from the plan's anchor. New tables only; a plan with tasks cannot be deleted.
+- **Shared employee lifecycle.** The lock-then-apply helpers moved unchanged from the
+  employee controller to `employeeLifecycleService`, so HR's deactivate action and a
+  completed offboarding plan run the same statements in the same lock order.
+- **API** `/api/lifecycle`: HR checklists (validated, unique per kind, revisioned), plans
+  (start, list, complete, cancel); for every account, a plan as their roles allow (404
+  otherwise), "my work", and task updates by the role holder or HR (skip is HR only).
+  Starting a plan notifies each role with tasks and writes the timeline (company-visible
+  for onboarding, manager and HR only for offboarding). Every mutation is audited;
+  task notes are not copied into the audit log.
+- **Action Center and search**: tasks the caller's roles hold now; for HR, offboarding
+  plans ready to complete; destinations for My tasks, Onboarding and Offboarding.
+- **Frontend**: `/tasks` for every role (to do, your plans, your team), a plan page for
+  anyone with a role in it, HR's `/admin/onboarding` and `/admin/offboarding` with a start
+  dialog, a checklist editor at `/admin/lifecycle/templates`, and a lifecycle card on the
+  HR employee record.
+- **Demo**: two checklists, two onboarding plans (one whose manager, Nurul, signs in) and
+  one offboarding plan, with fixed progress.
+
+Source application of 0014, 13 September 2026 12:14:07 UTC, through the guarded procedure
+(evidence `.local-backups/0014-20260913/`): backup `ce772cf0…443ab0f` restore-verified;
+pending set exactly 0014; rehearsal apply, no-op, identical business data, rollback,
+re-apply; source apply of exactly 0014, no-op, identical business data; ledger 0001–0014;
+post-apply dump `e9304a6b…edaafc33`. The lifecycle routes were mounted only after this.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Backend typecheck (source and tests) | pass |
+| V3 migration suite | 0010–0014 each additive, idempotent and reversible; the chain applies to a fresh `schema.sql` |
+| M4 lifecycle suite | **9/9**: HR-only endpoints; template validation, duplicates and revisions; plan start dates and role notifications; each role's view and a stranger's 404; task permissions, HR-only skip, onboarding auto-completion; a mid-plan reporting-line change moving the manager's task; offboarding refusals (tasks pending, before the last day, reports remaining) then deactivation with attendance, leave and the orphans unchanged, a stale token refused, the directory updated, audit and timeline written; cancellation |
+| Backend full laboratory suite | **508 pass, 0 fail, 0 skipped** (+10: lifecycle 9, migration suite 1) |
+| Frontend typecheck, Oxlint (0 warnings), production build | pass |
+| Initial JS | 347.55 kB (gzip 112.84 kB), 123 chunks: +2.38 kB over the corrected M3 figure for navigation icons, breadcrumb labels and route stubs. Every lifecycle page and dialog is its own chunk |
+| M4 browser smoke on the V3 demo stack | **41/41**, no page errors: manager task list, Action Center and plan page; a colleague's 404s and refused task update; HR lists, checklist editor, starting a plan, the offboarding refusal shown on screen, the HR record card; 390 light and 375 dark with no overflow |
+| V2 navigation gate on the V3 bundle | **50/50**: the admin sidebar expectation moves from 11 to 13 destinations for Onboarding and Offboarding |
+| Source fingerprint (13 September) | identical to the post-0014 record; M4 tables empty on source |
+
+Recorded:
+
+- **Two lifecycle defects found by the new suite before any browser check.** The task
+  update typed one parameter as both text and varchar, and one test read the raw response
+  instead of its text. Both were fixed, and the suite passed.
+- **Smoke runs.** The first stopped after 32 passes, because the script opened the
+  checklists page without `?kind=offboarding`. The second passed 41/41, but its summary
+  counted the 409 the script deliberately provokes. The harness now lets a script declare
+  expected statuses. The third run, after the two UI fixes below and a demo rebuild,
+  passed 41/41 with no page errors.
+- **Screenshots reviewed; two defects fixed.** HR's plan breadcrumb said "Onboarding" on
+  offboarding plans; it now says "Onboarding and offboarding". The HR record offered "Start
+  onboarding" for someone being offboarded; it no longer does. Fixed bars appear mid-page
+  only in full-page captures.
+
+M4 status: **complete.**

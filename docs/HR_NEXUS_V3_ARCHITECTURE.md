@@ -136,7 +136,7 @@ keys, as 0004–0008 already prove).
 | `0011_profiles_timeline` | M2 | `employee_profiles` (1:1 on employee: `about` ≤ 2000, `skills TEXT[]` ≤ 30 entries, `share_phone`), `employee_events` (append-only timeline: kind, visibility company/self/management, occurred_on, title, bounded `detail` JSONB ≤ 2 KB, source, actor) |
 | `0012_notifications` | M3 | `notifications` (per account: kind, title ≤ 160, body ≤ 500, app-relative `link` validated by CHECK, paired entity, `dedupe_key` unique per account, actor, `read_at`); indexes for the recent list and the unread badge |
 | `0013_announcements_calendar` | M3 | `announcements` (plain-text body ≤ 5000, priority normal/important, audience company or one department with RESTRICT, status draft/published/archived with stamps, optional `expires_on`, `revision`), `announcement_reads` (announcement × account), `company_holidays` (one per date, `revision`), `company_events` (dated occasions up to 32 days, optional company wall-clock times and location, `revision`) |
-| `0014_lifecycle` | M4 | `lifecycle_templates`, `lifecycle_template_tasks`, `lifecycle_plans` (kind onboarding/offboarding, one active plan per employee per kind, `exit_status` for offboarding), `lifecycle_tasks` (assignee role employee/manager/hr resolved to a user where one exists, due date, status pending/done/skipped, completion actor) |
+| `0014_lifecycle` | M4 | `lifecycle_templates` (unique name per kind, retire rather than delete, revision) and `lifecycle_template_tasks` (position, role, due offset from the plan's anchor), `lifecycle_plans` (kind, snapshot title, one active plan per employee per kind by partial unique index, `exit_status` required exactly for offboarding, completion/cancellation stamps), `lifecycle_tasks` (the plan's own copy: role employee/manager/hr — never a stored person — due date, pending/done/skipped with stamps, short note) |
 | `0015_recognition` | M5 | `recognitions` (giver ≠ receiver, message 5–500, closed category list, visibility company/private, admin `hidden_at/hidden_by`) |
 | `0016_goals_reviews` | M6 | `goals` (owner, title, description, dates, status active/completed/cancelled, progress 0–100, visibility private/team/company), `goal_updates` (history), `review_cycles` (period, self and manager due dates, status draft/open/closed), `review_participants` (cycle × employee, reviewer, self and manager summaries and 1–5 ratings, timestamps, status) |
 
@@ -180,7 +180,7 @@ Producers and their notifications:
 | Leave approved/rejected/cancelled by someone else | the employee |
 | Payroll period approved | every employee with a record in it ("payslip published") |
 | Announcement published | its audience |
-| Lifecycle plan started / task assigned / task due soon | the assignee |
+| Lifecycle plan started (one notification per role with tasks) | the employee, their current manager, HR (never the starter) |
 | Recognition given | the receiver |
 | Goal created for you / goal updated by someone else | owner or manager respectively |
 | Review cycle opened / self-review submitted / manager review submitted | participant, reviewer, participant |
@@ -194,9 +194,9 @@ manager) and announcement published (its audience). Later milestones add theirs.
 **Action Center is computed, not stored.** `GET /api/action-center` derives, from the
 same tables the destination pages read, exactly the work the current session may act on:
 pending leave in scope (manager: team; admin: company), lifecycle tasks assigned to me
-(admins also see unassigned HR tasks), reviews awaiting my input, goals overdue that I
-own, payroll periods awaiting the next transition (admin), and offboarding plans past
-their target date (admin). HR's leave items are only the requests no manager can decide (none recorded, the manager
+(resolved by role: the plan's employee, their current manager, HR), reviews awaiting my input, goals overdue that I
+own, payroll periods awaiting the next transition (admin), and offboarding plans whose last day has come with every
+task finished (admin: complete them). HR's leave items are only the requests no manager can decide (none recorded, the manager
 has left, or has no usable account); a manager's are their current direct reports'. It also
 lists "waiting" (your own requests someone else must decide), "upcoming" (the next 14
 company days: your approved leave, your team's, holidays and events; later tasks and
@@ -222,7 +222,7 @@ guard.
 | `/api/search` | any session | `GET /?q=` (2–100 chars): working people, departments with working headcount, destinations filtered by role and manager scope, and HR records (any status) for admins only |
 | `/api/calendar` | any session; events HR | `GET /?from&to&department&team` (≤ 93 days; `team=1` managers only): config, holidays, events, who's out (approved for everyone, pending only for self/manager/HR, leave type only for self/team/HR, never reasons); HR `GET/POST/PUT/DELETE /events` |
 | `/api/announcements` | mixed | `GET /` and `GET /:id` audience-filtered (HR reads any); `PUT /:id/read` (also clears its notification); HR `GET /manage`, `POST /` (draft), `PUT /:id` (revision; audience fixed once published), `POST /:id/publish` (revision), `POST /:id/archive`, `DELETE /:id` (drafts only) |
-| `/api/lifecycle` | mixed | admin templates and plans; `GET /me` for employees; `GET /tasks` (mine); `PUT /tasks/:id` complete/skip by assignee or admin; admin `POST /plans/:id/complete` (offboarding deactivates) |
+| `/api/lifecycle` | mixed | HR `GET/POST /templates`, `PUT /templates/:id` (revision); HR `GET /plans?kind&status`, `POST /plans`, `POST /plans/:id/complete`, `POST /plans/:id/cancel`; any session `GET /plans/:id` (404 without a role in it; tasks filtered to the caller's roles), `GET /my-work`, `PUT /tasks/:id` (role holder or HR; skip is HR only) |
 | `/api/recognition` | employee record | `GET /` feed (company-visible); `POST /`; admin `PUT /:id/hide` |
 | `/api/goals` | mixed | `GET /me`, `POST /me`, `PUT /:id`, `POST /:id/updates`; manager `GET /team`, `POST /team/:employeeId`; admin `GET /` |
 | `/api/reviews` | mixed | admin cycles CRUD, open/close; `GET /me`; `PUT /participants/:id/self`; manager `PUT /participants/:id/manager`; admin `GET /cycles/:id/participants` |
@@ -243,10 +243,10 @@ role alone.
 
 | Area | Routes | Who |
 | --- | --- | --- |
-| Workplace | `/actions`, `/people`, `/people/:id`, `/org`, `/calendar`, `/announcements`, `/announcements/:id`, `/notifications` | everyone |
-| Me | `/employee/dashboard`, `/attendance`, `/leave`, `/payroll`, `/profile`, `/goals`, `/reviews`, `/onboarding`, `/recognition` | employee record |
-| Team | `/team`, `/team/attendance`, `/team/leave`, `/team/goals`, `/team/reviews`, `/team/onboarding` | manager |
-| Company | existing `/admin/*` plus `/admin/announcements/new` and `/:id/edit` (HR manages from `/announcements`, which gains Drafts and Archived tabs), `/admin/onboarding`, `/admin/offboarding`, `/admin/performance`, `/admin/analytics`, holidays inside `/admin/settings` | admin |
+| Workplace | `/actions`, `/tasks` (onboarding/offboarding work for every role), `/lifecycle/plans/:id`, `/people`, `/people/:id`, `/org`, `/calendar`, `/announcements`, `/announcements/:id`, `/notifications` | everyone |
+| Me | `/employee/dashboard`, `/attendance`, `/leave`, `/payroll`, `/profile`, `/goals`, `/reviews`, `/recognition` (own onboarding and offboarding live on `/tasks`) | employee record |
+| Team | `/team`, `/team/attendance`, `/team/leave`, `/team/goals`, `/team/reviews` (team onboarding and offboarding live on `/tasks`) | manager |
+| Company | existing `/admin/*` plus `/admin/announcements/new` and `/:id/edit` (HR manages from `/announcements`, which gains Drafts and Archived tabs), `/admin/onboarding`, `/admin/offboarding`, `/admin/lifecycle/templates`, `/admin/lifecycle/plans/:id`, `/admin/performance`, `/admin/analytics`, holidays inside `/admin/settings` | admin |
 
 Global search is a header command palette (keyboard `⌘K`/`Ctrl+K`, a combobox over one listbox), not a route. The header also carries the notification bell, whose unread count refreshes on navigation, every minute while the tab is visible, and when the tab returns.
 Navigation renders in sections (Workplace, Me, Team, Company); the phone bottom bar keeps
