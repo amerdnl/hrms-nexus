@@ -8,6 +8,8 @@ import Avatar from "../ui/Avatar";
 import Breadcrumbs from "../ui/Breadcrumbs";
 import DropdownMenu from "../ui/DropdownMenu";
 import ThemeToggle from "../ui/ThemeToggle";
+import CommandSearch from "../workplace/CommandSearch";
+import NotificationBell from "../workplace/NotificationBell";
 import LogoutConfirmationModal from "../common/LogoutConfirmationModal";
 
 /**
@@ -61,6 +63,8 @@ export default function AppHeader() {
         </h2>
 
         <div className="flex shrink-0 items-center gap-1">
+          <CommandSearch />
+          <NotificationBell />
           {/*
             The theme control's home is the sidebar footer, which the
             references show and which is where it stays from md up. But the
