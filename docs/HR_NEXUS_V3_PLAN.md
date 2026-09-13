@@ -32,7 +32,7 @@ typecheck, Oxlint and production build pass; the entry chunk is 569.69 kB (161.7
 | M2 | People, directory, social profiles & org chart | complete |
 | M3 | Action Center, search, notifications, calendar & announcements | complete |
 | M4 | Onboarding & offboarding | complete |
-| M5 | Recognition & employee timeline | — |
+| M5 | Recognition & employee timeline | complete |
 | M6 | Goals & performance reviews | — |
 | M7 | Attendance, leave & payroll V3 | — |
 | M8 | Analytics, reports, export & settings | — |
@@ -168,6 +168,14 @@ plus route-splitting build assertions and axe/keyboard browser checks.
   and records `EMPLOYEE_DEACTIVATED` alongside `LIFECYCLE_PLAN_COMPLETED`.
 - **13 Sep 2026 — No "due soon" notifications.** They would need a scheduler, which V3 does
   not run. Due and overdue tasks are shown in the Action Center and on My tasks instead.
+- **13 Sep 2026 — Private recognition is for the two people and HR, not the manager.** A
+  private thank-you is personal. Letting the receiver's manager read it would turn it into
+  a performance signal. Category counts on a profile use the same filter, so it cannot be
+  inferred.
+- **13 Sep 2026 — Recognition is limited and never rewritten.** Once a day per giver and
+  colleague is a database rule; five a day per giver is checked under a per-giver lock. A
+  trigger refuses edits and deletion; HR hides and restores instead, and the audit records
+  that without copying the words.
 - **13 Sep 2026 — `/api/company/calendar-config` ships in M3,** because the calendar needs
   it. It exposes the timezone, working week, company today and holidays, and nothing else
   from settings. M7 builds the leave preview and cancellation fixes on it.
@@ -483,3 +491,67 @@ Recorded:
   only in full-page captures.
 
 M4 status: **complete.**
+
+## M5 — Recognition & employee timeline (13 September 2026)
+
+Delivered:
+
+- **Migration 0015 `recognition`** (SHA-256 `a0a398d23072b52879497fcbd6fbc7479154edfb44ffb127ef00e35f2697a559`):
+  `recognitions` with a closed category list, a 5–500 character message, company or
+  private visibility, the company date it was given on (one per giver and colleague per
+  day by unique index), and HR's hidden stamp; `prevent_recognition_rewrite` refuses
+  deleting or changing anything but the moderation fields. New objects only.
+- **API**: `/api/recognition` feed views (company; received and given for accounts with an
+  employee record; HR's moderation view with private and hidden recognition), giving
+  (not yourself, not a leaver, the two limits, 429 past five), HR hide and restore; and
+  `/api/people/:id/recognition` for profiles, filtered by the same rule, with counts by
+  category. Company recognition leaves colleagues' feeds when either person leaves.
+- **Timeline**: giving writes `recognition_received` in the company tier (with the
+  giver's name) or the self tier when private. The M2 timeline already drops events whose
+  recognition is hidden, so moderation reaches it with no further change.
+- **Notifications and search**: the receiver is told, with a link to what they received;
+  Recognition is a search destination for everyone.
+- **Frontend**: `/recognition` (Company, Received, Given, and Moderation for HR), a give
+  dialog with category chips, a character count and a private option, a recognition card
+  on every profile with a "Recognise" button, and a recent recognition card on the
+  employee dashboard.
+- **Demo**: seven recognitions, including a private one to Aiman that his manager does
+  not see.
+
+Source application of 0015, 13 September 2026 12:41:34 UTC, through the guarded procedure
+(evidence `.local-backups/0015-20260913/`), run only after the migration suites passed:
+backup `46870345…6f85c1fd` restore-verified; pending set exactly 0015; rehearsal apply,
+no-op, identical business data, rollback, re-apply; source apply of exactly 0015, no-op,
+identical business data; ledger 0001–0015; post-apply dump `5780f9bb…865ac42a`. The
+recognition routes were mounted only after this.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Backend typecheck (source and tests) | pass |
+| V3 migration suite | 0010–0015 each additive, idempotent and reversible; the chain applies to a fresh `schema.sql` |
+| M5 recognition suite | **9/9**: anonymous and record-less accounts; validation, yourself, leavers and strangers; company recognition through notification, profile, feed and timeline, once a day; private recognition invisible to another colleague and to the receiver's manager, including on the timeline and in counts; five a day; HR hide and restore across profile, feed and timeline with no words in the audit; the database refusing rewrites, deletion and self-recognition; a leaver's recognition leaving colleagues' feeds and their token refused |
+| Backend full laboratory suite | **518 pass, 0 fail, 0 skipped** (+10: recognition 9, migration suite 1); the demo seeder suite passed 11/11 again after the seed fixes below |
+| Frontend typecheck, Oxlint (0 warnings), production build | pass |
+| Initial JS | 348.10 kB (gzip 113.01 kB), 128 chunks: +0.55 kB over M4; every recognition page and dialog is its own chunk |
+| M5 browser smoke on the V3 demo stack | **28/28**, no page errors: dashboard card; feed without private recognition; received with it; giving from a profile and seeing it at once; the once-a-day refusal shown in the dialog; API refusals; the manager not seeing a report's private recognition; HR moderation and hidden recognition leaving a colleague's feed; 390 light and 375 dark with no overflow and the dialog fitting |
+| V2 navigation gate on the V3 bundle | 50/50 |
+| Source fingerprint (13 September) | identical to the post-0015 record; the recognitions table is empty on source |
+
+Recorded:
+
+- **Two demo seed defects, both caught by building the demo from a fresh `schema.sql`.**
+  The recognition insert first used the giver's employee id as `created_by`, which
+  references accounts. Then one parameter was deduced as both integer and bigint, because
+  the fresh schema's keys are bigint. Both times the seed failed inside its transaction
+  and wrote nothing. The laboratory baseline uses the source's integer keys, which is why
+  the demo seeder suite passed before the fix. Both are fixed, the seeder suite was rerun,
+  and the demo now builds.
+- **Screenshots reviewed.** One defect was fixed: with no colleague chosen, the private
+  option read "Only them and HR will see it"; it now names the person, or says "the person
+  you recognise". Dialog descriptions sit tight against the first field in every V3
+  dialog. That is shared modal spacing, so it is left unchanged here and recorded for M9's
+  visual polish.
+
+M5 status: **complete.**

@@ -106,7 +106,7 @@ layer. The social layer is exactly this, no more:
 | Phone | `employees.phone` | only when `employee_profiles.share_phone` is true |
 | About, skills | `employee_profiles` | yes |
 | Join date and tenure | `employees.employment_date` | yes |
-| Recognition received and given | `recognitions` with visibility `company` | yes |
+| Recognition received | `recognitions` with visibility `company`, not hidden, while both people are employed | yes; `private` recognition is seen only by the giver, the receiver and HR (not the receiver's manager), and counts by category use the same filter |
 | Company-visible timeline events | `employee_events` with visibility `company` | yes |
 | Employment status | `employees` | shown only as "on probation" where relevant; inactive, resigned and terminated employees are not in the directory at all |
 
@@ -137,7 +137,7 @@ keys, as 0004–0008 already prove).
 | `0012_notifications` | M3 | `notifications` (per account: kind, title ≤ 160, body ≤ 500, app-relative `link` validated by CHECK, paired entity, `dedupe_key` unique per account, actor, `read_at`); indexes for the recent list and the unread badge |
 | `0013_announcements_calendar` | M3 | `announcements` (plain-text body ≤ 5000, priority normal/important, audience company or one department with RESTRICT, status draft/published/archived with stamps, optional `expires_on`, `revision`), `announcement_reads` (announcement × account), `company_holidays` (one per date, `revision`), `company_events` (dated occasions up to 32 days, optional company wall-clock times and location, `revision`) |
 | `0014_lifecycle` | M4 | `lifecycle_templates` (unique name per kind, retire rather than delete, revision) and `lifecycle_template_tasks` (position, role, due offset from the plan's anchor), `lifecycle_plans` (kind, snapshot title, one active plan per employee per kind by partial unique index, `exit_status` required exactly for offboarding, completion/cancellation stamps), `lifecycle_tasks` (the plan's own copy: role employee/manager/hr — never a stored person — due date, pending/done/skipped with stamps, short note) |
-| `0015_recognition` | M5 | `recognitions` (giver ≠ receiver, message 5–500, closed category list, visibility company/private, admin `hidden_at/hidden_by`) |
+| `0015_recognition` | M5 | `recognitions` (giver ≠ receiver, closed category list teamwork / above and beyond / customer focus / problem solving / mentoring, message 5–500, visibility company/private, `given_on` company date with one per giver and colleague per day by unique index, HR `hidden_at/hidden_by`); trigger `prevent_recognition_rewrite` refuses deleting or rewriting anything but the moderation fields |
 | `0016_goals_reviews` | M6 | `goals` (owner, title, description, dates, status active/completed/cancelled, progress 0–100, visibility private/team/company), `goal_updates` (history), `review_cycles` (period, self and manager due dates, status draft/open/closed), `review_participants` (cycle × employee, reviewer, self and manager summaries and 1–5 ratings, timestamps, status) |
 
 Base tables: 18 → 34 (0013 gained `company_events`; the calendar spec names company events alongside holidays). No column type, constraint or row of a V2 table changes. Rollback
@@ -223,7 +223,7 @@ guard.
 | `/api/calendar` | any session; events HR | `GET /?from&to&department&team` (≤ 93 days; `team=1` managers only): config, holidays, events, who's out (approved for everyone, pending only for self/manager/HR, leave type only for self/team/HR, never reasons); HR `GET/POST/PUT/DELETE /events` |
 | `/api/announcements` | mixed | `GET /` and `GET /:id` audience-filtered (HR reads any); `PUT /:id/read` (also clears its notification); HR `GET /manage`, `POST /` (draft), `PUT /:id` (revision; audience fixed once published), `POST /:id/publish` (revision), `POST /:id/archive`, `DELETE /:id` (drafts only) |
 | `/api/lifecycle` | mixed | HR `GET/POST /templates`, `PUT /templates/:id` (revision); HR `GET /plans?kind&status`, `POST /plans`, `POST /plans/:id/complete`, `POST /plans/:id/cancel`; any session `GET /plans/:id` (404 without a role in it; tasks filtered to the caller's roles), `GET /my-work`, `PUT /tasks/:id` (role holder or HR; skip is HR only) |
-| `/api/recognition` | employee record | `GET /` feed (company-visible); `POST /`; admin `PUT /:id/hide` |
+| `/api/recognition` | mixed | any session `GET /?view=company\|received\|given` (HR also `all`, private and hidden included); employee record `POST /` (not yourself, not a leaver, once a day per colleague, five a day, 429 past it); HR `PUT /:id/hidden` (hide or restore, audited without the words) |
 | `/api/goals` | mixed | `GET /me`, `POST /me`, `PUT /:id`, `POST /:id/updates`; manager `GET /team`, `POST /team/:employeeId`; admin `GET /` |
 | `/api/reviews` | mixed | admin cycles CRUD, open/close; `GET /me`; `PUT /participants/:id/self`; manager `PUT /participants/:id/manager`; admin `GET /cycles/:id/participants` |
 | `/api/settings` | admin | `GET/PUT` unchanged; `GET/POST/PUT/DELETE /holidays` (revisioned, one per date, audited) |
@@ -243,8 +243,8 @@ role alone.
 
 | Area | Routes | Who |
 | --- | --- | --- |
-| Workplace | `/actions`, `/tasks` (onboarding/offboarding work for every role), `/lifecycle/plans/:id`, `/people`, `/people/:id`, `/org`, `/calendar`, `/announcements`, `/announcements/:id`, `/notifications` | everyone |
-| Me | `/employee/dashboard`, `/attendance`, `/leave`, `/payroll`, `/profile`, `/goals`, `/reviews`, `/recognition` (own onboarding and offboarding live on `/tasks`) | employee record |
+| Workplace | `/actions`, `/tasks` (onboarding/offboarding work for every role), `/lifecycle/plans/:id`, `/recognition` (company, received, given; HR moderation), `/people`, `/people/:id`, `/org`, `/calendar`, `/announcements`, `/announcements/:id`, `/notifications` | everyone |
+| Me | `/employee/dashboard` (with a recent recognition card), `/attendance`, `/leave`, `/payroll`, `/profile`, `/goals`, `/reviews` (own onboarding and offboarding live on `/tasks`) | employee record |
 | Team | `/team`, `/team/attendance`, `/team/leave`, `/team/goals`, `/team/reviews` (team onboarding and offboarding live on `/tasks`) | manager |
 | Company | existing `/admin/*` plus `/admin/announcements/new` and `/:id/edit` (HR manages from `/announcements`, which gains Drafts and Archived tabs), `/admin/onboarding`, `/admin/offboarding`, `/admin/lifecycle/templates`, `/admin/lifecycle/plans/:id`, `/admin/performance`, `/admin/analytics`, holidays inside `/admin/settings` | admin |
 
