@@ -51,6 +51,8 @@ import {
   demoHolidays,
   demoEvents,
   demoAnnouncements,
+  demoLifecycleTemplates,
+  demoLifecyclePlans,
   seededRandom,
 } from "./demoData.js";
 
@@ -126,7 +128,7 @@ async function main(): Promise<void> {
       fail(`the target is missing migration 0011 (profiles and timeline); its ledger is ${versions.join(",")}.`);
     }
     // Notifications, announcements and the calendar are part of the V3 demo too.
-    for (const [version, name] of [["0012", "notifications"], ["0013", "announcements and calendar"]] as const) {
+    for (const [version, name] of [["0012", "notifications"], ["0013", "announcements and calendar"], ["0014", "onboarding and offboarding"]] as const) {
       if (!versions.includes(version)) {
         fail(`the target is missing migration ${version} (${name}); its ledger is ${versions.join(",")}.`);
       }
@@ -195,7 +197,14 @@ async function main(): Promise<void> {
     );
     // Workplace content the demo administrator wrote. Reads and notifications
     // belong to demo accounts and go with them when those rows are deleted.
-    for (const table of ["announcements", "company_events", "company_holidays"]) {
+    // Plans and their tasks belong to demo employees; checklists to the demo administrator.
+    await client.query(
+      `DELETE FROM public.lifecycle_tasks WHERE plan_id IN (
+         SELECT id FROM public.lifecycle_plans WHERE employee_id BETWEEN $1 AND $2)`,
+      [DEMO_ID_MIN, DEMO_ID_MAX],
+    );
+    await client.query("DELETE FROM public.lifecycle_plans WHERE employee_id BETWEEN $1 AND $2", [DEMO_ID_MIN, DEMO_ID_MAX]);
+    for (const table of ["lifecycle_templates", "announcements", "company_events", "company_holidays"]) {
       await client.query(`DELETE FROM public.${table} WHERE created_by = $1`, [demoAdmin.id]);
     }
     // Reporting lines inside the range point at each other; clear them first so
@@ -446,6 +455,55 @@ async function main(): Promise<void> {
       announcementIds.set(announcement.key, Number(created.rows[0]!.id));
     }
 
+    // Onboarding and offboarding: checklists, then plans with their own copies.
+    const templateIds = new Map<string, number>();
+    for (const template of demoLifecycleTemplates) {
+      const created = await client.query<{ id: string }>(
+        `INSERT INTO public.lifecycle_templates (kind, name, description, created_by, updated_by)
+         VALUES ($1, $2, $3, $4, $4) RETURNING id`,
+        [template.kind, template.name, template.description, demoAdmin.id],
+      );
+      const templateId = Number(created.rows[0]!.id);
+      templateIds.set(template.key, templateId);
+      for (const [index, task] of template.tasks.entries()) {
+        await client.query(
+          `INSERT INTO public.lifecycle_template_tasks (template_id, position, title, instructions, assignee_role, due_offset_days)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [templateId, index + 1, task.title, task.instructions ?? null, task.role, task.offset],
+        );
+      }
+    }
+    for (const plan of demoLifecyclePlans) {
+      const template = demoLifecycleTemplates.find((item) => item.key === plan.template)!;
+      const created = await client.query<{ id: string }>(
+        `INSERT INTO public.lifecycle_plans (employee_id, kind, template_id, title, starts_on, target_date, exit_status, created_by, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ($5::date + time '09:00') AT TIME ZONE 'Asia/Kuala_Lumpur') RETURNING id`,
+        [plan.employeeId, template.kind, templateIds.get(plan.template), template.name, plan.startsOn,
+          plan.targetDate, plan.exitStatus ?? null, demoAdmin.id],
+      );
+      const planId = Number(created.rows[0]!.id);
+      const anchor = template.kind === "onboarding" ? plan.startsOn : plan.targetDate;
+      for (const [index, task] of template.tasks.entries()) {
+        const due = addDays(anchor, task.offset);
+        const finished = plan.done.includes(index + 1);
+        await client.query(
+          `INSERT INTO public.lifecycle_tasks (plan_id, position, title, instructions, assignee_role, due_on, status, completed_at, completed_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7::varchar,
+                   CASE WHEN $7::varchar = 'done' THEN ($6::date + time '17:00') AT TIME ZONE 'Asia/Kuala_Lumpur' END,
+                   CASE WHEN $7::varchar = 'done' THEN $8::int END)`,
+          [planId, index + 1, task.title, task.instructions ?? null, task.role, due, finished ? "done" : "pending", demoAdmin.id],
+        );
+      }
+      if (template.kind === "onboarding") {
+        await client.query(
+          `INSERT INTO public.employee_events (employee_id, kind, visibility, occurred_on, title, source_type, source_id)
+           VALUES ($1, 'onboarding_started', 'company', $2, 'Started onboarding', 'demo_seed', $3)
+           ON CONFLICT DO NOTHING`,
+          [plan.employeeId, plan.startsOn, `onboarding:${plan.startsOn}`],
+        );
+      }
+    }
+
     // What the demo accounts were told, written as the product would have:
     // a manager hears about a report's request, an engineer about their
     // payslip and their approved leave, and each audience about announcements.
@@ -475,6 +533,8 @@ async function main(): Promise<void> {
         "/admin/leave?status=pending", "leave", "demo", "2026-09-07T16:40:00+08:00"],
       [9006, "leave_approved", "Your leave was approved", "Medical leave · 5–6 Aug 2026",
         "/employee/leave", "leave", "demo", "2026-08-04T11:05:00+08:00"],
+      [9001, "task_assigned", "2 tasks for Danial Haziq bin Rosli's onboarding", null,
+        "/tasks", "lifecycle_plan", "demo", "2026-09-07T09:05:00+08:00"],
     );
     for (const userId of [9001, 9004, 9006]) {
       notifications.push([userId, "payslip_published", "Your payslip for August 2026 is ready", null,
@@ -599,6 +659,7 @@ async function main(): Promise<void> {
       events: demoEvents.length,
       announcements: demoAnnouncements.length,
       notifications: notifications.length,
+      lifecyclePlans: demoLifecyclePlans.length,
     }, null, 2));
 
     // Printed once, to the operator, and stored nowhere.

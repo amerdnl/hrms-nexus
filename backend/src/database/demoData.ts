@@ -214,6 +214,48 @@ export const demoAnnouncements: Array<{
 ];
 
 /**
+ * Onboarding and offboarding checklists, and the plans the demo shows in
+ * progress: two new joiners (one whose manager, Nurul, signs in) and one leaver.
+ * Task states are fixed so every run shows the same progress.
+ */
+export const demoLifecycleTemplates: Array<{
+  key: string; kind: "onboarding" | "offboarding"; name: string; description: string;
+  tasks: Array<{ title: string; role: "employee" | "manager" | "hr"; offset: number; instructions?: string }>;
+}> = [
+  {
+    key: "joiner", kind: "onboarding", name: "New joiner essentials", description: "The first month for anyone joining the company.",
+    tasks: [
+      { title: "Create accounts and email", role: "hr", offset: -2, instructions: "Work email, HR Nexus sign-in and building pass." },
+      { title: "Sign the employment contract", role: "employee", offset: 0 },
+      { title: "Add your About and skills to your profile", role: "employee", offset: 3, instructions: "Colleagues find people by skill in the directory." },
+      { title: "Plan the first week and introduce a buddy", role: "manager", offset: 1 },
+      { title: "Set up payroll and bank details", role: "hr", offset: 5 },
+      { title: "Thirty-day check-in", role: "manager", offset: 30 },
+    ],
+  },
+  {
+    key: "leaver", kind: "offboarding", name: "Leaver checklist", description: "From notice to the last working day.",
+    tasks: [
+      { title: "Agree the handover plan", role: "manager", offset: -10 },
+      { title: "Hand over open work and documents", role: "employee", offset: -3 },
+      { title: "Review final pay and unused leave", role: "hr", offset: -2 },
+      { title: "Return laptop and building pass", role: "employee", offset: 0 },
+      { title: "Revoke system access", role: "hr", offset: 0 },
+    ],
+  },
+];
+
+export const demoLifecyclePlans: Array<{
+  template: string; employeeId: number; startsOn: string; targetDate: string; exitStatus?: "resigned";
+  /** Task positions already finished. */
+  done: number[];
+}> = [
+  { template: "joiner", employeeId: 9009, startsOn: "2026-08-03", targetDate: "2026-09-30", done: [1, 2, 3, 4, 5] },
+  { template: "joiner", employeeId: 9003, startsOn: "2026-09-07", targetDate: "2026-10-09", done: [1, 2] },
+  { template: "leaver", employeeId: 9023, startsOn: "2026-09-01", targetDate: "2026-09-30", exitStatus: "resigned", done: [1] },
+];
+
+/**
  * A tiny deterministic generator (mulberry32).
  *
  * Attendance needs variation to look real, but the dataset must be identical on
