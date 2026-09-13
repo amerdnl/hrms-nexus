@@ -30,7 +30,7 @@ typecheck, Oxlint and production build pass; the entry chunk is 569.69 kB (161.7
 | M0 | Architecture & foundation | complete |
 | M1 | Roles, permissions & manager experience | complete |
 | M2 | People, directory, social profiles & org chart | complete |
-| M3 | Action Center, search, notifications, calendar & announcements | — |
+| M3 | Action Center, search, notifications, calendar & announcements | complete |
 | M4 | Onboarding & offboarding | — |
 | M5 | Recognition & employee timeline | — |
 | M6 | Goals & performance reviews | — |
@@ -57,6 +57,10 @@ responsive smoke at 375/390/1280, and the source-integrity fingerprint above re-
 4. Apply to source through `npm run migrate:apply -- --database hr_nexus` with an
    explicit `MIGRATION_DATABASE_URL`; re-run to prove a no-op; re-read the fingerprint;
    record checksum, ledger timestamp and impact in the milestone notes below.
+   **Name every pending version (learned in M3).** The runner applies every pending file
+   at once, so when more than one migration is pending the rehearsal must apply, prove a
+   no-op, roll back in reverse order and re-apply exactly that set, and the source apply
+   must report exactly that set. Every check in the procedure fails closed.
 5. Rebuild the isolated V3 demo database `hr_nexus_v3_demo` (clone, migrate, seed) for
    browser checks. The V2 demo database `hr_nexus_demo_browser` is left untouched.
 
@@ -138,6 +142,24 @@ plus route-splitting build assertions and axe/keyboard browser checks.
 - **11 Sep 2026 — Route-level code splitting starts in M0**, before any V3 page exists,
   so the entry chunk shrinks first and each later milestone adds chunks rather than
   weight.
+- **13 Sep 2026 — Company events join 0013.** Master §10 names company events alongside
+  holidays, so `company_events` sits with `company_holidays` rather than being overloaded
+  into announcements.
+- **13 Sep 2026 — Two announcement priorities, not three.** "Important" pins an
+  announcement in each reader's Action Center until they open it; a third level would
+  have no different behaviour.
+- **13 Sep 2026 — An announcement's audience is fixed once published.** The people it
+  reached were notified; retargeting would leave them holding links to something they can
+  no longer open. Drafts are deleted; published announcements are archived.
+- **13 Sep 2026 — HR's Action Center carries only the leave no manager can decide** (no
+  manager, a manager who has left, or one without a usable account). Everything else stays
+  with the manager, so HR's list is work, not noise.
+- **13 Sep 2026 — Who's out:** approved leave for everyone as a name and dates; pending
+  requests only for the person, their manager and HR; the leave type only for the person,
+  their team's manager and HR; reasons never.
+- **13 Sep 2026 — `/api/company/calendar-config` ships in M3,** because the calendar needs
+  it. It exposes the timezone, working week, company today and holidays, and nothing else
+  from settings. M7 builds the leave preview and cancellation fixes on it.
 
 ## M0 — Architecture & foundation (11 September 2026)
 
@@ -293,3 +315,90 @@ intermittent in the settings and audit suites and did not reproduce in the next 
 it will be fixed in the harness rather than retried away.
 
 M2 status: **complete.** Cross-role leakage cases pass in the people suite and the browser.
+
+## M3 — Action Center, search, notifications, calendar & announcements (13 September 2026)
+
+Delivered:
+
+- **Migration 0012 `notifications`** (SHA-256 `8c4b0dd53344cb84da4d9f2361a6d8cbfbf1407cfb936601f09a000f4e22cb30`):
+  one table, one account per row, an app-relative link enforced by CHECK (no scheme, host,
+  `//` or spaces), paired entity, a per-account dedupe key, and indexes for the list and
+  the unread badge.
+- **Migration 0013 `announcements_calendar`** (SHA-256 `d5b5edbb977722099e211cb871bb2c2094701df39b7aacb0adfb98522b7696e2`):
+  `announcements` (plain text, company or one department, draft/published/archived with
+  stamps, optional expiry, revision), `announcement_reads`, `company_holidays` (one per
+  date) and `company_events` (up to 32 days, optional times and location). New tables
+  only; a department an announcement was addressed to cannot be deleted from under it, and
+  department deletion now says so.
+- **Notifications**: a SAVEPOINT-contained writer that targets eligible accounts only,
+  never the actor, drops an unsafe link rather than failing, and dedupes per account.
+  Produced by leave submitted (manager, else HR), decided and cancelled by HR (employee),
+  payroll approved (each payslip holder), reporting line changed (employee and new
+  manager) and announcement published (its audience). No text carries a reason, comment
+  or amount. API: list with cursor, unread count, read one, read all; retention on open.
+- **Action Center** `GET /api/action-center`, computed from current records: needs you
+  (a manager's team decisions, HR's manager-less decisions, payroll's next step, unread
+  important announcements), waiting on others, the next 14 days, recent notifications.
+- **Search** `GET /api/search`: working people, departments, destinations filtered by
+  role and manager scope, and HR records for admins only.
+- **Calendar** `GET /api/calendar` and `GET /api/company/calendar-config`; HR holiday
+  settings and company events, revisioned and audited.
+- **Announcements**: an audience-filtered feed and detail for everyone; HR drafts,
+  publishes, corrects, archives and deletes drafts, with revision checks and audit that
+  never copies the text.
+- **Frontend**: header search palette (Ctrl/⌘K) and notification bell; `/actions`,
+  `/notifications`, `/calendar` (month grid from md, agenda on phones, day panel, HR event
+  dialog), `/announcements` (Drafts and Archived tabs for HR), `/announcements/:id`, the
+  HR editor, a holidays card in Settings, Action Center and announcement cards on both
+  dashboards, and team and HR leave pages that open on `?status=`.
+- **Demo**: fixed-date holidays, four company events, three published announcements and
+  a draft, and the notifications the demo accounts would have received.
+
+Source application of 0012 and 0013, 11 September 2026. The first attempt (07:55:42 UTC)
+named only 0012. The runner applied 0012 and 0013 together in the rehearsal copy, the
+0012 rollback then left 0013 in the ledger without 0012, and the next apply refused, so the
+procedure stopped at rehearsal. Source was untouched: ledger 0001–0011, no new tables. The
+evidence is in `.local-backups/0012-aborted-20260911/`. Reviewing the script also showed that
+a `check && say` line does not stop under `set -e`. The 0010 and 0011 logs print every
+step, so those checks had passed, but the script now fails closed on every check. The
+second run (07:57:34 UTC) named both versions (evidence `.local-backups/0012-0013-20260911/`):
+backup `c7276f84…f513f6072` restore-verified; pending set exactly 0012 and 0013; rehearsal
+apply, no-op, identical business data, rollback in reverse order, re-apply; source apply of
+exactly 0012 and 0013, no-op, identical business data; ledger 0001–0013; post-apply dump
+`bd5143c3…dc894250`.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Backend typecheck (source and tests) | pass |
+| V3 migration suite | 0010–0013 each additive, idempotent and reversible; the chain applies to a fresh `schema.sql` |
+| M3 workplace suite | **18/18**: leakage through notification titles, search, calendar and the Action Center; dedupe and unsafe links; a stale token for a resigned employee; stale reporting lines; announcement audience, revisions, archive and audit redaction; holidays and events |
+| Backend full laboratory suite | **498 pass, 0 fail, 0 skipped** (+20: workplace 18, migration suite 2) |
+| Frontend typecheck, Oxlint (0 warnings), production build | pass |
+| Initial JS | 321.78 kB (gzip 105.51 kB), 99 chunks; +3.79 kB over M0 for the bell and search palette in the shell |
+| M3 browser smoke on the V3 demo stack | **59/59**, no page errors: every role's Action Center and deep links, bell, palette, calendar grid and team view, announcement read state, HR publish, holidays, events, API leak checks, 390 light and 375 dark with no overflow |
+| V2 navigation gate on the V3 bundle | 48/48 |
+| Source fingerprint (13 September) | V2 business data, orphans and ledger identical to the post-0013 record; M3 tables empty on source |
+
+Recorded:
+
+- **A V2 test that depended on the time of day.** The first full run had 496 passes and 2
+  failures, both in `attendance.integration.test.ts`. The test checks in at the real Kuala
+  Lumpur time, then sets check-out to a fixed 18:30, which the schema's check-in/check-out
+  ordering refuses after 18:30 there. Earlier runs happened in the afternoon. The test now
+  uses 18:30 only when that is still after the check-in. No product code changed; the
+  suite and then the full run passed.
+- **Three browser smoke script errors.** The first smoke run had 56 of 59. Two checks
+  matched a success notice that repeats the removed item's name, and one compared a
+  CSS-uppercased heading case-sensitively. The checks were corrected, the demo rebuilt,
+  and the rerun passed 59/59.
+- **Source audit log.** Between the post-0013 record and the 13 September re-read, source
+  gained two audit entries: successful administrator sign-ins at 11:37:24 and 12:02:06 UTC
+  on 13 September, made through the source app. This work did not sign in to source; its
+  checks there were unauthenticated health reads.
+- **Screenshots reviewed.** No defects. Holiday and event names are truncated inside
+  month-grid cells, but each day button's accessible name and the day panel carry them in
+  full. Fixed bars appear mid-page only in full-page captures.
+
+M3 status: **complete.**

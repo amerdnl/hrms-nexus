@@ -134,13 +134,13 @@ keys, as 0004–0008 already prove).
 | --- | --- | --- |
 | `0010_org_structure` | M1 | `employees.manager_id` (nullable, self-FK RESTRICT, `<> id`), index on `manager_id`, trigger `prevent_manager_cycle` (serialised by an advisory lock; walks the chain from the new manager and raises 23514 on a loop, bounded at 100 levels) |
 | `0011_profiles_timeline` | M2 | `employee_profiles` (1:1 on employee: `about` ≤ 2000, `skills TEXT[]` ≤ 30 entries, `share_phone`), `employee_events` (append-only timeline: kind, visibility company/self/management, occurred_on, title, bounded `detail` JSONB ≤ 2 KB, source, actor) |
-| `0012_notifications` | M3 | `notifications` (per user: kind, title, body, app-relative `link` validated by CHECK, entity, `dedupe_key` unique per user, `read_at`); indexes for unread listing and pruning |
-| `0013_announcements_holidays` | M3 | `announcements` (title, body ≤ 5000, priority normal/important/urgent, audience company/department, status draft/published/archived, publish/expiry, authors), `announcement_reads` (user × announcement), `company_holidays` (date unique, name, active) |
+| `0012_notifications` | M3 | `notifications` (per account: kind, title ≤ 160, body ≤ 500, app-relative `link` validated by CHECK, paired entity, `dedupe_key` unique per account, actor, `read_at`); indexes for the recent list and the unread badge |
+| `0013_announcements_calendar` | M3 | `announcements` (plain-text body ≤ 5000, priority normal/important, audience company or one department with RESTRICT, status draft/published/archived with stamps, optional `expires_on`, `revision`), `announcement_reads` (announcement × account), `company_holidays` (one per date, `revision`), `company_events` (dated occasions up to 32 days, optional company wall-clock times and location, `revision`) |
 | `0014_lifecycle` | M4 | `lifecycle_templates`, `lifecycle_template_tasks`, `lifecycle_plans` (kind onboarding/offboarding, one active plan per employee per kind, `exit_status` for offboarding), `lifecycle_tasks` (assignee role employee/manager/hr resolved to a user where one exists, due date, status pending/done/skipped, completion actor) |
 | `0015_recognition` | M5 | `recognitions` (giver ≠ receiver, message 5–500, closed category list, visibility company/private, admin `hidden_at/hidden_by`) |
 | `0016_goals_reviews` | M6 | `goals` (owner, title, description, dates, status active/completed/cancelled, progress 0–100, visibility private/team/company), `goal_updates` (history), `review_cycles` (period, self and manager due dates, status draft/open/closed), `review_participants` (cycle × employee, reviewer, self and manager summaries and 1–5 ratings, timestamps, status) |
 
-Base tables: 18 → 33. No column type, constraint or row of a V2 table changes. Rollback
+Base tables: 18 → 34 (0013 gained `company_events`; the calendar spec names company events alongside holidays). No column type, constraint or row of a V2 table changes. Rollback
 for each is drop-the-new-objects plus the ledger row, rehearsed alongside the apply.
 Cycle prevention and one-active-plan rules are database constraints, not conventions.
 
@@ -168,7 +168,9 @@ Three different things, deliberately kept apart:
    manager, every active admin, an announcement's audience). `dedupe_key` makes a repeat
    delivery a no-op. Text never carries salary, reasons or credentials; the link is an
    app-relative path the destination page authorises again. Retention: read notifications
-   older than 90 days are pruned opportunistically when a user lists theirs.
+   older than 90 days, and any older than a year, are pruned when a user opens the first
+   page of their list. Targets are eligible accounts only (the session's own rule, shared
+   as `eligibleAccountCondition`), and the actor is never told about their own action.
 
 Producers and their notifications:
 
@@ -184,13 +186,21 @@ Producers and their notifications:
 | Review cycle opened / self-review submitted / manager review submitted | participant, reviewer, participant |
 | Manager assigned or changed | the employee and the new manager |
 
+**As built in M3**, the producers are leave submitted (manager, else every admin), leave
+decided (employee), leave cancelled by someone else (employee), payroll approved (each
+payslip holder), reporting line changed (employee, and `report_added` to the new
+manager) and announcement published (its audience). Later milestones add theirs.
+
 **Action Center is computed, not stored.** `GET /api/action-center` derives, from the
 same tables the destination pages read, exactly the work the current session may act on:
 pending leave in scope (manager: team; admin: company), lifecycle tasks assigned to me
 (admins also see unassigned HR tasks), reviews awaiting my input, goals overdue that I
 own, payroll periods awaiting the next transition (admin), and offboarding plans past
-their target date (admin). It also lists "upcoming" (leave starting within 7 days, tasks
-due within 7 days, review deadlines) and "recent" (the newest notifications). Resolving
+their target date (admin). HR's leave items are only the requests no manager can decide (none recorded, the manager
+has left, or has no usable account); a manager's are their current direct reports'. It also
+lists "waiting" (your own requests someone else must decide), "upcoming" (the next 14
+company days: your approved leave, your team's, holidays and events; later tasks and
+review deadlines) and "recent" (the newest five notifications). Resolving
 the underlying record removes the item; there is no second source of truth to drift.
 
 ## 7. API route map
@@ -208,16 +218,16 @@ guard.
 | `/api/team` | manager | `GET /` summary; `GET /members`; `GET /attendance?date`; `GET /availability?from&to`; `GET /leave`; `GET /goals`; `GET /reviews`; `GET /tasks` |
 | `/api/leaves` | mixed | `PUT /:id/status` now admin **or** the employee's manager (never self); `GET /team` for managers |
 | `/api/action-center` | any session | `GET /` |
-| `/api/notifications` | any session | `GET /`, `PUT /:id/read`, `PUT /read-all` |
-| `/api/search` | any session | `GET /?q=` people, departments, destinations, authorisation-filtered |
-| `/api/calendar` | any session | `GET /?from&to` holidays, who's out (names and dates only unless self/manager/admin), company config (timezone, working week) |
-| `/api/announcements` | mixed | `GET /` audience-filtered; `PUT /:id/read`; admin `POST/PUT/DELETE`, `POST /:id/publish`, `POST /:id/archive` |
+| `/api/notifications` | any session | `GET /?filter&before&limit` (cursor pages, prunes on the first page), `GET /unread-count`, `PUT /:id/read` (404 if not yours), `PUT /read-all` |
+| `/api/search` | any session | `GET /?q=` (2–100 chars): working people, departments with working headcount, destinations filtered by role and manager scope, and HR records (any status) for admins only |
+| `/api/calendar` | any session; events HR | `GET /?from&to&department&team` (≤ 93 days; `team=1` managers only): config, holidays, events, who's out (approved for everyone, pending only for self/manager/HR, leave type only for self/team/HR, never reasons); HR `GET/POST/PUT/DELETE /events` |
+| `/api/announcements` | mixed | `GET /` and `GET /:id` audience-filtered (HR reads any); `PUT /:id/read` (also clears its notification); HR `GET /manage`, `POST /` (draft), `PUT /:id` (revision; audience fixed once published), `POST /:id/publish` (revision), `POST /:id/archive`, `DELETE /:id` (drafts only) |
 | `/api/lifecycle` | mixed | admin templates and plans; `GET /me` for employees; `GET /tasks` (mine); `PUT /tasks/:id` complete/skip by assignee or admin; admin `POST /plans/:id/complete` (offboarding deactivates) |
 | `/api/recognition` | employee record | `GET /` feed (company-visible); `POST /`; admin `PUT /:id/hide` |
 | `/api/goals` | mixed | `GET /me`, `POST /me`, `PUT /:id`, `POST /:id/updates`; manager `GET /team`, `POST /team/:employeeId`; admin `GET /` |
 | `/api/reviews` | mixed | admin cycles CRUD, open/close; `GET /me`; `PUT /participants/:id/self`; manager `PUT /participants/:id/manager`; admin `GET /cycles/:id/participants` |
-| `/api/settings` | admin | `GET/PUT` unchanged; `GET/POST/PUT/DELETE /holidays` |
-| `/api/company` | any session | `GET /calendar-config` timezone, working days, holidays — the safe exposure Leave V3 needs |
+| `/api/settings` | admin | `GET/PUT` unchanged; `GET/POST/PUT/DELETE /holidays` (revisioned, one per date, audited) |
+| `/api/company` | any session | `GET /calendar-config` timezone, working days, today and last/this/next year's holidays — no other setting — the safe exposure Leave V3 needs |
 | `/api/analytics` | admin / manager | `GET /company/*` (admin), `GET /team/*` (manager) |
 | `/api/export` | admin | new datasets: reporting lines, holidays, announcements, lifecycle, recognition, goals, review participation (status only, no content) |
 
@@ -233,12 +243,12 @@ role alone.
 
 | Area | Routes | Who |
 | --- | --- | --- |
-| Workplace | `/actions`, `/people`, `/people/:id`, `/org`, `/calendar`, `/announcements`, `/notifications` | everyone |
+| Workplace | `/actions`, `/people`, `/people/:id`, `/org`, `/calendar`, `/announcements`, `/announcements/:id`, `/notifications` | everyone |
 | Me | `/employee/dashboard`, `/attendance`, `/leave`, `/payroll`, `/profile`, `/goals`, `/reviews`, `/onboarding`, `/recognition` | employee record |
 | Team | `/team`, `/team/attendance`, `/team/leave`, `/team/goals`, `/team/reviews`, `/team/onboarding` | manager |
-| Company | existing `/admin/*` plus `/admin/announcements`, `/admin/onboarding`, `/admin/offboarding`, `/admin/performance`, `/admin/analytics`, holidays inside `/admin/settings` | admin |
+| Company | existing `/admin/*` plus `/admin/announcements/new` and `/:id/edit` (HR manages from `/announcements`, which gains Drafts and Archived tabs), `/admin/onboarding`, `/admin/offboarding`, `/admin/performance`, `/admin/analytics`, holidays inside `/admin/settings` | admin |
 
-Global search is a header command palette (keyboard `⌘K`/`Ctrl+K`), not a route.
+Global search is a header command palette (keyboard `⌘K`/`Ctrl+K`, a combobox over one listbox), not a route. The header also carries the notification bell, whose unread count refreshes on navigation, every minute while the tab is visible, and when the tab returns.
 Navigation renders in sections (Workplace, Me, Team, Company); the phone bottom bar keeps
 four direct slots plus More, chosen per capability set. Every route is lazy-loaded; the
 shell, auth and design primitives stay in the entry chunk.
