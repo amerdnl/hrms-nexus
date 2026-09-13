@@ -40,6 +40,7 @@ const destinations: Destination[] = [
   { label: "Org chart", description: "How the company is organised", path: "/org", keywords: "organisation organization structure hierarchy reporting", requires: "any" },
   { label: "Calendar", description: "Holidays, events and who's out", path: "/calendar", keywords: "who's out whos out holidays events availability absence", requires: "any" },
   { label: "Announcements", description: "News from HR", path: "/announcements", keywords: "news notices updates", requires: "any" },
+  { label: "Recognition", description: "Thank a colleague, and see who was thanked", path: "/recognition", keywords: "recognition kudos thanks appreciation praise", requires: "any" },
   { label: "My tasks", description: "Onboarding and offboarding tasks for you", path: "/tasks", keywords: "tasks checklist onboarding offboarding todo", requires: "any" },
 
   { label: "My dashboard", description: "Your day at a glance", path: "/employee/dashboard", keywords: "home overview", requires: "employee" },

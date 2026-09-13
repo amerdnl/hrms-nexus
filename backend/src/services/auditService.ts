@@ -80,6 +80,8 @@ export const auditActions = [
   "LIFECYCLE_TASK_UPDATED",
   "LIFECYCLE_PLAN_COMPLETED",
   "LIFECYCLE_PLAN_CANCELLED",
+  "RECOGNITION_HIDDEN",
+  "RECOGNITION_RESTORED",
 ] as const;
 
 export type AuditAction = (typeof auditActions)[number];
@@ -89,6 +91,7 @@ export const auditEntityTypes = [
   "attendance", "leave", "leave_policy", "compensation", "payroll", "export",
   "announcement", "holiday", "company_event",
   "lifecycle_template", "lifecycle_plan", "lifecycle_task",
+  "recognition",
 ] as const;
 
 export type AuditEntityType = (typeof auditEntityTypes)[number];

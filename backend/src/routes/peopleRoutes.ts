@@ -5,6 +5,7 @@ import {
   getPerson,
   getPersonTimeline,
 } from "../controllers/peopleController.js";
+import { getPersonRecognition } from "../controllers/recognitionController.js";
 import { authenticateToken } from "../middleware/authMiddleware.js";
 
 /**
@@ -17,6 +18,7 @@ peopleRouter.use(authenticateToken);
 peopleRouter.get("/", getDirectory);
 peopleRouter.get("/:id", getPerson);
 peopleRouter.get("/:id/timeline", getPersonTimeline);
+peopleRouter.get("/:id/recognition", getPersonRecognition);
 
 export const orgRouter = Router();
 orgRouter.use(authenticateToken);
