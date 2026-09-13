@@ -163,6 +163,57 @@ export const demoTimeline: Array<{ employeeId: number; kind: "job_title_changed"
 ];
 
 /**
+ * Company holidays for the demo calendar. Fixed-date observances only, so no
+ * date here depends on a lunar or state-specific calendar that might be wrong.
+ */
+export const demoHolidays: Array<{ date: string; name: string }> = [
+  { date: "2026-08-31", name: "National Day" },
+  { date: "2026-09-16", name: "Malaysia Day" },
+  { date: "2026-12-25", name: "Christmas Day" },
+  { date: "2027-01-01", name: "New Year's Day" },
+];
+
+/** Company events: occasions everyone can see on the calendar. */
+export const demoEvents: Array<{
+  title: string; startsOn: string; endsOn?: string; startTime?: string; endTime?: string;
+  location?: string; description?: string;
+}> = [
+  { title: "Quarterly town hall", startsOn: "2026-09-24", startTime: "15:00", endTime: "16:00", location: "Level 3, Nexus Hall", description: "Company results for the quarter and questions for the leadership team." },
+  { title: "Engineering demo day", startsOn: "2026-10-02", startTime: "14:00", endTime: "17:00", location: "Engineering floor", description: "Teams show what they shipped this quarter. Everyone is welcome." },
+  { title: "Family day", startsOn: "2026-10-17", location: "Taman Tasik (fictional venue)", description: "A day out for staff and their families." },
+  { title: "Office move: packing week", startsOn: "2026-11-02", endsOn: "2026-11-06", description: "Label your boxes by Friday; facilities will collect them." },
+];
+
+/**
+ * Announcements from HR: two for the whole company (one important), one for
+ * Engineering only, and a draft nobody but HR can see.
+ */
+export const demoAnnouncements: Array<{
+  key: string; title: string; body: string; priority: "normal" | "important";
+  department?: string; status: "published" | "draft"; publishedOn?: string; expiresOn?: string;
+}> = [
+  {
+    key: "malaysia-day", title: "Office closed on Malaysia Day", priority: "important", status: "published",
+    publishedOn: "2026-09-08", expiresOn: "2026-09-17",
+    body: "The office is closed on Wednesday 16 September for Malaysia Day.\n\nIt is a company holiday, so it does not use your leave. If you are on call that day, your manager will confirm arrangements with you.",
+  },
+  {
+    key: "new-joiners", title: "Welcome to our newest colleagues", priority: "normal", status: "published",
+    publishedOn: "2026-08-10",
+    body: "Please welcome Syafiqah, who joins Engineering, and Danial, who joins our People team.\n\nSay hello, and find them in the directory to see what they work on.",
+  },
+  {
+    key: "release-freeze", title: "Release freeze before the town hall", priority: "normal", status: "published",
+    department: "Engineering", publishedOn: "2026-09-07",
+    body: "No production releases from 21 to 24 September while we prepare the quarterly demo. Hotfixes still go through the usual review.",
+  },
+  {
+    key: "year-end-party", title: "Year-end party: save the date", priority: "normal", status: "draft",
+    body: "Draft: venue and date to be confirmed with Operations.",
+  },
+];
+
+/**
  * A tiny deterministic generator (mulberry32).
  *
  * Attendance needs variation to look real, but the dataset must be identical on

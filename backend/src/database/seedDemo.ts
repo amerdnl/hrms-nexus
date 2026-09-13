@@ -48,6 +48,9 @@ import {
   demoEmployees,
   demoProfiles,
   demoTimeline,
+  demoHolidays,
+  demoEvents,
+  demoAnnouncements,
   seededRandom,
 } from "./demoData.js";
 
@@ -122,6 +125,12 @@ async function main(): Promise<void> {
     if (!versions.includes("0011")) {
       fail(`the target is missing migration 0011 (profiles and timeline); its ledger is ${versions.join(",")}.`);
     }
+    // Notifications, announcements and the calendar are part of the V3 demo too.
+    for (const [version, name] of [["0012", "notifications"], ["0013", "announcements and calendar"]] as const) {
+      if (!versions.includes(version)) {
+        fail(`the target is missing migration ${version} (${name}); its ledger is ${versions.join(",")}.`);
+      }
+    }
 
     const password = process.env.DEMO_PASSWORD ?? randomBytes(12).toString("base64url");
     const generated = process.env.DEMO_PASSWORD === undefined;
@@ -184,6 +193,11 @@ async function main(): Promise<void> {
       "DELETE FROM public.employee_profiles WHERE employee_id BETWEEN $1 AND $2",
       [DEMO_ID_MIN, DEMO_ID_MAX],
     );
+    // Workplace content the demo administrator wrote. Reads and notifications
+    // belong to demo accounts and go with them when those rows are deleted.
+    for (const table of ["announcements", "company_events", "company_holidays"]) {
+      await client.query(`DELETE FROM public.${table} WHERE created_by = $1`, [demoAdmin.id]);
+    }
     // Reporting lines inside the range point at each other; clear them first so
     // no row is deleted while another in the range still names it as manager.
     await client.query(
@@ -390,6 +404,97 @@ async function main(): Promise<void> {
       );
     }
 
+    // ------------------------------------------------------ workplace layer
+    // Holidays, events and announcements, written as the demo administrator.
+    for (const holiday of demoHolidays) {
+      await client.query(
+        `INSERT INTO public.company_holidays (holiday_date, name, created_by, updated_by)
+         VALUES ($1, $2, $3, $3) ON CONFLICT (holiday_date) DO NOTHING`,
+        [holiday.date, holiday.name, demoAdmin.id],
+      );
+    }
+    for (const event of demoEvents) {
+      await client.query(
+        `INSERT INTO public.company_events
+           (title, description, location, starts_on, ends_on, start_time, end_time, created_by, updated_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+        [event.title, event.description ?? null, event.location ?? null, event.startsOn,
+          event.endsOn ?? event.startsOn, event.startTime ?? null, event.endTime ?? null, demoAdmin.id],
+      );
+    }
+    const announcementIds = new Map<string, number>();
+    for (const announcement of demoAnnouncements) {
+      const published = announcement.status === "published";
+      const created = await client.query<{ id: string }>(
+        `INSERT INTO public.announcements
+           (title, body, priority, audience, department_id, status, expires_on,
+            published_at, published_by, created_by, updated_by, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6::varchar, $7,
+                 CASE WHEN $8::date IS NULL THEN NULL ELSE ($8::date + time '09:00') AT TIME ZONE 'Asia/Kuala_Lumpur' END,
+                 CASE WHEN $6::varchar = 'published' THEN $9::int END, $9, $9,
+                 COALESCE(($8::date + time '08:30') AT TIME ZONE 'Asia/Kuala_Lumpur', CURRENT_TIMESTAMP),
+                 COALESCE(($8::date + time '09:00') AT TIME ZONE 'Asia/Kuala_Lumpur', CURRENT_TIMESTAMP))
+         RETURNING id`,
+        [
+          announcement.title, announcement.body, announcement.priority,
+          announcement.department ? "department" : "company",
+          announcement.department ? departmentIds.get(announcement.department) ?? null : null,
+          announcement.status, announcement.expiresOn ?? null,
+          published ? announcement.publishedOn ?? null : null, demoAdmin.id,
+        ],
+      );
+      announcementIds.set(announcement.key, Number(created.rows[0]!.id));
+    }
+
+    // What the demo accounts were told, written as the product would have:
+    // a manager hears about a report's request, an engineer about their
+    // payslip and their approved leave, and each audience about announcements.
+    // Written directly, like the audit trail below, so this script never
+    // imports the application's connection pool.
+    const accountIds = [demoAdmin.id, ...demoEmployeeAccounts.map((account) => account.id)];
+    const notifications: Array<[number, string, string, string | null, string, string, string, string]> = [];
+    const announce = (key: string, recipients: number[]) => {
+      const announcement = demoAnnouncements.find((item) => item.key === key)!;
+      const id = announcementIds.get(key)!;
+      for (const userId of recipients) {
+        notifications.push([
+          userId, "announcement_published",
+          announcement.priority === "important" ? `Important: ${announcement.title}` : announcement.title,
+          announcement.body.replace(/\s+/g, " ").slice(0, 139),
+          `/announcements/${id}`, "announcement", String(id), `${announcement.publishedOn}T09:00:00+08:00`,
+        ]);
+      }
+    };
+    announce("new-joiners", accountIds.filter((id) => id !== demoAdmin.id));
+    announce("malaysia-day", accountIds.filter((id) => id !== demoAdmin.id));
+    announce("release-freeze", [9004, 9006]);
+    notifications.push(
+      [9004, "leave_submitted", "Chloe Mei Ling Wong requested leave", "Annual leave · 21–22 Sep 2026 · 2 working days",
+        "/team/leave?status=pending", "leave", "demo", "2026-09-08T10:15:00+08:00"],
+      [demoAdmin.id, "leave_submitted", "Amirah binti Sulaiman requested leave", "Annual leave · 14–18 Sep 2026 · 5 working days",
+        "/admin/leave?status=pending", "leave", "demo", "2026-09-07T16:40:00+08:00"],
+      [9006, "leave_approved", "Your leave was approved", "Medical leave · 5–6 Aug 2026",
+        "/employee/leave", "leave", "demo", "2026-08-04T11:05:00+08:00"],
+    );
+    for (const userId of [9001, 9004, 9006]) {
+      notifications.push([userId, "payslip_published", "Your payslip for August 2026 is ready", null,
+        "/employee/payroll", "payroll_period", "demo", "2026-09-01T12:00:00+08:00"]);
+    }
+    for (const [userId, kind, title, body, link, entityType, entityId, createdAt] of notifications) {
+      await client.query(
+        `INSERT INTO public.notifications (user_id, kind, title, body, link, entity_type, entity_id, actor_user_id, created_at, read_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::timestamptz,
+                 -- Older news is already read; the last week is still new.
+                 CASE WHEN $9::timestamptz < TIMESTAMPTZ '2026-09-05T00:00:00+08:00' THEN $9::timestamptz + interval '2 hours' END)`,
+        [userId, kind, title, body, link, entityType, entityId, demoAdmin.id, createdAt],
+      );
+    }
+    // Aiman has already read the welcome note.
+    await client.query(
+      "INSERT INTO public.announcement_reads (announcement_id, user_id, read_at) VALUES ($1, 9006, TIMESTAMPTZ '2026-08-10T10:00:00+08:00')",
+      [announcementIds.get("new-joiners")],
+    );
+
     // --------------------------------------------------------------- payroll
     // Built through the real payroll service, so the demo payslips are produced
     // by exactly the code the product runs rather than hand-written rows.
@@ -490,6 +595,10 @@ async function main(): Promise<void> {
       adminAccount: demoAdmin.email,
       employeeAccount: demoEmployeeAccount.email,
       employeeAccounts: demoEmployeeAccounts.map((account) => account.email),
+      holidays: demoHolidays.length,
+      events: demoEvents.length,
+      announcements: demoAnnouncements.length,
+      notifications: notifications.length,
     }, null, 2));
 
     // Printed once, to the operator, and stored nowhere.
