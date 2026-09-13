@@ -340,9 +340,13 @@ export const deleteDepartment = async (request: Request, response: Response) => 
     });
   } catch (error) {
     if (databaseErrorCode(error) === "23503") {
+      // Announcements addressed to a department keep it as part of their history.
+      const constraint = (error as { constraint?: string }).constraint ?? "";
       response.status(409).json({
         success: false,
-        message: "Cannot delete department while employees are assigned to it",
+        message: constraint.startsWith("announcements_")
+          ? "Cannot delete a department that announcements were addressed to. It stays as part of their history."
+          : "Cannot delete department while employees are assigned to it",
       });
       return;
     }

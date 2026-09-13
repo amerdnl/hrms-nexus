@@ -63,6 +63,17 @@ export const auditActions = [
   "PAYROLL_LINE_ADDED",
   "PAYROLL_LINE_REMOVED",
   "DATA_EXPORTED",
+  "ANNOUNCEMENT_CREATED",
+  "ANNOUNCEMENT_UPDATED",
+  "ANNOUNCEMENT_PUBLISHED",
+  "ANNOUNCEMENT_ARCHIVED",
+  "ANNOUNCEMENT_DELETED",
+  "HOLIDAY_CREATED",
+  "HOLIDAY_UPDATED",
+  "HOLIDAY_DELETED",
+  "COMPANY_EVENT_CREATED",
+  "COMPANY_EVENT_UPDATED",
+  "COMPANY_EVENT_DELETED",
 ] as const;
 
 export type AuditAction = (typeof auditActions)[number];
@@ -70,6 +81,7 @@ export type AuditAction = (typeof auditActions)[number];
 export const auditEntityTypes = [
   "auth", "employee", "department", "settings", "import",
   "attendance", "leave", "leave_policy", "compensation", "payroll", "export",
+  "announcement", "holiday", "company_event",
 ] as const;
 
 export type AuditEntityType = (typeof auditEntityTypes)[number];
