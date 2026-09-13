@@ -1,5 +1,8 @@
 import {
   BarChart3,
+  Inbox,
+  Megaphone,
+  CalendarRange,
   Building2,
   CalendarCheck2,
   CalendarDays,
@@ -95,8 +98,11 @@ const workplaceSection: NavigationSection = {
   id: "workplace",
   label: "Workplace",
   items: [
+    { label: "Action Center", to: "/actions", icon: Inbox, shortLabel: "Actions" },
     { label: "People", to: "/people", icon: Contact },
     { label: "Org chart", to: "/org", icon: Network, shortLabel: "Org" },
+    { label: "Calendar", to: "/calendar", icon: CalendarRange },
+    { label: "Announcements", to: "/announcements", icon: Megaphone, shortLabel: "News" },
   ],
 };
 

@@ -1,5 +1,6 @@
 import { CalendarDays, CircleCheck, Eye } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
 import { getTeamLeave } from "../../api/teamApi";
 import LeaveDecisionModal from "../../components/leave/LeaveDecisionModal";
@@ -38,7 +39,12 @@ export default function TeamLeavePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [activeTab, setActiveTab] = useState<TabId>("pending");
+  // A link such as a notification's "?status=pending" opens on that tab.
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("status") as TabId | null;
+  const [activeTab, setActiveTab] = useState<TabId>(
+    requestedTab && TAB_ORDER.includes(requestedTab) ? requestedTab : "pending",
+  );
   const [reviewing, setReviewing] = useState<TeamLeaveRequest | null>(null);
 
   const load = useCallback(async () => {

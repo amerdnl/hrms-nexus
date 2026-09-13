@@ -1,5 +1,6 @@
 import { CalendarDays, CircleCheck, CircleX, Eye } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
 import { getEmployeeLookup } from "../../api/employeeApi";
 import { getAllLeaveRequests, updateLeaveStatus } from "../../api/leaveApi";
@@ -75,7 +76,12 @@ export default function AdminLeavePage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const [activeTab, setActiveTab] = useState<TabId>("pending");
+  // A link such as a notification's "?status=pending" opens on that tab.
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("status") as TabId | null;
+  const [activeTab, setActiveTab] = useState<TabId>(
+    requestedTab && TAB_ORDER.includes(requestedTab) ? requestedTab : "pending",
+  );
 
   // Server-side filter: the API already implements it.
   const [employeeFilter, setEmployeeFilter] = useState("");

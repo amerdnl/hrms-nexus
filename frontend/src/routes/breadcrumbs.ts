@@ -46,6 +46,11 @@ const TEAM: Record<string, string> = {
 };
 
 const patterns: Pattern[] = [
+  // Announcements, written by HR
+  { segments: ["admin", "announcements", "new"],
+    crumbs: [{ label: "Announcements", to: "/announcements" }, { label: "New" }] },
+  { segments: ["admin", "announcements", ":", "edit"],
+    crumbs: [{ label: "Announcements", to: "/announcements" }, { label: "Edit" }] },
   // Employees
   { segments: ["admin", "employees", "new"],
     crumbs: [{ label: "Employees", to: "/admin/employees" }, { label: "Add" }] },
@@ -80,6 +85,12 @@ export function breadcrumbsFor(pathname: string): Crumb[] {
     return rest[0] ? [{ label: "People", to: "/people" }, { label: "Profile" }] : [{ label: "People" }];
   }
   if (scope === "org") return [{ label: "Org chart" }];
+  if (scope === "actions") return [{ label: "Action Center" }];
+  if (scope === "notifications") return [{ label: "Notifications" }];
+  if (scope === "calendar") return [{ label: "Calendar" }];
+  if (scope === "announcements") {
+    return rest[0] ? [{ label: "Announcements", to: "/announcements" }, { label: "Announcement" }] : [{ label: "Announcements" }];
+  }
 
   // The team area: its overview is a real page, so it is the linked root.
   if (scope === "team") {

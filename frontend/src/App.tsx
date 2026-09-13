@@ -53,6 +53,12 @@ const TeamAttendancePage = lazy(() => import("./pages/team/TeamAttendancePage"))
 const PeopleDirectoryPage = lazy(() => import("./pages/people/PeopleDirectoryPage"));
 const PersonProfilePage = lazy(() => import("./pages/people/PersonProfilePage"));
 const OrgChartPage = lazy(() => import("./pages/people/OrgChartPage"));
+const ActionCenterPage = lazy(() => import("./pages/workplace/ActionCenterPage"));
+const NotificationsPage = lazy(() => import("./pages/workplace/NotificationsPage"));
+const CalendarPage = lazy(() => import("./pages/workplace/CalendarPage"));
+const AnnouncementsPage = lazy(() => import("./pages/workplace/AnnouncementsPage"));
+const AnnouncementDetailPage = lazy(() => import("./pages/workplace/AnnouncementDetailPage"));
+const AnnouncementEditorPage = lazy(() => import("./pages/workplace/AnnouncementEditorPage"));
 
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
@@ -118,6 +124,8 @@ export default function App() {
             <Route path="/admin/audit" element={<AdminAuditPage />} />
             <Route path="/admin/export" element={<AdminDataExportPage />} />
             <Route path="/admin/settings" element={<CompanySettingsPage />} />
+            <Route path="/admin/announcements/new" element={<AnnouncementEditorPage />} />
+            <Route path="/admin/announcements/:id/edit" element={<AnnouncementEditorPage />} />
           </Route>
         </Route>
         <Route element={<ProtectedRoute allowedRoles={["employee"]} />}>
@@ -140,6 +148,11 @@ export default function App() {
             <Route path="/people" element={<PeopleDirectoryPage />} />
             <Route path="/people/:id" element={<PersonProfilePage />} />
             <Route path="/org" element={<OrgChartPage />} />
+            <Route path="/actions" element={<ActionCenterPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/announcements" element={<AnnouncementsPage />} />
+            <Route path="/announcements/:id" element={<AnnouncementDetailPage />} />
           </Route>
         </Route>
 

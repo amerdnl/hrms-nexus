@@ -26,6 +26,7 @@ import SectionCard from "../../components/ui/SectionCard";
 import Skeleton, { SkeletonText } from "../../components/ui/Skeleton";
 import StatCard from "../../components/ui/StatCard";
 import StatusBadge from "../../components/ui/StatusBadge";
+import { ActionSummaryCard, AnnouncementsCard } from "../../components/workplace/WorkplaceCards";
 import type { AdminDashboardData } from "../../types/dashboard";
 import { formatPeriod, formatSen } from "../../types/payroll";
 import type { LeaveType } from "../../types/leave";
@@ -288,6 +289,11 @@ export default function AdminDashboardPage() {
           }
           to="/admin/leave"
         />
+      </div>
+
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <ActionSummaryCard />
+        <AnnouncementsCard />
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3">
