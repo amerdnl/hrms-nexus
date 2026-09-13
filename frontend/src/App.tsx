@@ -60,6 +60,7 @@ const AnnouncementsPage = lazy(() => import("./pages/workplace/AnnouncementsPage
 const AnnouncementDetailPage = lazy(() => import("./pages/workplace/AnnouncementDetailPage"));
 const AnnouncementEditorPage = lazy(() => import("./pages/workplace/AnnouncementEditorPage"));
 const TasksPage = lazy(() => import("./pages/workplace/TasksPage"));
+const RecognitionPage = lazy(() => import("./pages/workplace/RecognitionPage"));
 const PlanDetailPage = lazy(() => import("./pages/workplace/PlanDetailPage"));
 const LifecyclePlansPage = lazy(() => import("./pages/admin/LifecyclePlansPage"));
 const LifecycleTemplatesPage = lazy(() => import("./pages/admin/LifecycleTemplatesPage"));
@@ -162,6 +163,7 @@ export default function App() {
             <Route path="/announcements" element={<AnnouncementsPage />} />
             <Route path="/announcements/:id" element={<AnnouncementDetailPage />} />
             <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/recognition" element={<RecognitionPage />} />
             <Route path="/lifecycle/plans/:id" element={<PlanDetailPage />} />
           </Route>
         </Route>

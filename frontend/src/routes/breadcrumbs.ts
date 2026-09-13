@@ -95,6 +95,7 @@ export function breadcrumbsFor(pathname: string): Crumb[] {
   if (scope === "org") return [{ label: "Org chart" }];
   if (scope === "actions") return [{ label: "Action Center" }];
   if (scope === "tasks") return [{ label: "My tasks" }];
+  if (scope === "recognition") return [{ label: "Recognition" }];
   if (scope === "lifecycle") return [{ label: "My tasks", to: "/tasks" }, { label: "Plan" }];
   if (scope === "notifications") return [{ label: "Notifications" }];
   if (scope === "calendar") return [{ label: "Calendar" }];

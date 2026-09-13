@@ -18,6 +18,7 @@ import { getApiErrorMessage, resolveProfileImageUrl } from "../../api/axios";
 import { getPerson, getPersonTimeline } from "../../api/peopleApi";
 import { getTeamMember } from "../../api/teamApi";
 import PersonList from "../../components/people/PersonList";
+import ProfileRecognitionCard from "../../components/recognition/ProfileRecognitionCard";
 import Timeline from "../../components/people/Timeline";
 import Avatar from "../../components/ui/Avatar";
 import EmptyState from "../../components/ui/EmptyState";
@@ -290,6 +291,8 @@ export default function PersonProfilePage() {
               )}
             </SectionCard>
           )}
+
+          <ProfileRecognitionCard personId={personId} fullName={profile.person.fullName} isSelf={profile.relation === "self"} />
 
           <SectionCard title="Timeline" icon={History}>
             {events === null ? (

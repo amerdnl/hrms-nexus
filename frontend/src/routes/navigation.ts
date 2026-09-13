@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Inbox,
+  Award,
   ClipboardCheck,
   UserMinus,
   UserPlus,
@@ -108,6 +109,7 @@ const workplaceSection: NavigationSection = {
     { label: "People", to: "/people", icon: Contact },
     { label: "Org chart", to: "/org", icon: Network, shortLabel: "Org" },
     { label: "Calendar", to: "/calendar", icon: CalendarRange },
+    { label: "Recognition", to: "/recognition", icon: Award, shortLabel: "Kudos" },
     { label: "Announcements", to: "/announcements", icon: Megaphone, shortLabel: "News" },
   ],
 };
