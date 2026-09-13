@@ -21,6 +21,10 @@ import auditRoutes from "./routes/auditRoutes.js";
 import exportRoutes from "./routes/exportRoutes.js";
 import teamRoutes from "./routes/teamRoutes.js";
 import { orgRouter, peopleRouter } from "./routes/peopleRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
+import announcementRoutes from "./routes/announcementRoutes.js";
+import { calendarRouter, companyRouter, holidayRouter } from "./routes/calendarRoutes.js";
+import { actionCenterRouter, searchRouter } from "./routes/workplaceRoutes.js";
 
 import { authenticateToken } from "./middleware/authMiddleware.js";
 import { authorizeRoles } from "./middleware/roleMiddleware.js";
@@ -55,6 +59,8 @@ app.use("/api/departments", departmentRoutes);
 
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+// Mounted before /api/settings so a holiday request is authorised once, by its own router.
+app.use("/api/settings/holidays", holidayRouter);
 app.use("/api/settings", companySettingsRoutes);
 app.use("/api/import", importRoutes);
 app.use("/api/payroll", payrollRoutes);
@@ -64,6 +70,12 @@ app.use("/api/export", exportRoutes);
 app.use("/api/team", teamRoutes);
 app.use("/api/people", peopleRouter);
 app.use("/api/org", orgRouter);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/announcements", announcementRoutes);
+app.use("/api/calendar", calendarRouter);
+app.use("/api/company", companyRouter);
+app.use("/api/search", searchRouter);
+app.use("/api/action-center", actionCenterRouter);
 
 app.use(
   "/api/attendance",
