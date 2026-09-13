@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { actingRole, isTeamMember } from "../auth/policy.js";
 import { actorFromUser, recordAudit } from "../services/auditService.js";
+import { leaveCancelled, leaveDecided, leaveSubmitted } from "../services/workflowNotifications.js";
 import type { PoolClient } from "pg";
 import pool from "../config/db.js";
 import {
@@ -182,6 +183,9 @@ export async function createLeaveRequest(
        RETURNING ${leaveColumns}`,
       [employeeId, data.leaveType, data.startDate, data.endDate, data.reason, workingDays, leaveYear],
     );
+
+    // Tells whoever decides it: the manager, or HR when there is none.
+    await leaveSubmitted(client, created.rows[0], request.user?.id ?? null);
 
     await client.query("COMMIT");
 
@@ -523,6 +527,7 @@ export async function updateLeaveStatus(
         admin_comment: adminComment ?? null,
       },
     }, client);
+    await leaveDecided(client, decided, actor.id);
 
     await client.query("COMMIT");
 
@@ -651,6 +656,8 @@ export async function cancelLeaveRequest(
         `${cancelled.start_date} to ${cancelled.end_date}`,
       changes: { status: { before: "pending or approved", after: "cancelled" } },
     }, client);
+    // Reaches the employee only when HR cancelled it for them.
+    await leaveCancelled(client, cancelled, request.user?.id ?? null);
 
     await client.query("COMMIT");
 

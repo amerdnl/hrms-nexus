@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import pool from "../config/db.js";
 import { actorFromUser, recordAudit } from "../services/auditService.js";
 import { diffChanges } from "../utils/auditRedaction.js";
+import { reportingLineChanged } from "../services/workflowNotifications.js";
 import { recordTimelineEvent } from "../services/timelineService.js";
 import { companyToday } from "../utils/companyClock.js";
 import { employmentStatusLabel } from "../utils/employeeLabels.js";
@@ -144,7 +145,10 @@ async function recordEmploymentTimeline(
   }
 }
 
-/** Records a reporting-line change as its own, filterable audit event. */
+/**
+ * Records a reporting-line change as its own, filterable audit event, and tells
+ * the two people it affects: the employee and their new manager.
+ */
 async function auditManagerChange(
   client: PoolClient,
   request: Request,
@@ -167,6 +171,12 @@ async function auditManagerChange(
     summary: `${employee.full_name} (${employee.employee_number}) now reports to ${nameOf(after)}, previously ${nameOf(before)}`,
     changes: { manager_id: { before, after } },
   }, client);
+  await reportingLineChanged(client, {
+    employeeId: employee.id,
+    employeeName: employee.full_name,
+    managerId: after,
+    managerName: after === null ? null : nameOf(after),
+  }, request.user?.id ?? null);
 }
 
 // Both indexes protect the same account identity; either violation is a conflict

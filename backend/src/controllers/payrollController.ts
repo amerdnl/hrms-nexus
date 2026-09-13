@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import type { PoolClient } from "pg";
 import pool from "../config/db.js";
 import { actorFromUser, recordAudit } from "../services/auditService.js";
+import { payslipsPublished } from "../services/workflowNotifications.js";
 import {
   calculatePeriod,
   lockPeriod,
@@ -325,6 +326,8 @@ export async function transitionPeriod(request: Request, response: Response): Pr
         `moved from ${period.status} to ${target}`,
       changes: { status: { before: period.status, after: target } },
     }, client);
+    // Approval is the moment payslips become visible to their employees.
+    if (target === "approved") await payslipsPublished(client, period, request.user?.id ?? null);
 
     await client.query("COMMIT");
     response.status(200).json({ success: true, message: `Payroll ${target}.` });

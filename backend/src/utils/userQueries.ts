@@ -15,6 +15,17 @@ const isManagerExpression = `(
   )
 )`;
 
+/**
+ * Whether an account may use the product right now, as a SQL condition over
+ * `u` (users) LEFT JOINed to `e` (its employee). The same rule the session
+ * lookup applies, so anything that targets accounts - notifications, an
+ * announcement's audience - reaches exactly the people who could sign in.
+ */
+export const eligibleAccountCondition = `u.is_active = TRUE AND (
+  (u.role = 'admin' AND u.employee_id IS NULL)
+  OR e.employment_status IN ('active', 'probation')
+)`;
+
 // Check live account state without selecting credentials or personal profile data.
 export async function findSessionUserById(
   userId: number,
@@ -31,11 +42,7 @@ export async function findSessionUserById(
             ${isManagerExpression} AS is_manager
      FROM users u
      LEFT JOIN employees e ON e.id = u.employee_id
-     WHERE u.id = $1 AND u.is_active = TRUE
-       AND (
-         (u.role = 'admin' AND u.employee_id IS NULL)
-         OR e.employment_status IN ('active', 'probation')
-       )`,
+     WHERE u.id = $1 AND ${eligibleAccountCondition}`,
     [userId],
   );
   const row = result.rows[0];
