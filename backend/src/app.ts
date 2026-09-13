@@ -25,6 +25,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import announcementRoutes from "./routes/announcementRoutes.js";
 import { calendarRouter, companyRouter, holidayRouter } from "./routes/calendarRoutes.js";
 import { actionCenterRouter, searchRouter } from "./routes/workplaceRoutes.js";
+import lifecycleRoutes from "./routes/lifecycleRoutes.js";
 
 import { authenticateToken } from "./middleware/authMiddleware.js";
 import { authorizeRoles } from "./middleware/roleMiddleware.js";
@@ -76,6 +77,7 @@ app.use("/api/calendar", calendarRouter);
 app.use("/api/company", companyRouter);
 app.use("/api/search", searchRouter);
 app.use("/api/action-center", actionCenterRouter);
+app.use("/api/lifecycle", lifecycleRoutes);
 
 app.use(
   "/api/attendance",

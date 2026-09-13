@@ -40,6 +40,7 @@ const destinations: Destination[] = [
   { label: "Org chart", description: "How the company is organised", path: "/org", keywords: "organisation organization structure hierarchy reporting", requires: "any" },
   { label: "Calendar", description: "Holidays, events and who's out", path: "/calendar", keywords: "who's out whos out holidays events availability absence", requires: "any" },
   { label: "Announcements", description: "News from HR", path: "/announcements", keywords: "news notices updates", requires: "any" },
+  { label: "My tasks", description: "Onboarding and offboarding tasks for you", path: "/tasks", keywords: "tasks checklist onboarding offboarding todo", requires: "any" },
 
   { label: "My dashboard", description: "Your day at a glance", path: "/employee/dashboard", keywords: "home overview", requires: "employee" },
   { label: "My attendance", description: "Check in and your history", path: "/employee/attendance", keywords: "check in clock in check out qr", requires: "employee" },
@@ -62,6 +63,8 @@ const destinations: Destination[] = [
   { label: "Data export", description: "Download company data", path: "/admin/export", keywords: "export csv xlsx download", requires: "admin" },
   { label: "Import", description: "Bring in employee data", path: "/admin/import", keywords: "import upload spreadsheet csv", requires: "admin" },
   { label: "Company settings", description: "Working week, office and holidays", path: "/admin/settings", keywords: "settings timezone working week office geofence holidays", requires: "admin" },
+  { label: "Onboarding", description: "New joiners' checklists", path: "/admin/onboarding", keywords: "onboarding new hire joiner starter checklist", requires: "admin" },
+  { label: "Offboarding", description: "Leavers' checklists and deactivation", path: "/admin/offboarding", keywords: "offboarding leaver exit resignation checklist deactivate", requires: "admin" },
   { label: "New announcement", description: "Write to the company or a department", path: "/admin/announcements/new", keywords: "announcement publish post notice", requires: "admin" },
 ];
 

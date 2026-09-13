@@ -19,6 +19,7 @@ import pool from "../config/db.js";
 import type { AuthenticatedUser } from "../types/auth.js";
 import { readerFor, unreadImportant } from "./announcementService.js";
 import { calendarConfig, eventsBetween, holidaysBetween } from "./calendarService.js";
+import { myWork, offboardingReadyToComplete } from "./lifecycleService.js";
 import { listFor } from "./notificationService.js";
 import { addDays } from "../utils/companyClock.js";
 import { formatDateRange, formatMonth, leaveTypeLabel, plural } from "../utils/dateText.js";
@@ -28,7 +29,9 @@ type Db = Pick<PoolClient, "query"> | Pool;
 export interface ActionItem {
   /** Stable across requests: kind and record, e.g. "leave:12". */
   id: string;
-  kind: "leave_decision" | "payroll_step" | "announcement" | "leave_waiting" | "leave_upcoming" | "team_out" | "holiday" | "event";
+  kind:
+    | "leave_decision" | "payroll_step" | "announcement" | "leave_waiting" | "leave_upcoming"
+    | "team_out" | "holiday" | "event" | "lifecycle_task" | "offboarding_ready";
   title: string;
   detail: string | null;
   /** The company date it concerns, when it has one. */
@@ -134,6 +137,36 @@ async function payrollSteps(user: AuthenticatedUser, db: Db): Promise<ActionItem
     date: null,
     link: "/admin/payroll",
   }));
+}
+
+/**
+ * Onboarding and offboarding tasks the caller's roles hold right now, and, for
+ * HR, offboarding plans whose last day has come with every task finished.
+ */
+async function lifecycleActions(user: AuthenticatedUser, db: Db): Promise<ActionItem[]> {
+  const work = await myWork(user, db);
+  const items: ActionItem[] = work.assigned.map((task) => ({
+    id: `lifecycle-task:${task.id}`,
+    kind: "lifecycle_task",
+    title: task.title,
+    detail: `${task.isOwnPlan ? `Your ${task.kind}` : `${task.employeeName}'s ${task.kind}`}${task.overdue ? " · overdue" : ""}`,
+    date: task.dueOn,
+    link: "/tasks",
+    important: task.overdue,
+  }));
+  if (user.role === "admin") {
+    for (const ready of await offboardingReadyToComplete(db)) {
+      items.push({
+        id: `offboarding:${ready.planId}`,
+        kind: "offboarding_ready",
+        title: `Complete ${ready.employeeName}'s offboarding`,
+        detail: "Every task is finished and the last working day has come",
+        date: ready.targetDate,
+        link: `/admin/lifecycle/plans/${ready.planId}`,
+      });
+    }
+  }
+  return items;
 }
 
 async function ownPendingLeave(user: AuthenticatedUser, db: Db): Promise<ActionItem[]> {
@@ -247,7 +280,9 @@ export async function actionCenterFor(user: AuthenticatedUser, db: Db = pool) {
     important: true,
   }));
 
-  const requiresAction = [...announcements, ...uniqueDecisions, ...await payrollSteps(user, db)];
+  const requiresAction = [
+    ...announcements, ...uniqueDecisions, ...await lifecycleActions(user, db), ...await payrollSteps(user, db),
+  ];
   const recent = await listFor(user.id, { unreadOnly: false, beforeId: null, limit: 5 }, db);
 
   return {
