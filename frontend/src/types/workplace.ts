@@ -46,7 +46,9 @@ export type ActionKind =
   | "leave_upcoming"
   | "team_out"
   | "holiday"
-  | "event";
+  | "event"
+  | "lifecycle_task"
+  | "offboarding_ready";
 
 export interface ActionItem {
   id: string;

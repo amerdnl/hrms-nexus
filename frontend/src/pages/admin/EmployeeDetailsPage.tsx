@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getApiErrorMessage, resolveProfileImageUrl } from "../../api/axios";
 import { getEmployeeById } from "../../api/employeeApi";
+import EmployeeLifecycleCard from "../../components/lifecycle/EmployeeLifecycleCard";
 import Avatar from "../../components/ui/Avatar";
 import DescriptionList, {
   type DescriptionEntry,
@@ -237,6 +238,12 @@ export default function EmployeeDetailsPage() {
           </SectionCard>
         </div>
       </div>
+
+      <EmployeeLifecycleCard
+        employeeId={employee.id}
+        employeeName={employee.fullName}
+        employed={["active", "probation"].includes(employee.employmentStatus)}
+      />
 
       {/* Every direct report, current or former: this is the HR record, and a
           former report is still part of what an administrator reviews. */}

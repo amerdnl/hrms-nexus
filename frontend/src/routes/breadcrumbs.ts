@@ -30,6 +30,8 @@ const ADMIN: Record<string, string> = {
   export: "Data export",
   import: "Import",
   settings: "Settings",
+  onboarding: "Onboarding",
+  offboarding: "Offboarding",
 };
 
 const EMPLOYEE: Record<string, string> = {
@@ -46,6 +48,12 @@ const TEAM: Record<string, string> = {
 };
 
 const patterns: Pattern[] = [
+  // Onboarding and offboarding
+  { segments: ["admin", "lifecycle", "templates"],
+    crumbs: [{ label: "Checklists" }] },
+  { segments: ["admin", "lifecycle", "plans", ":"],
+    // The path does not say which kind of plan it is, so the trail does not guess.
+    crumbs: [{ label: "Onboarding and offboarding" }, { label: "Plan" }] },
   // Announcements, written by HR
   { segments: ["admin", "announcements", "new"],
     crumbs: [{ label: "Announcements", to: "/announcements" }, { label: "New" }] },
@@ -86,6 +94,8 @@ export function breadcrumbsFor(pathname: string): Crumb[] {
   }
   if (scope === "org") return [{ label: "Org chart" }];
   if (scope === "actions") return [{ label: "Action Center" }];
+  if (scope === "tasks") return [{ label: "My tasks" }];
+  if (scope === "lifecycle") return [{ label: "My tasks", to: "/tasks" }, { label: "Plan" }];
   if (scope === "notifications") return [{ label: "Notifications" }];
   if (scope === "calendar") return [{ label: "Calendar" }];
   if (scope === "announcements") {

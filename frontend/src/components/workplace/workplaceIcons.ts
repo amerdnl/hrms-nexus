@@ -6,6 +6,8 @@ import {
   CalendarDays,
   CalendarX2,
   CircleCheck,
+  ClipboardCheck,
+  UserMinus,
   CircleX,
   ClipboardList,
   Hourglass,
@@ -52,4 +54,6 @@ export const actionIcons: Record<ActionKind, LucideIcon> = {
   team_out: CalendarDays,
   holiday: PartyPopper,
   event: CalendarClock,
+  lifecycle_task: ClipboardCheck,
+  offboarding_ready: UserMinus,
 };

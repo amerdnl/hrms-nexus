@@ -1,6 +1,9 @@
 import {
   BarChart3,
   Inbox,
+  ClipboardCheck,
+  UserMinus,
+  UserPlus,
   Megaphone,
   CalendarRange,
   Building2,
@@ -62,6 +65,8 @@ const companySection: NavigationSection = {
     { label: "Departments", to: "/admin/departments", icon: Building2 },
     { label: "Attendance", to: "/admin/attendance", icon: Clock3 },
     { label: "Leave", to: "/admin/leave", icon: CalendarDays },
+    { label: "Onboarding", to: "/admin/onboarding", icon: UserPlus },
+    { label: "Offboarding", to: "/admin/offboarding", icon: UserMinus },
     { label: "Payroll", to: "/admin/payroll", icon: Wallet },
     { label: "Reports", to: "/admin/reports", icon: BarChart3 },
     { label: "Audit log", to: "/admin/audit", icon: ScrollText },
@@ -99,6 +104,7 @@ const workplaceSection: NavigationSection = {
   label: "Workplace",
   items: [
     { label: "Action Center", to: "/actions", icon: Inbox, shortLabel: "Actions" },
+    { label: "My tasks", to: "/tasks", icon: ClipboardCheck, shortLabel: "Tasks" },
     { label: "People", to: "/people", icon: Contact },
     { label: "Org chart", to: "/org", icon: Network, shortLabel: "Org" },
     { label: "Calendar", to: "/calendar", icon: CalendarRange },
