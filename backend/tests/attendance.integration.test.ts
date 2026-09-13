@@ -513,14 +513,19 @@ test("Attendance verification: migration 0005 and the authenticated QR workflow"
       assert.equal((await call("POST", "/check-in", { token: await freshCode(), position: atOffice }, employeeToken)).status, 201);
       const original = (await db.query("SELECT * FROM attendance WHERE employee_id=9200")).rows[0];
 
+      // The check-in is the real current time in Kuala Lumpur, and the schema
+      // requires check-out at or after check-in. A fixed 18:30 made this test
+      // fail whenever the suite ran after 18:30 there, so the edit uses 18:30
+      // only when that is still after the check-in.
+      const checkOut = original.check_in_time <= "18:30:00" ? "18:30:00" : "23:59:59";
       const edited = await read(await call("PATCH", `/${original.id}`, {
-        checkOutTime: "18:30:00",
+        checkOutTime: checkOut,
         adminNote: "Forgot to clock out",
       }));
       assert.equal(edited.status, 200, JSON.stringify(edited.body));
 
       const after = (await db.query("SELECT * FROM attendance WHERE employee_id=9200")).rows[0];
-      assert.equal(after.check_out_time, "18:30:00");
+      assert.equal(after.check_out_time, checkOut);
       // The original verified check-in evidence is preserved, not overwritten.
       assert.equal(after.verification_method, "QR_LOCATION");
       assert.equal(after.check_in_time, original.check_in_time);
