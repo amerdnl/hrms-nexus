@@ -256,6 +256,23 @@ export const demoLifecyclePlans: Array<{
 ];
 
 /**
+ * Recognition between colleagues: mostly company-visible, and one private
+ * thank-you to Aiman that his own manager, Wei Jian, must not see.
+ */
+export const demoRecognitions: Array<{
+  giver: number; receiver: number; category: "teamwork" | "above_and_beyond" | "customer_focus" | "problem_solving" | "mentoring";
+  message: string; visibility: "company" | "private"; givenOn: string;
+}> = [
+  { giver: 9013, receiver: 9015, category: "customer_focus", visibility: "company", givenOn: "2026-08-28", message: "The client loved the new brochure. Thank you for turning it round in two days." },
+  { giver: 9010, receiver: 9011, category: "teamwork", visibility: "company", givenOn: "2026-09-01", message: "Payroll closed a day early this month because you chased every missing timesheet." },
+  { giver: 9021, receiver: 9022, category: "customer_focus", visibility: "company", givenOn: "2026-09-01", message: "Closed the renewal and the client asked for you by name." },
+  { giver: 9004, receiver: 9005, category: "above_and_beyond", visibility: "company", givenOn: "2026-09-02", message: "Led the payroll service upgrade without a single incident." },
+  { giver: 9006, receiver: 9008, category: "problem_solving", visibility: "company", givenOn: "2026-09-04", message: "Found the flaky test that had been failing our builds for weeks." },
+  { giver: 9005, receiver: 9006, category: "mentoring", visibility: "private", givenOn: "2026-09-07", message: "Thank you for pairing with Syafiqah every afternoon this week. It made a real difference." },
+  { giver: 9001, receiver: 9003, category: "teamwork", visibility: "company", givenOn: "2026-09-08", message: "Great first week: the interview schedule has never been this organised." },
+];
+
+/**
  * A tiny deterministic generator (mulberry32).
  *
  * Attendance needs variation to look real, but the dataset must be identical on

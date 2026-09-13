@@ -53,6 +53,7 @@ import {
   demoAnnouncements,
   demoLifecycleTemplates,
   demoLifecyclePlans,
+  demoRecognitions,
   seededRandom,
 } from "./demoData.js";
 
@@ -128,7 +129,7 @@ async function main(): Promise<void> {
       fail(`the target is missing migration 0011 (profiles and timeline); its ledger is ${versions.join(",")}.`);
     }
     // Notifications, announcements and the calendar are part of the V3 demo too.
-    for (const [version, name] of [["0012", "notifications"], ["0013", "announcements and calendar"], ["0014", "onboarding and offboarding"]] as const) {
+    for (const [version, name] of [["0012", "notifications"], ["0013", "announcements and calendar"], ["0014", "onboarding and offboarding"], ["0015", "recognition"]] as const) {
       if (!versions.includes(version)) {
         fail(`the target is missing migration ${version} (${name}); its ledger is ${versions.join(",")}.`);
       }
@@ -504,6 +505,34 @@ async function main(): Promise<void> {
       }
     }
 
+    // Recognition, and the timeline entries it produces.
+    const recognitionIds: number[] = [];
+    for (const recognition of demoRecognitions) {
+      const created = await client.query<{ id: string }>(
+        `INSERT INTO public.recognitions
+           (giver_employee_id, receiver_employee_id, category, message, visibility, given_on, created_by, created_at)
+         -- created_by is an account: the giver's, when they have one.
+         VALUES ($1::int, $2, $3, $4, $5, $6, (SELECT u.id FROM public.users u WHERE u.employee_id = $1::int),
+                 ($6::date + time '11:00') AT TIME ZONE 'Asia/Kuala_Lumpur') RETURNING id`,
+        [recognition.giver, recognition.receiver, recognition.category, recognition.message, recognition.visibility, recognition.givenOn],
+      );
+      const id = Number(created.rows[0]!.id);
+      recognitionIds.push(id);
+      const giver = demoEmployees.find((employee) => employee.id === recognition.giver)!;
+      const label = recognition.category.replace(/_/g, " ").replace(/^./, (letter) => letter.toUpperCase());
+      await client.query(
+        `INSERT INTO public.employee_events (employee_id, kind, visibility, occurred_on, title, source_type, source_id)
+         VALUES ($1, 'recognition_received', $2, $3, $4, 'recognition', $5)`,
+        [
+          recognition.receiver,
+          recognition.visibility === "company" ? "company" : "self",
+          recognition.givenOn,
+          recognition.visibility === "company" ? `Recognised for ${label} by ${giver.fullName}` : `Recognised for ${label}`,
+          String(id),
+        ],
+      );
+    }
+
     // What the demo accounts were told, written as the product would have:
     // a manager hears about a report's request, an engineer about their
     // payslip and their approved leave, and each audience about announcements.
@@ -533,6 +562,8 @@ async function main(): Promise<void> {
         "/admin/leave?status=pending", "leave", "demo", "2026-09-07T16:40:00+08:00"],
       [9006, "leave_approved", "Your leave was approved", "Medical leave · 5–6 Aug 2026",
         "/employee/leave", "leave", "demo", "2026-08-04T11:05:00+08:00"],
+      [9006, "recognition_received", "Priya Devi Ramasamy recognised you for Mentoring", "Thank you for pairing with Syafiqah every afternoon this week. It made a real difference.",
+        "/recognition?view=received", "recognition", String(recognitionIds[5]), "2026-09-07T11:00:00+08:00"],
       [9001, "task_assigned", "2 tasks for Danial Haziq bin Rosli's onboarding", null,
         "/tasks", "lifecycle_plan", "demo", "2026-09-07T09:05:00+08:00"],
     );
@@ -660,6 +691,7 @@ async function main(): Promise<void> {
       announcements: demoAnnouncements.length,
       notifications: notifications.length,
       lifecyclePlans: demoLifecyclePlans.length,
+      recognitions: demoRecognitions.length,
     }, null, 2));
 
     // Printed once, to the operator, and stored nowhere.
