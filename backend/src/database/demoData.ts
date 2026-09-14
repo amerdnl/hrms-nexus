@@ -273,6 +273,58 @@ export const demoRecognitions: Array<{
 ];
 
 /**
+ * Goals with their history: Aiman's company goal part-way through, a private
+ * one past due, a team goal Wei Jian set for Chloe, a completed company goal
+ * for Priya, and one Nurul set for her new joiner.
+ */
+export const demoGoals: Array<{
+  key: string; owner: number; setBy: number; title: string; description: string; visibility: "private" | "team" | "company";
+  startsOn: string; dueOn: string; status: "active" | "completed"; progress: number; completedOn?: string;
+  updates: Array<{ by: number; on: string; from: number; to: number; status?: "completed"; note?: string }>;
+}> = [
+  { key: "aiman-speed", owner: 9006, setBy: 9006, visibility: "company", title: "Cut dashboard load time in half", description: "Get the dashboard's first meaningful paint under one second on a mid-range phone.", startsOn: "2026-07-01", dueOn: "2026-10-31", status: "active", progress: 60,
+    updates: [{ by: 9006, on: "2026-08-20", from: 0, to: 30, note: "Route-level code splitting is in." }, { by: 9006, on: "2026-09-08", from: 30, to: 60, note: "Images are lazy-loaded; measuring again next week." }] },
+  { key: "aiman-course", owner: 9006, setBy: 9006, visibility: "private", title: "Finish the accessibility course", description: "Complete the remaining four modules and write up what applies to our forms.", startsOn: "2026-06-01", dueOn: "2026-09-10", status: "active", progress: 20,
+    updates: [{ by: 9006, on: "2026-07-15", from: 0, to: 20 }] },
+  { key: "chloe-release", owner: 9007, setBy: 9004, visibility: "team", title: "Own the release checklist", description: "Run the release checklist for every deploy this quarter and keep it current.", startsOn: "2026-07-01", dueOn: "2026-12-31", status: "active", progress: 40,
+    updates: [{ by: 9004, on: "2026-08-29", from: 0, to: 40, note: "Two releases run end to end." }] },
+  { key: "priya-mentor", owner: 9005, setBy: 9005, visibility: "company", title: "Mentor two new engineers", description: "Pair weekly with each of our two newest engineers through their first quarter.", startsOn: "2026-05-01", dueOn: "2026-09-30", status: "completed", progress: 100, completedOn: "2026-09-05",
+    updates: [{ by: 9005, on: "2026-07-01", from: 0, to: 50 }, { by: 9005, on: "2026-09-05", from: 50, to: 100, status: "completed", note: "Both are shipping on their own." }] },
+  { key: "danial-onboarding", owner: 9003, setBy: 9001, visibility: "private", title: "Run the next intake's interview schedule", description: "Schedule and track every interview for the October intake.", startsOn: "2026-09-07", dueOn: "2026-10-30", status: "active", progress: 10,
+    updates: [{ by: 9003, on: "2026-09-11", from: 0, to: 10 }] },
+];
+
+/**
+ * Review cycles: a closed annual cycle with Aiman's completed review and his
+ * response, and an open mid-year cycle for Engineering and People with every
+ * stage showing.
+ */
+export const demoReviewCycles: Array<{
+  key: string; name: string; periodStart: string; periodEnd: string; selfDueOn: string; managerDueOn: string;
+  status: "open" | "closed"; openedOn: string; closedOn?: string; departments: string[];
+  reviews: Array<{ employee: number; self?: [number, string, string]; manager?: [number, string, string, number]; response?: [string, string] }>;
+}> = [
+  {
+    key: "annual-2025", name: "Annual 2025", periodStart: "2025-01-01", periodEnd: "2025-12-31", selfDueOn: "2026-01-16", managerDueOn: "2026-01-30",
+    status: "closed", openedOn: "2026-01-05", closedOn: "2026-02-02", departments: [],
+    reviews: [
+      { employee: 9006, self: [3, "Shipped the new attendance flow and learned a lot about accessibility along the way.", "2026-01-14"],
+        manager: [4, "Aiman delivered the attendance rewrite ahead of schedule and raised our accessibility bar.", "2026-01-28", 9004],
+        response: ["Thank you. I would like to lead the next accessibility pass.", "2026-01-29"] },
+    ],
+  },
+  {
+    key: "midyear-2026", name: "Mid-year 2026", periodStart: "2026-01-01", periodEnd: "2026-06-30", selfDueOn: "2026-09-20", managerDueOn: "2026-09-30",
+    status: "open", openedOn: "2026-09-01", departments: ["Engineering", "Human Resources"],
+    reviews: [
+      { employee: 9005, self: [4, "Led the payroll service upgrade and mentored two engineers.", "2026-09-04"], manager: [5, "Priya made the payroll upgrade uneventful, which is the highest praise.", "2026-09-09", 9004] },
+      { employee: 9007, self: [4, "Took over the release checklist and ran every deploy since July.", "2026-09-10"] },
+      { employee: 9002, self: [3, "Handled every leave query within a day and tidied the policy pages.", "2026-09-11"] },
+    ],
+  },
+];
+
+/**
  * A tiny deterministic generator (mulberry32).
  *
  * Attendance needs variation to look real, but the dataset must be identical on

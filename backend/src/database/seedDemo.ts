@@ -54,6 +54,8 @@ import {
   demoLifecycleTemplates,
   demoLifecyclePlans,
   demoRecognitions,
+  demoGoals,
+  demoReviewCycles,
   seededRandom,
 } from "./demoData.js";
 
@@ -129,7 +131,7 @@ async function main(): Promise<void> {
       fail(`the target is missing migration 0011 (profiles and timeline); its ledger is ${versions.join(",")}.`);
     }
     // Notifications, announcements and the calendar are part of the V3 demo too.
-    for (const [version, name] of [["0012", "notifications"], ["0013", "announcements and calendar"], ["0014", "onboarding and offboarding"], ["0015", "recognition"]] as const) {
+    for (const [version, name] of [["0012", "notifications"], ["0013", "announcements and calendar"], ["0014", "onboarding and offboarding"], ["0015", "recognition"], ["0016", "goals and reviews"]] as const) {
       if (!versions.includes(version)) {
         fail(`the target is missing migration ${version} (${name}); its ledger is ${versions.join(",")}.`);
       }
@@ -533,6 +535,92 @@ async function main(): Promise<void> {
       );
     }
 
+    // Goals and their history. created_by and author_user_id are accounts,
+    // so each is the person's account when they have one.
+    for (const goal of demoGoals) {
+      const created = await client.query<{ id: string }>(
+        `INSERT INTO public.goals (owner_employee_id, title, description, starts_on, due_on, status, progress, visibility,
+           created_as, created_by, created_at, completed_at, updated_at)
+         VALUES ($1::int, $2, $3, $4::date, $5::date, $6::varchar, $7, $8, $9,
+                 (SELECT u.id FROM public.users u WHERE u.employee_id = $10::int),
+                 ($4::date + time '09:30') AT TIME ZONE 'Asia/Kuala_Lumpur',
+                 CASE WHEN $6::varchar = 'completed' THEN ($11::date + time '16:00') AT TIME ZONE 'Asia/Kuala_Lumpur' END,
+                 CURRENT_TIMESTAMP)
+         RETURNING id`,
+        [goal.owner, goal.title, goal.description, goal.startsOn, goal.dueOn, goal.status, goal.progress, goal.visibility,
+          goal.setBy === goal.owner ? "owner" : "manager", goal.setBy, goal.completedOn ?? null],
+      );
+      const goalId = Number(created.rows[0]!.id);
+      for (const update of goal.updates) {
+        await client.query(
+          `INSERT INTO public.goal_updates (goal_id, author_user_id, author_role, progress_before, progress_after, status_before, status_after, note, created_at)
+           VALUES ($1, (SELECT u.id FROM public.users u WHERE u.employee_id = $2::int), $3, $4, $5, 'active', $6, $7,
+                   ($8::date + time '17:00') AT TIME ZONE 'Asia/Kuala_Lumpur')`,
+          [goalId, update.by, update.by === goal.owner ? "owner" : "manager", update.from, update.to, update.status ?? "active", update.note ?? null, update.on],
+        );
+      }
+      if (goal.status === "completed" && goal.visibility === "company") {
+        await client.query(
+          `INSERT INTO public.employee_events (employee_id, kind, visibility, occurred_on, title, source_type, source_id)
+           VALUES ($1, 'goal_completed', 'company', $2, $3, 'goal', $4)`,
+          [goal.owner, goal.completedOn, `Completed a goal: ${goal.title}`, String(goalId)],
+        );
+      }
+    }
+
+    // Review cycles and reviews, each row consistent with its stage.
+    const reviewIds = new Map<string, number>();
+    for (const cycle of demoReviewCycles) {
+      const created = await client.query<{ id: string }>(
+        `INSERT INTO public.review_cycles (name, period_start, period_end, self_due_on, manager_due_on, status,
+           opened_at, opened_by, closed_at, closed_by, created_by, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6::varchar,
+                 ($7::date + time '09:00') AT TIME ZONE 'Asia/Kuala_Lumpur', $8::int,
+                 CASE WHEN $6::varchar = 'closed' THEN ($9::date + time '17:00') AT TIME ZONE 'Asia/Kuala_Lumpur' END,
+                 CASE WHEN $6::varchar = 'closed' THEN $8::int END,
+                 $8::int, ($7::date + time '08:00') AT TIME ZONE 'Asia/Kuala_Lumpur')
+         RETURNING id`,
+        [cycle.name, cycle.periodStart, cycle.periodEnd, cycle.selfDueOn, cycle.managerDueOn, cycle.status, cycle.openedOn, demoAdmin.id, cycle.closedOn ?? null],
+      );
+      const cycleId = Number(created.rows[0]!.id);
+      const people = cycle.departments.length === 0
+        ? cycle.reviews.map((review) => review.employee)
+        : demoEmployees
+          .filter((employee) => cycle.departments.includes(employee.department) && (employee.status === "active" || employee.status === "probation"))
+          .map((employee) => employee.id);
+      for (const employeeId of people) {
+        const review = cycle.reviews.find((entry) => entry.employee === employeeId);
+        const status = review?.manager ? "completed" : review?.self ? "pending_manager" : "pending_self";
+        const row = await client.query<{ id: string }>(
+          `INSERT INTO public.review_participants (cycle_id, employee_id, status,
+             self_summary, self_rating, self_submitted_at,
+             manager_summary, manager_rating, manager_submitted_at, manager_submitted_by,
+             employee_response, responded_at, created_at)
+           VALUES ($1, $2, $3,
+             $4, $5, ($6::date + time '15:00') AT TIME ZONE 'Asia/Kuala_Lumpur',
+             $7, $8, ($9::date + time '15:00') AT TIME ZONE 'Asia/Kuala_Lumpur', (SELECT u.id FROM public.users u WHERE u.employee_id = $10::int),
+             $11, ($12::date + time '10:00') AT TIME ZONE 'Asia/Kuala_Lumpur',
+             ($13::date + time '09:00') AT TIME ZONE 'Asia/Kuala_Lumpur')
+           RETURNING id`,
+          [
+            cycleId, employeeId, status,
+            review?.self?.[1] ?? null, review?.self?.[0] ?? null, review?.self?.[2] ?? null,
+            review?.manager?.[1] ?? null, review?.manager?.[0] ?? null, review?.manager?.[2] ?? null, review?.manager?.[3] ?? null,
+            review?.response?.[0] ?? null, review?.response?.[1] ?? null,
+            cycle.openedOn,
+          ],
+        );
+        reviewIds.set(`${cycle.key}:${employeeId}`, Number(row.rows[0]!.id));
+        if (review?.manager) {
+          await client.query(
+            `INSERT INTO public.employee_events (employee_id, kind, visibility, occurred_on, title, source_type, source_id)
+             VALUES ($1, 'review_completed', 'self', $2, $3, 'review_participant', $4)`,
+            [employeeId, review.manager[2], `Completed the ${cycle.name} review`, row.rows[0]!.id],
+          );
+        }
+      }
+    }
+
     // What the demo accounts were told, written as the product would have:
     // a manager hears about a report's request, an engineer about their
     // payslip and their approved leave, and each audience about announcements.
@@ -564,6 +652,16 @@ async function main(): Promise<void> {
         "/employee/leave", "leave", "demo", "2026-08-04T11:05:00+08:00"],
       [9006, "recognition_received", "Priya Devi Ramasamy recognised you for Mentoring", "Thank you for pairing with Syafiqah every afternoon this week. It made a real difference.",
         "/recognition?view=received", "recognition", String(recognitionIds[5]), "2026-09-07T11:00:00+08:00"],
+      [9006, "review_opened", "Your Mid-year 2026 self-review is open", "Due 20 Sep 2026.",
+        "/reviews", "review_cycle", "demo", "2026-09-01T09:00:00+08:00"],
+      [9001, "review_opened", "Your Mid-year 2026 self-review is open", "Due 20 Sep 2026.",
+        "/reviews", "review_cycle", "demo", "2026-09-01T09:00:00+08:00"],
+      [9004, "review_opened", "Your Mid-year 2026 self-review is open", "Due 20 Sep 2026.",
+        "/reviews", "review_cycle", "demo", "2026-09-01T09:00:00+08:00"],
+      [9004, "review_submitted", "Chloe Mei Ling Wong submitted their Mid-year 2026 self-review", null,
+        `/reviews/${reviewIds.get("midyear-2026:9007")}`, "review_participant", String(reviewIds.get("midyear-2026:9007")), "2026-09-10T15:00:00+08:00"],
+      [9001, "review_submitted", "Farah Hanim binti Osman submitted their Mid-year 2026 self-review", null,
+        `/reviews/${reviewIds.get("midyear-2026:9002")}`, "review_participant", String(reviewIds.get("midyear-2026:9002")), "2026-09-11T15:00:00+08:00"],
       [9001, "task_assigned", "2 tasks for Danial Haziq bin Rosli's onboarding", null,
         "/tasks", "lifecycle_plan", "demo", "2026-09-07T09:05:00+08:00"],
     );
@@ -692,6 +790,8 @@ async function main(): Promise<void> {
       notifications: notifications.length,
       lifecyclePlans: demoLifecyclePlans.length,
       recognitions: demoRecognitions.length,
+      goals: demoGoals.length,
+      reviewCycles: demoReviewCycles.length,
     }, null, 2));
 
     // Printed once, to the operator, and stored nowhere.
