@@ -242,7 +242,9 @@ export default function Modal({
           </p>
         )}
 
-        {children}
+        {/* One gap under the heading for every dialog, so no consumer has to
+            remember its own top margin and none can double it. */}
+        {children && <div className="mt-5">{children}</div>}
 
         {footer && (
           <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

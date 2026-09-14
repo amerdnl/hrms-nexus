@@ -181,7 +181,7 @@ export default function EmployeePayslipsPage() {
         title="Payslip"
         size="lg"
       >
-        <div className="mt-4">{detailBody}</div>
+        <div>{detailBody}</div>
       </Modal>
     </section>
   );

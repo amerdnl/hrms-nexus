@@ -72,7 +72,7 @@ export default function LeaveDecisionModal({ leave, onClose, onDecided }: LeaveD
       isDismissDisabled={pending !== null}
     >
       {leave && (
-        <div className="mt-5 space-y-5">
+        <div className="space-y-5">
           <div className="flex items-center gap-3 rounded-xl bg-surface-muted p-4">
             <Avatar name={leave.employeeName} size="lg" />
             <div className="min-w-0 flex-1">

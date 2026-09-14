@@ -345,13 +345,15 @@ export default function CalendarPage() {
                         "flex min-h-24 flex-col gap-1 rounded-lg border p-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
                         isSelected ? "border-primary ring-2 ring-primary-soft" : "border-line hover:border-line-strong",
                         isWorking ? "bg-surface" : "bg-surface-muted",
-                        !inMonth && "opacity-60",
+                        // Not faded: opacity took the day number and its badges below
+                        // contrast minimums. A dashed edge marks another month instead.
+                        !inMonth && "border-dashed",
                       )}
                     >
                       <span
                         className={cn(
                           "grid h-6 w-6 place-items-center rounded-full text-xs font-semibold",
-                          day.date === today ? "bg-primary text-primary-fg" : inMonth ? "text-fg" : "text-fg-subtle",
+                          day.date === today ? "bg-primary text-primary-fg" : inMonth ? "text-fg" : "text-fg-muted",
                         )}
                       >
                         {Number(day.date.slice(8))}
@@ -372,7 +374,7 @@ export default function CalendarPage() {
                   );
                 })}
               </div>
-              <p className="mt-3 text-xs text-fg-subtle">Shaded days are outside the working week. Green marks a company holiday and blue a company event.</p>
+              <p className="mt-3 text-xs text-fg-subtle">Shaded days are outside the working week and dashed days belong to the previous or next month. Green marks a company holiday and blue a company event.</p>
             </div>
 
             {/* Agenda below md: only the days with something on them, in order. */}

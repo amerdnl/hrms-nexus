@@ -519,7 +519,7 @@ export default function AdminPayrollPage() {
           </>
         }
       >
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <FormField id="payroll-month" label="Month">
             <SelectInput id="payroll-month" value={month}
               onChange={(event) => setMonth(event.target.value)}>
@@ -546,7 +546,7 @@ export default function AdminPayrollPage() {
         size="lg"
       >
         {detail && (
-          <div className="mt-5 space-y-6">
+          <div className="space-y-6">
             <PayslipView detail={detail} />
 
             {locked ? (
