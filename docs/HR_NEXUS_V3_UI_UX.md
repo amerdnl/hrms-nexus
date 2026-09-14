@@ -349,3 +349,67 @@ Employee Home uses the same grid, measurements and card language, with its own c
 personal KPI row, attendance in Today's corner, For you, and the leave column where HR has the
 brand card. The Admin Home and Employee Home checks were re-run after the changes: **45/45** and
 **46/46**, plus the shell **132/132**.
+
+## U8 — Responsive, theme and accessibility polish
+
+Found by reviewing screenshots at every required width and fixed:
+
+| Width | Finding | Fix |
+| --- | --- | --- |
+| 1280 | one narrower KPI card stacked its icon while its neighbours did not; a payslip period wrapped | one KPI layout from 9.5rem; figures never wrap |
+| 1280 | the third Today slot slid under "View calendar" | slots are flexible tiles sized by the card's own width |
+| 1280 | the brand tagline wrapped; Insights labels were cut mid-word | tighter tagline tracking below 1440; labels wrap between words ("check‑ins" kept whole) |
+| every width | date-times read "14 Sept 2026" | "14 Sep 2026, 07:02 pm", matching plain dates |
+
+## U10 — Final regression (14 September 2026)
+
+Everything ran on the final bundle against the isolated demo stack. Each workflow smoke ran on a
+freshly rebuilt demo database.
+
+| Gate | Result |
+| --- | --- |
+| Frontend typecheck, Oxlint, production build | pass, 0 lint findings |
+| `check:bundle` | 50 lazy pages; initial JS 352.82 kB (gzip 114.98 kB) against the 380 / 125 kB budget; V3 release was 347.25 kB |
+| Backend laboratory suite, security matrix included | 564 / 564, none skipped; the backend is unchanged since the release baseline `e15bfdc` |
+| Navigation gate | 64 / 64: header destinations, launcher reaching all 14 admin areas, Home-rooted breadcrumbs, role redirects, sign-out, theme persistence, Apps sheet semantics, System theme at 1280, 390 and 375 |
+| Visual gate (master §15, §38) | 676 rendered pages per role at 1280, 1024, 834, 390 and 375 in light, dark and System, plus the account menu with its Theme group, the Apps sheet and dialogs, and permission redirects. It found no overflow, duplicate headings, bottom-bar overlap, stuck loading or error states. Screenshots were reviewed by eye. |
+| Accessibility gate | 236 axe scans, 0 WCAG 2.2 AA violations (App Launcher, all-pages view and account menu included); keyboard 17 / 17, including launcher focus, arrow keys and Escape, and Skip to content |
+| Shell | 132 / 132 |
+| Admin Home | 45 / 45 |
+| Employee and manager Home | 46 / 46 |
+| Exact comparison (U9) | every region within 3 px of the reference at 1536 × 1024 |
+| Workflow gate (master §39) | M1 51/51, M2 40/40, M3 59/59, M4 41/41, M5 28/28, M6 40/40, M7 19/19, M8 30/30, attendance verification 15/15 |
+| Dates | 7 / 7, no "Sept" on the pages that show dates and times |
+
+The first workflow run failed two checks. Both were expectations written for the old shell and
+were corrected, not the product:
+- M2 expected the retired five-slot phone bar.
+- M3's `main ol` also matched the breadcrumb list, which now sits inside the page.
+
+Both smokes then passed on fresh demos.
+
+Five earlier gates were updated to the new shell rather than weakened: M1, M2, the visual gate,
+accessibility and navigation. They assert the header destinations, launcher groups, the Apps
+sheet and the account menu's Theme group in place of the sidebar and the More sheet.
+
+### Source integrity at the end of the pass
+
+Read-only.
+
+Unchanged against the authorised baseline:
+- employees, accounts and attendance;
+- the five historical orphans;
+- payroll (September 2026 still `calculated`, no records);
+- the ledger (16) and 34 base tables.
+
+Isolation is unchanged: source on the compose network only, the lab and demo API on the lab
+network. The Docker volume (created 7 August 2026) is untouched. Tags: only `v2.0.0-rc1`,
+locally and on `origin`.
+
+Differences, all from the owner's use of the source application, none from this pass:
+
+| Difference | Explanation |
+| --- | --- |
+| audit events 33 → 46 | entries 34–46 are sign-ins and sign-outs through the source application by user 1 (administrator) and user 4 (employee), 02:55–11:38 UTC, including four failed attempts |
+| leave entitlements 0 → 4 | employee 3's 2026 default-policy entitlements, created by existing V2 code when that employee signed in at 03:05 |
+| entitlement sequence 0 → 68 | the same insert-if-absent code runs on later reads; a conflicting insert consumes a sequence value without writing a row (still 4 rows, last written 03:05) |
