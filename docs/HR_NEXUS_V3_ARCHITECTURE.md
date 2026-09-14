@@ -261,9 +261,24 @@ shell, auth and design primitives stay in the entry chunk.
 
 V2's entry chunk was 569.69 kB (161.75 kB gzip), over Vite's 500 kB advisory. V3 loads
 every page component with `React.lazy` behind one route-level fallback (M0), so adding
-twenty pages grows the number of chunks rather than the entry. M9 finishes the job with
-vendor chunking and measured query review; the release report states before/after
-numbers from `vite build`.
+twenty pages grows the number of chunks rather than the entry. M9 finished the job:
+
+- **Vendor chunks.** React (with react-dom and scheduler), the router and axios are their
+  own chunks (`vite.config.ts`, Rolldown `codeSplitting.groups`), so a release of
+  application code leaves them cached.
+- **The search palette loads on demand.** The header is on every page, so the dialog is a
+  separate chunk fetched on first open, or as soon as the trigger is pointed at or focused.
+- **Measured, not assumed.** A first visit downloads 347.25 kB (113.00 kB gzip) in eight
+  files: the entry, the three vendor chunks and four small shared chunks, against V2's
+  single 569.69 kB entry. `npm run check:bundle` fails the build check if any page is
+  imported statically, if a vendor chunk is missing, or if that figure passes 380 kB
+  (125 kB gzip).
+- **Query review.** Every V3 list is bounded and every scoped read uses an index added with
+  its table (manager, notifications by user, recognition by receiver and giver day,
+  goals by owner, review participants by employee and cycle, lifecycle tasks by plan and
+  by role). The heaviest endpoints answer in 2–6 ms median on the demo company
+  (company analytics 3 ms; the Action Center 4–6 ms per role). No further index was
+  justified at this data size, so no migration was added for performance.
 
 ## 10. Security assumptions carried forward
 

@@ -36,7 +36,7 @@ typecheck, Oxlint and production build pass; the entry chunk is 569.69 kB (161.7
 | M6 | Goals & performance reviews | complete |
 | M7 | Attendance, leave & payroll V3 | complete |
 | M8 | Analytics, reports, export & settings | complete |
-| M9 | Mobile, performance, security & accessibility hardening | — |
+| M9 | Mobile, performance, security & accessibility hardening | complete |
 | M10 | Complete demo, final QA & release | — |
 
 Each milestone ends with: backend tests (full laboratory run, new total reported),
@@ -232,6 +232,15 @@ plus route-splitting build assertions and axe/keyboard browser checks.
   and responses; the words of private recognition; private goal descriptions; task and
   goal progress notes; and notifications are not exported. Review participation is status
   and submission times only.
+- **14 Sep 2026 — Out of scope is 404, not 403, for records.** A record the caller may not
+  reach (another person's payslip, review, leave, goal or plan, a non-report's leave
+  decision) answers 404 so its existence is not confirmed. Role-gated areas answer 403.
+  The security matrix asserts both.
+- **14 Sep 2026 — A manager reads a report's leave reason** because the manager decides
+  the leave (architecture §4). Coworkers never do, and the calendar never shows reasons.
+- **14 Sep 2026 — Vendor chunks and an on-demand search palette, and no performance
+  migration.** Measured endpoint times of 2–6 ms on the demo company justified no new
+  index, so M9 added no migration.
 - **14 Sep 2026 — No new settings in M8.** Timezone, working week and office location
   (V2) and holidays (M3) are the settings with real effects, and all are revisioned. No
   V3 module needs another, and master §24 forbids decorative ones.
@@ -771,3 +780,69 @@ Recorded:
   checks visibility rather than text presence.
 
 M8 status: **complete.**
+
+## M9 — Mobile, performance, security & accessibility hardening (14 September 2026)
+
+No migration.
+
+Delivered:
+
+- **Security matrix** `security-matrix.integration.test.ts`: master §37 as one suite over
+  one company (a manager with two reports, an outsider, a resigned employee with an
+  active account, an account deactivated after its token was issued, and two
+  administrators). Payroll, leave, goals and reviews are created through the API. Rows:
+  an employee's own data; a coworker's social profile without sensitive fields, private
+  thanks or leave reasons; 25 manager and HR endpoints refused; another person's payslip,
+  review, leave, goal and plan refused; direct API writes around the UI refused; the
+  manager's team layer without pay or personal fields; outsiders refused; pay and HR data
+  refused; valid leave and review decisions; HR workflows; six sensitive actions audited
+  with no private words in the audit; per-request eligibility for a deactivated
+  administrator; deactivated, resigned and forged-claim tokens refused; search,
+  notification counts and titles, deep links and Action Center items bounded to scope; a
+  stale reporting line losing access on the next request.
+- **Bundle**: vendor chunks for React, the router and axios; the search palette loads on
+  first use; `npm run check:bundle` asserts lazy pages, the vendor chunks and a 380 kB
+  (125 kB gzip) budget for the first visit.
+- **Accessibility**: a WCAG 2.2 AA gate over 41 routes for three roles plus the sign-in
+  page, the search palette, the notification panel and a dialog, at 1280 and 390 in
+  light and dark; keyboard checks for sign-in, the palette, the bell and dialogs.
+- **Fixes**: every dialog now spaces its body from its heading in one place; calendar days
+  from other months no longer fade below contrast minimums; the palette's scrolling
+  results are keyboard-reachable.
+- **Harness**: a lab clone is dropped only once it has no other sessions (up to five
+  seconds), which removes the intermittent "terminating connection due to administrator
+  command" failure recorded since V2.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Backend typecheck (source and tests) | pass |
+| Security matrix suite | **18/18** |
+| Backend full laboratory suite | **562 pass, 0 fail, 0 skipped** (+19); two consecutive full runs with the teardown fix (543, then 562 with the matrix) had no teardown failure |
+| Frontend typecheck, Oxlint (0 warnings), production build, `check:bundle` | pass |
+| Initial JS | **347.25 kB (gzip 113.00 kB)** in eight files, 152 chunks, down 4.04 kB from M8; V2's entry alone was 569.69 kB (161.75 kB gzip) |
+| Endpoint timings on the demo company | median 2–6 ms: company analytics 3, Action Center 4 (HR) / 6 (manager, employee), search 2, team analytics 4, calendar 2, directory 2 |
+| Accessibility gate | **200 axe scans, 0 WCAG 2.2 AA violations**; keyboard 12/12. The first run found calendar contrast (2.31–2.69:1 on out-of-month days) and a keyboard-unreachable scrolling region in the palette; both fixed. An arrow-key check that used a one-result query was corrected |
+| Visual review | dialog spacing, the palette, the leave decision sheet and the calendar at 1280 light and 390 dark, reviewed by eye; 4/4 automated checks |
+| Regression on fresh demo data | M3 smoke **59/59** (the first rerun failed one check that hard-coded "2 unread" from M3's data; later milestones' demo notifications make it 3, and the check now compares with the server's count), M6 smoke **40/40**, V2 navigation gate **51/51** |
+| Security matrix expectations corrected, not the product | the fixture had Cole give the private thank-you he was then forbidden to see (the giver may see it; the giver is now another employee, and the receiver's manager is checked too); the manager's leave reason and the 404 for a non-report's leave are the documented design |
+
+Source integrity, 14 September. V2 business data, the orphans, the ledger 0001–0016
+and every V3 table (all empty) are as recorded, with two changes this work did not make:
+
+- **Audit entries 28–33**, read without actor details: source user 1 signed in at 01:35:54
+  UTC, signed out, one sign-in failed, two `PAYROLL_CALCULATED` actions ran on period 1 at
+  01:38:45 and 01:38:51, and user 1 signed in again at 02:02:16.
+- **The September 2026 payroll period is now `calculated`** (calculated at 01:38:51 UTC),
+  no longer `draft`. It has no payroll records, because source holds no compensation, so
+  no money was produced.
+
+Nothing in this execution reaches source: laboratory runs and the demo API are on the
+isolated lab network, every script targets the demo ports, and the source frontend and
+backend logged no requests from them. The change came through the source application
+under source user 1's own session. It has **not** been reverted: changing that period
+outside the normal workflow is a master §44 stop condition. It is carried to the release
+report for the owner to confirm.
+
+M9 status: **complete.**
