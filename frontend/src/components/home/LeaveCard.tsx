@@ -1,9 +1,9 @@
-import { ArrowRight, CalendarCheck2 } from "lucide-react";
+import { ArrowRight, CalendarCheck2, CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { EmployeeDashboardData } from "../../types/dashboard";
 import { cn } from "../../utils/cn";
 import { formatLeaveDuration } from "../../utils/leave";
-import { leaveTypeMeta } from "../../utils/status";
+import { leaveStatusMeta, leaveTypeMeta } from "../../utils/status";
 import ProgressBar from "../ui/ProgressBar";
 import { formatDayRange } from "./homeTime";
 
@@ -66,6 +66,18 @@ export default function LeaveCard({ dashboard, className }: { dashboard: Employe
               </li>
             ))}
           </ul>
+        )}
+        {/* When nothing is booked, the latest request answers "where is my
+            leave at?" - real, and it keeps the column from ending in a gap. */}
+        {dashboard && !dashboard.upcomingLeave && (
+          <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-surface-muted px-3.5 py-3 text-[0.8125rem] text-fg-muted">
+            <CalendarDays size={16} className="mt-0.5 shrink-0 text-fg-subtle" aria-hidden="true" />
+            <span>
+              {dashboard.recentLeaves[0]
+                ? <>Latest request: {leaveTypeMeta(dashboard.recentLeaves[0].leaveType).label.toLowerCase()} leave, {formatDayRange(dashboard.recentLeaves[0].startDate.slice(0, 10), dashboard.recentLeaves[0].endDate.slice(0, 10))} · {leaveStatusMeta(dashboard.recentLeaves[0].status).label.toLowerCase()}</>
+                : "No leave booked yet."}
+            </span>
+          </p>
         )}
         {dashboard?.upcomingLeave && (
           <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-info-soft px-3.5 py-3 text-[0.8125rem] text-info-fg">

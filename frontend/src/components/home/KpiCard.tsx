@@ -53,7 +53,7 @@ export default function KpiCard({
           className={cn("grid size-10 shrink-0 place-items-center rounded-xl @min-[14rem]:size-[3.375rem] @min-[14rem]:rounded-[0.875rem]", tintStyles[tint])}
           aria-hidden="true"
         >
-          <Icon className="size-[1.125rem] @min-[14rem]:size-[1.375rem]" />
+          <Icon strokeWidth={2.2} className="size-[1.125rem] @min-[14rem]:size-[1.375rem]" />
         </span>
         <div className="relative min-w-0 flex-1">
           <p className="text-[0.8125rem] leading-5 text-fg-muted @min-[9.5rem]:truncate">{label}</p>

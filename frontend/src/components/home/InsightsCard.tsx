@@ -154,7 +154,8 @@ export default function InsightsCard({ today, workingDays, className }: { today:
       {state === "failed" && <p className="mt-4 text-sm text-fg-muted">Insights could not be loaded.</p>}
 
       {state !== "failed" && (
-        <>
+        <div className="@container">
+          <div className="@min-[36rem]:grid @min-[36rem]:grid-cols-[minmax(0,1fr)_minmax(0,27rem)] @min-[36rem]:items-end @min-[36rem]:gap-10">
           <div
             role="img"
             aria-label={state === "ready"
@@ -172,7 +173,9 @@ export default function InsightsCard({ today, workingDays, className }: { today:
                   key={day}
                   className={cn(
                     "w-[7px] shrink-0 rounded-full",
-                    state === "loading" || future ? "h-full bg-line/70" : rate === null ? "h-[18%] bg-line" : "bg-linear-to-b from-primary to-primary/5",
+                    // Days still to come and days with nothing recorded are a
+                    // small mark on the baseline, never an empty full bar.
+                    state === "loading" ? "h-full bg-line/70" : future ? "h-1.5 bg-line" : rate === null ? "h-1.5 bg-line-strong" : "bg-linear-to-b from-primary to-primary/5",
                   )}
                   style={state === "ready" && !future && rate !== null ? { height: `${Math.max(14, Math.round(rate * 100))}%`, opacity: 0.45 + rate * 0.55 } : undefined}
                 />
@@ -180,7 +183,7 @@ export default function InsightsCard({ today, workingDays, className }: { today:
             })}
           </div>
 
-          <dl className="mt-4 grid grid-cols-3 divide-x divide-line">
+          <dl className="mt-4 grid grid-cols-3 divide-x divide-line @min-[36rem]:mt-0">
             {[
               {
                 label: "Attendance rate",
@@ -201,7 +204,7 @@ export default function InsightsCard({ today, workingDays, className }: { today:
               <div key={stat.label} className={cn("min-w-0", index === 0 ? "pr-3" : "px-3 sm:px-5")}>
                 <dt className="sr-only">{stat.label}</dt>
                 <dd className="text-xl font-semibold tabular-nums text-fg">{state === "loading" ? "—" : stat.value}</dd>
-                <dd aria-hidden="true" className="mt-0.5 text-[0.8125rem] leading-4 text-fg-muted min-[90rem]:truncate">{stat.label}</dd>
+                <dd aria-hidden="true" className="mt-0.5 text-[0.8125rem] leading-4 text-fg-muted min-[90rem]:truncate @min-[36rem]:whitespace-nowrap">{stat.label}</dd>
                 <dd className="mt-1 text-[0.8125rem]" title={period === "this" ? "Compared with the same days last month" : "Compared with the month before"}>
                   {state === "ready" ? stat.delta : <span className="text-fg-subtle">&nbsp;</span>}
                   <span className="sr-only">{period === "this" ? ", compared with the same days last month" : ", compared with the month before"}</span>
@@ -209,10 +212,11 @@ export default function InsightsCard({ today, workingDays, className }: { today:
               </div>
             ))}
           </dl>
+          </div>
           <p className="mt-3 text-xs text-fg-subtle min-[80rem]:sr-only">
             Compared with {period === "this" ? "the same days last month" : "the month before"}.
           </p>
-        </>
+        </div>
       )}
     </section>
   );

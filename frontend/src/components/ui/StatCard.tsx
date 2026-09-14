@@ -11,10 +11,7 @@ interface StatCardProps {
   tone?: StatusTone;
   /** Secondary line, e.g. "3 late" or "of 25 employees". Always a real fact. */
   hint?: string;
-  /**
-   * Accepted for existing callers. The icon now always leads, as the
-   * reference's KPI row shows; the prop no longer changes the layout.
-   */
+  /** Accepted for existing callers; the icon always leads. */
   iconPlacement?: "trailing" | "leading";
   /** Rendered under the value, e.g. a ProgressBar. */
   footer?: ReactNode;
@@ -34,12 +31,14 @@ const toneStyles: Record<StatusTone, string> = {
 };
 
 /**
- * A headline figure, in the language of the reference's KPI row: a soft icon
- * disc leading, the figure, and its label under it.
+ * A headline figure on an operational page (Team overview, a review cycle),
+ * in the same language as Home's KPI row: a rounded tinted tile, the label
+ * above the figure and a fact beneath - so a manager moving from Home to their
+ * team reads one card design, not two.
  *
- * Sized by its own width (@container), not the viewport's, because the same
- * card sits five across on a laptop and two across on a phone: in a narrow
- * card the disc shrinks and the label wraps rather than the figure being cut.
+ * Sized by its own width (@container): in a card narrower than 14rem - two
+ * across on a phone, or five across on a laptop - the tile stacks above the
+ * text, so labels are never broken and every figure in a row lines up.
  */
 export default function StatCard({
   label,
@@ -54,51 +53,33 @@ export default function StatCard({
 }: StatCardProps) {
   const content = (
     <div className="@container">
-      {/* Stacked in a narrow card (two across on a phone), so a label such as
-          "Not clocked in" keeps the full width instead of breaking mid-phrase. */}
-      <div className="flex flex-col items-start gap-3 @min-[11.5rem]:flex-row @min-[11.5rem]:items-center @min-[14rem]:gap-4">
+      <div className="flex flex-col gap-3 @min-[14rem]:flex-row @min-[14rem]:items-start @min-[14rem]:gap-3.5">
         {Icon && (
-          <span
-            className={cn(
-              "grid size-10 shrink-0 place-items-center rounded-full @min-[14rem]:size-12",
-              toneStyles[tone],
-            )}
-            aria-hidden="true"
-          >
-            <Icon className="size-[18px] @min-[14rem]:size-5" />
+          <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", toneStyles[tone])} aria-hidden="true">
+            <Icon size={18} strokeWidth={2.2} />
           </span>
         )}
         <div className="min-w-0">
-          <p className="text-2xl font-semibold leading-tight tracking-tight text-fg tabular-nums">
+          <p className="text-[0.8125rem] leading-5 text-fg-muted">{label}</p>
+          <p className="mt-1 text-2xl font-semibold leading-8 tracking-tight text-fg tabular-nums">
             {/* An em dash rather than a spinner: these sit in rows of four or
                 five, and spinners in every card read as an error state. */}
             {isLoading ? <span className="text-fg-subtle">&mdash;</span> : value}
           </p>
-          <p className="mt-0.5 text-sm leading-snug text-fg-muted">{label}</p>
+          {hint && !isLoading && <p className="mt-1 text-[0.8125rem] leading-5 text-fg-subtle">{hint}</p>}
         </div>
       </div>
-
-      {hint && !isLoading && (
-        <p className="mt-2 text-xs text-fg-subtle">{hint}</p>
-      )}
-
       {footer && !isLoading && <div className="mt-3">{footer}</div>}
     </div>
   );
 
-  const shared = cn(
-    "block rounded-card border border-line bg-surface p-4 shadow-card sm:p-5",
-    className,
-  );
+  const shared = cn("block rounded-card border border-line bg-surface p-4 shadow-card sm:p-5", className);
 
   if (to) {
     return (
       <Link
         to={to}
-        className={cn(
-          shared,
-          "transition-colors hover:border-line-strong hover:shadow-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-        )}
+        className={cn(shared, "transition-shadow hover:shadow-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring")}
       >
         {content}
       </Link>

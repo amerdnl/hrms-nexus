@@ -135,7 +135,7 @@ export default function TodayCard({ state, calendar, className, aside }: {
         {/* The timeline: a hairline across the card with a node above each
             slot, ending in an arrow. The nodes live inside the slot row's own
             top padding, so the row's horizontal scroll cannot clip them. */}
-        <div aria-hidden="true" className="absolute inset-x-0 top-[7px] flex items-center">
+        <div aria-hidden="true" className="absolute inset-x-0 top-[2px] flex items-center">
           <span className="h-px flex-1 bg-feature-accent/25" />
           <ChevronRight size={12} className="-ml-1 text-feature-accent/60" />
         </div>

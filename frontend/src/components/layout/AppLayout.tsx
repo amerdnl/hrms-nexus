@@ -39,7 +39,7 @@ export default function AppLayout() {
         id="main-content"
         tabIndex={-1}
         className={cn(
-          "min-w-0 flex-1 px-(--gutter) pb-28 md:pb-10",
+          "min-w-0 flex-1 px-(--gutter) pb-28 md:pb-6",
           isHome ? "pt-2 md:pt-4" : "pt-4 md:pt-6",
         )}
       >

@@ -19,6 +19,7 @@ import { formatClock, givenName } from "../../components/home/homeTime";
 import { useCompanyCalendar } from "../../components/home/useCompanyCalendar";
 import Alert from "../../components/ui/Alert";
 import { useAuth } from "../../context/useAuth";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import type { EmployeeDashboardData } from "../../types/dashboard";
 import { formatSen } from "../../types/payroll";
 import type { ActionCenter } from "../../types/workplace";
@@ -46,6 +47,9 @@ export default function EmployeeDashboardPage() {
   const [clockMode, setClockMode] = useState<ClockMode | null>(null);
   const [message, setMessage] = useState("");
   const { state: calendarState, calendar } = useCompanyCalendar(14);
+  // From 80rem the leave card is the right-hand column, as HR's brand card is;
+  // narrower, it joins the bottom grid so it never stretches into a page-wide strip.
+  const isWide = useMediaQuery("(min-width: 80rem)");
 
   const load = useCallback(async () => {
     setDashboardError("");
@@ -100,19 +104,24 @@ export default function EmployeeDashboardPage() {
     </div>
   ) : undefined;
 
-  const bottomCards = user?.isManager
-    ? [<TeamCard key="team" />, <GoalsCard key="goals" />, <UpdatesCard key="updates" className="md:col-span-2 min-[80rem]:col-span-1" />]
-    : [<GoalsCard key="goals" />, <UpdatesCard key="updates" />, <RecognitionCard key="recognition" className="md:col-span-2 min-[80rem]:col-span-1" />];
+  // Below 80rem the tall leave card spans two rows beside the next two cards,
+  // and the last card takes the full width, so no card ends in an empty gap.
+  const bottomCards = [
+    ...(isWide ? [] : [<LeaveCard key="leave" dashboard={dashboard} className="md:row-span-2" />]),
+    ...(user?.isManager
+      ? [<TeamCard key="team" />, <GoalsCard key="goals" />, <UpdatesCard key="updates" className={isWide ? undefined : "md:col-span-2"} />]
+      : [<GoalsCard key="goals" />, <UpdatesCard key="updates" />, <RecognitionCard key="recognition" className={isWide ? undefined : "md:col-span-2"} />]),
+  ];
 
   const name = dashboard?.employee.fullName ?? user?.employee?.fullName ?? null;
 
   return (
     <div className="relative mx-auto w-full max-w-[89rem]">
       <HomeMountain showWords className="absolute -top-10 left-[29.1%] hidden w-[46.9%] min-[80rem]:block" />
-      <HomeMountain className="absolute -top-6 right-0 hidden w-[52%] md:block min-[80rem]:hidden" />
+      <HomeMountain className="absolute -top-4 right-0 hidden w-[46%] md:block min-[80rem]:hidden" />
       <HomeMountain className="-mt-2 mb-1 w-full max-w-md opacity-90 md:hidden" />
 
-      <div className="relative pb-8 pt-2 md:pt-8 min-[80rem]:pb-6 min-[80rem]:pt-6">
+      <div className="relative pb-8 pt-2 md:pt-8 min-[80rem]:pb-6 min-[80rem]:pt-7">
         <HomeGreeting
           name={name ? givenName(name) : null}
           lines={["Here’s your day at a glance.", "Let’s keep things moving."]}
@@ -193,9 +202,11 @@ export default function EmployeeDashboardPage() {
 
         </div>
 
-        <div className="min-[80rem]:flex min-[80rem]:flex-col">
-          <LeaveCard dashboard={dashboard} className="min-[80rem]:h-full" />
-        </div>
+        {isWide && (
+          <div className="flex flex-col">
+            <LeaveCard dashboard={dashboard} className="h-full" />
+          </div>
+        )}
       </div>
 
       {/* Below the top grid and full width, so opening it never stretches the

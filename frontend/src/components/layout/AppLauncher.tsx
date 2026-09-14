@@ -58,7 +58,7 @@ function moveFocus(container: HTMLElement, key: string, onTop: () => void): bool
   return true;
 }
 
-function Tile({ item, pathname }: { item: NavigationItem; pathname: string }) {
+function Tile({ item, pathname, compact = false }: { item: NavigationItem; pathname: string; compact?: boolean }) {
   const active = isDestinationActive(item, pathname);
   return (
     <Link
@@ -66,13 +66,14 @@ function Tile({ item, pathname }: { item: NavigationItem; pathname: string }) {
       data-launcher-tile=""
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex h-full flex-col items-center justify-center gap-2 rounded-xl px-1 py-3 text-center transition-colors",
+        "flex h-full flex-col items-center justify-center rounded-xl px-1 text-center transition-colors",
+        compact ? "gap-1.5 py-2" : "gap-2 py-3",
         "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
         active ? "bg-primary-soft/70" : "hover:bg-surface-muted",
       )}
     >
-      <span className="grid size-12 place-items-center rounded-[0.875rem] bg-primary-soft text-primary" aria-hidden="true">
-        <item.icon size={22} />
+      <span className={cn("grid place-items-center rounded-[0.875rem] bg-primary-soft text-primary", compact ? "size-11" : "size-12")} aria-hidden="true">
+        <item.icon size={22} strokeWidth={2.2} />
       </span>
       <span className={cn("text-[0.8125rem] leading-tight [overflow-wrap:anywhere]", active ? "font-semibold text-primary" : "font-medium text-fg")}>
         {item.label}
@@ -132,7 +133,7 @@ function LauncherContent({
           onKeyDown={onInputKey}
           placeholder="Search pages…"
           autoComplete="off"
-          className="h-11 w-full rounded-xl border border-transparent bg-surface-muted pl-10 pr-3 text-sm text-fg placeholder:text-fg-subtle focus:border-primary focus:bg-elevated focus:outline-none"
+          className="h-11 w-full rounded-2xl border border-transparent bg-surface-muted pl-10 pr-3 text-sm text-fg placeholder:text-fg-subtle focus:border-primary/40 focus:outline-none"
         />
       </label>
       <p className="sr-only" role="status" aria-live="polite">
@@ -159,7 +160,7 @@ function LauncherContent({
         )}
 
         {grouped && (
-          <div className="max-h-[min(58vh,30rem)] space-y-4 overflow-y-auto pr-0.5">
+          <div className="max-h-[min(58vh,30rem)] space-y-3 overflow-y-auto pb-6 pr-0.5 [mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]">
             {shown.length === 0 && (
               <p className="py-8 text-center text-sm text-fg-muted">No page matches “{term}”.</p>
             )}
@@ -170,8 +171,8 @@ function LauncherContent({
                 </h3>
                 <ul className="mt-1 grid grid-cols-3">
                   {section.items.map((item) => (
-                    <li key={item.to} className="p-1">
-                      <Tile item={item} pathname={pathname} />
+                    <li key={item.to} className="p-0.5">
+                      <Tile item={item} pathname={pathname} compact />
                     </li>
                   ))}
                 </ul>
@@ -283,7 +284,7 @@ export default function AppLauncher() {
             const next = event.relatedTarget as Node | null;
             if (next && !panelRef.current?.contains(next) && !triggerRef.current?.contains(next)) setIsOpen(false);
           }}
-          className="absolute right-(--gutter) top-[calc(100%-0.5rem)] z-50 w-[22rem] rounded-2xl border border-line bg-elevated p-3.5 shadow-panel"
+          className="absolute right-(--gutter) top-[calc(100%-0.5rem)] z-50 w-[22rem] rounded-[1.25rem] border border-line bg-elevated p-4 shadow-panel"
         >
           <LauncherContent sections={sections} featured={featured} pathname={pathname} inputRef={inputRef} />
         </div>

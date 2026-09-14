@@ -413,3 +413,51 @@ Differences, all from the owner's use of the source application, none from this 
 | audit events 33 → 46 | entries 34–46 are sign-ins and sign-outs through the source application by user 1 (administrator) and user 4 (employee), 02:55–11:38 UTC, including four failed attempts |
 | leave entitlements 0 → 4 | employee 3's 2026 default-policy entitlements, created by existing V2 code when that employee signed in at 03:05 |
 | entitlement sequence 0 → 68 | the same insert-if-absent code runs on later reads; a conflicting insert consumes a sequence value without writing a row (still 4 rows, last written 03:05) |
+
+## Refinement pass (14 September 2026)
+
+After the layout matched the reference, both Homes and the pages sharing their components were
+reviewed again at 2× close-ups against the reference. The review covered Admin, Employee and
+Manager, light and dark, at 1536, 1280, 1024, 834, 390 and 375. Nothing in this pass changes data,
+permissions or behaviour.
+
+| Area | Finding | Refinement |
+| --- | --- | --- |
+| Today card | the timeline's nodes floated 5 px above the line | nodes sit on the line |
+| KPI row | Lucide's default stroke looked thin against the reference's heavier glyphs | 2.2 px stroke on KPI and launcher glyphs |
+| KPI sparkline | a joiners series with an empty early run drew as a flat line then a cliff | a smoothed curve through the real points, clamped to the card, flat series drawn mid-height |
+| Insights | days to come and days with no records were full-height empty bars, reading like a chart of zeros | a small mark on the baseline; recorded days keep their bars |
+| Insights at 834–1280 | a card spanning two columns stretched 22 bars across the width with the figures below | bars and figures side by side when the card is wide |
+| Greeting | eyebrow too large for its letterspacing | 12 px; spacing to the heading and action retuned; header height unchanged |
+| Mountain | a hard edge where the photograph's right side ended | a wider edge feather in the image, and a soft haze past the ridge in the wide layout only (`home-mountain.webp` regenerated, SHA-256 `2f7f5cc6…f8d2`); the haze is skipped at narrower widths, where it would spill past the frame |
+| Launcher | the search field showed a heavy teal outline on open; grouped view tiles were loose and a row was cut mid-tile | a soft grey pill with a quiet focus edge, compact tiles in the full directory, and a fade at the list's foot |
+| Employee Home below 1280 | "Your leave" stretched into a full-width strip, or sat beside a short card with a large gap | leave spans two rows beside the next two cards, and the last card takes the full width |
+| Your leave, nothing booked | the column ended in empty space | the latest request and its status (real data), or "No leave booked yet." |
+| StatCards on operational pages | in five-across rows labels wrapped ("Awaiting your / decision"), so figures sat at different heights | tile stacked above the text below 14rem, so every figure in a row aligns; same card language as Home's KPIs |
+| Footer | too much space above it at 1536 | 24 px, as in the reference |
+
+The reference comparison still holds within 3 px for every region at 1536 × 1024.
+
+Verification of the refinement pass, on the rebuilt bundle and a freshly rebuilt demo:
+
+| Check | Result |
+| --- | --- |
+| Typecheck, Oxlint, production build | pass, 0 lint findings |
+| `check:bundle` | initial JS 352.97 kB (gzip 115.11 kB), within the 380 / 125 kB budget |
+| Shell | 132 / 132 |
+| Admin Home | 45 / 45 |
+| Employee and manager Home | 46 / 46 |
+| Exact comparison | every region within 3 px of the reference |
+| Visual gate and accessibility gate | **not yet re-run to completion** (see below) |
+
+Both gates were started three times after the refinements. Each run stopped on a browser timeout
+(page navigation or screenshot) at a different page, never on a check. The macOS power log shows
+the host on battery at 17 % with the lid closed, repeatedly entering Maintenance Sleep and
+DarkWake throughout the runs. That suspends the headless browser, and `caffeinate` cannot prevent
+it with the lid closed on battery. A direct probe while the host was awake loaded Home and
+Recognition in under a second. The last complete runs of both gates passed (676 pages; 236 axe
+scans, keyboard 17 / 17) on the bundle before these refinements. The refinements change only
+spacing, layout and presentation of existing components.
+
+**To finish:** with the Mac on power and the lid open, run `m10-visual.mjs` and `m9-a11y.mjs`
+against the served bundle.

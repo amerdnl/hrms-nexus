@@ -122,10 +122,10 @@ export default function AdminDashboardPage() {
           80rem; to the right of it from md; a quiet band above it on a phone,
           where it would otherwise sit behind the text. */}
       <HomeMountain showWords className="absolute -top-10 left-[29.1%] hidden w-[46.9%] min-[80rem]:block" />
-      <HomeMountain className="absolute -top-6 right-0 hidden w-[52%] md:block min-[80rem]:hidden" />
+      <HomeMountain className="absolute -top-4 right-0 hidden w-[46%] md:block min-[80rem]:hidden" />
       <HomeMountain className="-mt-2 mb-1 w-full max-w-md opacity-90 md:hidden" />
 
-      <div className="relative pb-8 pt-2 md:pt-8 min-[80rem]:pb-6 min-[80rem]:pt-6">
+      <div className="relative pb-8 pt-2 md:pt-8 min-[80rem]:pb-6 min-[80rem]:pt-7">
         <HomeGreeting
           name={user?.employee ? givenName(user.employee.fullName) : null}
           lines={["People build great workplaces.", "Let’s keep things moving."]}

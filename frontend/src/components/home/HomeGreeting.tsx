@@ -9,7 +9,7 @@ import { greetingWord } from "./homeTime";
 export default function HomeGreeting({ name, lines, action }: { name: string | null; lines: [string, string]; action?: ReactNode }) {
   return (
     <div className="relative">
-      <p className="text-[0.8125rem] font-medium uppercase tracking-[0.2em] text-fg-subtle">{greetingWord()}</p>
+      <p className="text-xs font-medium uppercase tracking-[0.22em] text-fg-subtle">{greetingWord()}</p>
       <h1 className="mt-1.5 text-[2.125rem] font-semibold leading-[1.12] tracking-[-0.02em] text-fg sm:text-[2.5rem] lg:text-[3rem]">
         {name ? `Welcome back, ${name}.` : "Welcome back."}
       </h1>
