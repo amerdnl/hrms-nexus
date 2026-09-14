@@ -122,16 +122,17 @@ export default function NotificationBell() {
         aria-expanded={isOpen}
         aria-controls={panelId}
         aria-label={count > 0 ? `Notifications, ${count} unread` : "Notifications"}
-        className="relative grid h-10 w-10 place-items-center rounded-lg text-fg-muted transition-colors hover:bg-surface-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="relative grid size-10 place-items-center rounded-xl text-fg transition-colors hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
-        <Bell size={18} aria-hidden="true" />
+        <Bell size={20} aria-hidden="true" />
+        {/* The reference's unread dot: present or absent, a shape cue rather
+            than a colour one. The count itself is in the button's name and at
+            the top of the panel. */}
         {count > 0 && (
           <span
             aria-hidden="true"
-            className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-danger-fg px-1 text-[10px] font-bold leading-none text-surface"
-          >
-            {count > 99 ? "99+" : count}
-          </span>
+            className="absolute right-2 top-2 size-2.5 rounded-full bg-[#dc2626] ring-2 ring-header"
+          />
         )}
       </button>
 

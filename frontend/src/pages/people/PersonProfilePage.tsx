@@ -22,6 +22,7 @@ import ProfileRecognitionCard from "../../components/recognition/ProfileRecognit
 import ProfileGoalsCard from "../../components/performance/ProfileGoalsCard";
 import Timeline from "../../components/people/Timeline";
 import Avatar from "../../components/ui/Avatar";
+import Breadcrumbs from "../../components/ui/Breadcrumbs";
 import EmptyState from "../../components/ui/EmptyState";
 import ErrorState from "../../components/ui/ErrorState";
 import LinkButton from "../../components/ui/LinkButton";
@@ -34,6 +35,7 @@ import { formatDate, formatDateRange } from "../../utils/datetime";
 import { formatLeaveDuration } from "../../utils/leave";
 import { employmentStatusMeta, leaveStatusMeta, leaveTypeMeta } from "../../utils/status";
 import { dayStatusMeta } from "../team/teamStatus";
+import { useBreadcrumbs } from "../../hooks/useBreadcrumbs";
 
 /** "6 years", "8 months", "3 weeks" - tenure in the largest whole unit. */
 function tenure(from: string | null): string | null {
@@ -64,6 +66,9 @@ function tenure(from: string | null): string | null {
 export default function PersonProfilePage() {
   const { id } = useParams<{ id: string }>();
   const personId = Number(id);
+  // This page has no PageHeader - its title is the person's name inside the
+  // identity card - so it renders the trail itself.
+  const crumbs = useBreadcrumbs();
 
   const [profile, setProfile] = useState<SocialProfile | null>(null);
   const [events, setEvents] = useState<TimelineEntry[] | null>(null);
@@ -154,6 +159,7 @@ export default function PersonProfilePage() {
 
   return (
     <section className="mx-auto max-w-6xl space-y-6">
+      {crumbs.length > 1 && <Breadcrumbs items={crumbs} className="-mb-3 hidden md:block" />}
       <SectionCard>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
           <Avatar

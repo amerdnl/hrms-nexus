@@ -142,18 +142,6 @@
   --tint-sky: #e6f3fb;     --tint-sky-fg: #1b6a9c;
   --tint-slate: #eef0f3;   --tint-slate-fg: #4a5868;
 
-  /* Sidebar. Retired with the sidebar shell; kept only until nothing
-     references it. */
-  --sidebar: #ffffff;
-  --sidebar-fg: #4a5868;
-  --sidebar-fg-strong: #0b1b2e;
-  --sidebar-hover: #f1f5f6;
-  --sidebar-line: #e5eced;
-  --sidebar-badge-soft: #e2f0ee;
-  --sidebar-badge-fg: #0f5f5a;
-  --sidebar-danger-soft: #fee2e2;
-  --sidebar-danger-fg: #b91c1c;
-
   /* Overlay */
   --backdrop: rgb(4 12 20 / 0.45);
 }
@@ -214,16 +202,6 @@
   --tint-rose: #3a1820;    --tint-rose-fg: #f39aac;
   --tint-sky: #11283a;     --tint-sky-fg: #86c4ec;
   --tint-slate: #1d2830;   --tint-slate-fg: #a5b3c0;
-
-  --sidebar: #0d161c;
-  --sidebar-fg: #a5b3c0;
-  --sidebar-fg-strong: #ffffff;
-  --sidebar-hover: #15212a;
-  --sidebar-line: #1e2b33;
-  --sidebar-badge-soft: #10302d;
-  --sidebar-badge-fg: #7ed6c8;
-  --sidebar-danger-soft: #3b1a1a;
-  --sidebar-danger-fg: #fca5a5;
 
   --backdrop: rgb(2 6 12 / 0.7);
 }
@@ -287,16 +265,6 @@
   --color-tint-sky-fg: var(--tint-sky-fg);
   --color-tint-slate: var(--tint-slate);
   --color-tint-slate-fg: var(--tint-slate-fg);
-
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-fg: var(--sidebar-fg);
-  --color-sidebar-fg-strong: var(--sidebar-fg-strong);
-  --color-sidebar-hover: var(--sidebar-hover);
-  --color-sidebar-line: var(--sidebar-line);
-  --color-sidebar-badge-soft: var(--sidebar-badge-soft);
-  --color-sidebar-badge-fg: var(--sidebar-badge-fg);
-  --color-sidebar-danger-soft: var(--sidebar-danger-soft);
-  --color-sidebar-danger-fg: var(--sidebar-danger-fg);
 
   --color-backdrop: var(--backdrop);
 }

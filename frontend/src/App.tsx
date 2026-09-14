@@ -89,7 +89,7 @@ function HomeRedirect() {
 /**
  * The forced password change route.
  *
- * Rendered outside AppLayout on purpose: there is no sidebar here, so there are
+ * Rendered outside AppLayout on purpose: there is no header here, so there are
  * no navigation links to click past it. An account that no longer owes a change
  * is bounced back to its dashboard, so the screen cannot be revisited or
  * bookmarked into existence.
@@ -111,7 +111,7 @@ export default function App() {
   return (
     // The outer boundary only ever covers screens without the app shell
     // (sign-in, the forced change, the 404); pages inside AppLayout suspend
-    // on the layout's own boundary, so the sidebar and header stay put.
+    // on the layout's own boundary, so the header and bottom bar stay put.
     <Suspense fallback={<ScreenFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />

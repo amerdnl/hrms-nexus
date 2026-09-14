@@ -42,13 +42,13 @@ export default function CommandSearch() {
         onFocus={() => void loadDialog()}
         aria-label="Search"
         aria-keyshortcuts={isMac ? "Meta+K" : "Control+K"}
-        className="grid h-10 w-10 place-items-center rounded-lg text-fg-muted transition-colors hover:bg-surface-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:flex lg:w-56 lg:items-center lg:justify-start lg:gap-2 lg:border lg:border-control-border lg:px-3 lg:text-sm"
+        // An icon below xl; from xl the reference's white search pill. The
+        // pill is a button that opens the palette, not a text field, so the
+        // placeholder wording is its visible label and the magnifier its cue.
+        className="grid size-10 place-items-center rounded-xl text-fg transition-colors hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring xl:mr-3 xl:flex xl:h-10 xl:w-52 xl:items-center xl:justify-start xl:gap-2.5 xl:rounded-full xl:border xl:border-line xl:bg-surface xl:px-4 xl:text-fg-subtle xl:shadow-card xl:hover:bg-surface min-[90rem]:w-56"
       >
-        <Search size={17} aria-hidden="true" />
-        <span className="hidden text-fg-subtle lg:inline">Search</span>
-        <kbd className="ml-auto hidden rounded border border-line px-1.5 text-[11px] font-medium text-fg-subtle lg:inline">
-          {isMac ? "⌘K" : "Ctrl K"}
-        </kbd>
+        <Search size={18} aria-hidden="true" />
+        <span className="hidden text-sm xl:inline">Search anything…</span>
       </button>
       {isWanted && (
         <Suspense fallback={null}>

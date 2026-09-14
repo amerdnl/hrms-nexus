@@ -4,7 +4,7 @@ import Skeleton, { SkeletonText } from "../ui/Skeleton";
  * What a page shows while its own code chunk arrives.
  *
  * Every page is loaded on demand, so the first visit to each one waits for a
- * small download. This keeps the app shell - sidebar, header, bottom bar - in
+ * small download. This keeps the app shell - header, bottom bar - in
  * place and draws the page's rough shape rather than blanking the screen, so a
  * slow network reads as "loading this page", not "the app broke".
  *

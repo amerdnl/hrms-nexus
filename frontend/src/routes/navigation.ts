@@ -1,173 +1,221 @@
 import {
-  BarChart3,
-  Inbox,
   Award,
-  ClipboardList,
-  Target,
-  TrendingUp,
-  ClipboardCheck,
-  UserMinus,
-  UserPlus,
-  Megaphone,
-  CalendarRange,
+  BarChart3,
   Building2,
   CalendarCheck2,
   CalendarDays,
+  CalendarRange,
+  ClipboardCheck,
+  ClipboardList,
   Clock3,
-  DatabaseBackup,
   Contact,
-  LayoutDashboard,
+  DatabaseBackup,
+  House,
+  Inbox,
+  Megaphone,
   Network,
   ScrollText,
   Settings,
+  Target,
   Timer,
+  TrendingUp,
   Upload,
+  UserMinus,
+  UserPlus,
   UserRound,
   Users,
   UsersRound,
   Wallet,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import type { CurrentUser } from "../types/auth";
+import { roleDashboard } from "./roleDashboard";
+
+/** The pale tile colours a destination is drawn on, from the design tokens. */
+export type Tint = "teal" | "blue" | "violet" | "green" | "amber" | "rose" | "sky" | "slate";
 
 export interface NavigationItem {
   label: string;
   to: string;
   icon: LucideIcon;
-  /** Shorter wording for the bottom bar, where the slot is about 70px wide. */
+  tint: Tint;
+  /** Shorter wording where the slot is narrow, e.g. a launcher tile on a phone. */
   shortLabel?: string;
+  /** Extra words the launcher's filter also matches ("pay" finds Payslips). */
+  keywords?: string;
 }
 
 export interface NavigationSection {
   id: string;
-  /** Visible heading; the sidebar shows headings only when there is more than one section. */
   label: string;
   items: NavigationItem[];
+}
+
+/** One of the four persistent destinations in the header. */
+export interface PrimaryItem {
+  id: "home" | "people" | "insights" | "team" | "growth" | "workflows";
+  label: string;
+  to: string;
+  icon: LucideIcon;
+  /**
+   * Path prefixes that belong to this destination, so People stays lit on an
+   * employee record and Workflows on an onboarding plan. The exact `to` path
+   * always matches.
+   */
+  sections: string[];
 }
 
 /** What navigation needs to know about the session: the role and the scopes. */
 export type NavigationSubject = Pick<CurrentUser, "role" | "isManager">;
 
-/**
- * One source of truth for both navigations.
+/*
+ * One registry of destinations, shaped two ways: the four persistent header
+ * destinations and the App Launcher's complete, grouped directory. Keeping a
+ * single source is what stops a route from appearing in one and quietly going
+ * missing from the other - the failure the default-deny server avoids on its
+ * side.
  *
- * The desktop sidebar and the mobile bottom bar are different shapes over the
- * SAME destinations. Keeping two lists would let a route added to one quietly
- * go missing from the other, which is exactly the failure the default-deny
- * middleware avoids on the server side.
- *
- * V3 builds the list from capabilities, not from the role alone: a manager is
- * an employee who also has a Team section. What appears here is convenience
- * only - every destination is guarded again by its route and by the server.
+ * Built from capabilities, not from the role alone: a manager is an employee
+ * who also has a Team group. What appears here is convenience only; every
+ * destination is guarded again by its route and by the server.
  */
-const companySection: NavigationSection = {
-  id: "company",
-  label: "Company",
-  items: [
-    { label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard, shortLabel: "Home" },
-    { label: "Employees", to: "/admin/employees", icon: Users },
-    { label: "Departments", to: "/admin/departments", icon: Building2 },
-    { label: "Attendance", to: "/admin/attendance", icon: Clock3 },
-    { label: "Leave", to: "/admin/leave", icon: CalendarDays },
-    { label: "Onboarding", to: "/admin/onboarding", icon: UserPlus },
-    { label: "Offboarding", to: "/admin/offboarding", icon: UserMinus },
-    { label: "Performance", to: "/admin/performance", icon: TrendingUp },
-    { label: "Payroll", to: "/admin/payroll", icon: Wallet },
-    { label: "Reports", to: "/admin/reports", icon: BarChart3 },
-    { label: "Audit log", to: "/admin/audit", icon: ScrollText },
-    { label: "Data export", to: "/admin/export", icon: DatabaseBackup },
-    { label: "Import", to: "/admin/import", icon: Upload },
-    { label: "Settings", to: "/admin/settings", icon: Settings },
-  ],
-};
-
-const meSection: NavigationSection = {
-  id: "me",
-  label: "Me",
-  items: [
-    { label: "Dashboard", to: "/employee/dashboard", icon: LayoutDashboard, shortLabel: "Home" },
-    { label: "Attendance", to: "/employee/attendance", icon: Clock3 },
-    { label: "Leave", to: "/employee/leave", icon: CalendarDays },
-    { label: "Payslips", to: "/employee/payroll", icon: Wallet },
-    { label: "Goals", to: "/goals", icon: Target },
-    { label: "Reviews", to: "/reviews", icon: ClipboardList },
-    { label: "Profile", to: "/employee/profile", icon: UserRound },
-  ],
-};
+const to = {
+  employees: { label: "Employees", to: "/admin/employees", icon: Users, tint: "teal", keywords: "staff records hire" },
+  departments: { label: "Departments", to: "/admin/departments", icon: Building2, tint: "sky", keywords: "teams units" },
+  people: { label: "People", to: "/people", icon: Contact, tint: "teal", keywords: "directory colleagues coworkers" },
+  org: { label: "Org chart", to: "/org", icon: Network, tint: "slate", shortLabel: "Org", keywords: "reporting lines structure manager" },
+  adminAttendance: { label: "Attendance", to: "/admin/attendance", icon: Clock3, tint: "blue", keywords: "check in time clock" },
+  adminLeave: { label: "Leave", to: "/admin/leave", icon: CalendarDays, tint: "violet", keywords: "time off holiday requests" },
+  calendar: { label: "Calendar", to: "/calendar", icon: CalendarRange, tint: "sky", keywords: "events holidays who is out" },
+  actions: { label: "Action Center", to: "/actions", icon: Inbox, tint: "teal", shortLabel: "Actions", keywords: "to do approvals inbox" },
+  tasks: { label: "My tasks", to: "/tasks", icon: ClipboardCheck, tint: "green", shortLabel: "Tasks", keywords: "checklist" },
+  onboarding: { label: "Onboarding", to: "/admin/onboarding", icon: UserPlus, tint: "rose", keywords: "joiners new hire" },
+  offboarding: { label: "Offboarding", to: "/admin/offboarding", icon: UserMinus, tint: "amber", keywords: "leavers exit" },
+  performance: { label: "Performance", to: "/admin/performance", icon: TrendingUp, tint: "blue", keywords: "review cycles appraisal" },
+  payroll: { label: "Payroll", to: "/admin/payroll", icon: Wallet, tint: "green", keywords: "pay salary payslips" },
+  reports: { label: "Reports", to: "/admin/reports", icon: BarChart3, tint: "amber", keywords: "analytics insights" },
+  recognition: { label: "Recognition", to: "/recognition", icon: Award, tint: "amber", shortLabel: "Kudos", keywords: "kudos thanks" },
+  announcements: { label: "Announcements", to: "/announcements", icon: Megaphone, tint: "violet", shortLabel: "News", keywords: "news updates" },
+  importData: { label: "Import", to: "/admin/import", icon: Upload, tint: "slate", keywords: "upload spreadsheet csv" },
+  exportData: { label: "Data export", to: "/admin/export", icon: DatabaseBackup, tint: "slate", shortLabel: "Export", keywords: "download backup csv" },
+  audit: { label: "Audit log", to: "/admin/audit", icon: ScrollText, tint: "slate", shortLabel: "Audit", keywords: "history activity" },
+  settings: { label: "Settings", to: "/admin/settings", icon: Settings, tint: "slate", keywords: "company policies holidays" },
+  myAttendance: { label: "Attendance", to: "/employee/attendance", icon: Clock3, tint: "blue", keywords: "check in time clock" },
+  myLeave: { label: "Leave", to: "/employee/leave", icon: CalendarDays, tint: "violet", keywords: "time off holiday apply balance" },
+  payslips: { label: "Payslips", to: "/employee/payroll", icon: Wallet, tint: "green", keywords: "pay salary" },
+  goals: { label: "Goals", to: "/goals", icon: Target, tint: "rose", keywords: "objectives progress" },
+  reviews: { label: "Reviews", to: "/reviews", icon: ClipboardList, tint: "blue", keywords: "performance self review" },
+  profile: { label: "Profile", to: "/employee/profile", icon: UserRound, tint: "teal", keywords: "me account password photo" },
+  teamOverview: { label: "Team overview", to: "/team", icon: UsersRound, tint: "teal", shortLabel: "Team", keywords: "my team reports" },
+  teamLeave: { label: "Team leave", to: "/team/leave", icon: CalendarCheck2, tint: "violet", keywords: "approve requests" },
+  teamAttendance: { label: "Team attendance", to: "/team/attendance", icon: Timer, tint: "blue", keywords: "who is in" },
+  teamGoals: { label: "Team goals", to: "/team/goals", icon: Target, tint: "rose", keywords: "objectives" },
+  teamReviews: { label: "Team reviews", to: "/team/reviews", icon: ClipboardList, tint: "sky", keywords: "performance" },
+} satisfies Record<string, NavigationItem>;
 
 const teamSection: NavigationSection = {
   id: "team",
   label: "My team",
-  items: [
-    { label: "Team overview", to: "/team", icon: UsersRound, shortLabel: "Team" },
-    { label: "Team leave", to: "/team/leave", icon: CalendarCheck2 },
-    { label: "Team attendance", to: "/team/attendance", icon: Timer },
-    { label: "Team goals", to: "/team/goals", icon: Target },
-    { label: "Team reviews", to: "/team/reviews", icon: ClipboardList },
-  ],
+  items: [to.teamOverview, to.teamLeave, to.teamAttendance, to.teamGoals, to.teamReviews],
 };
 
-/** The shared workplace layer: every signed-in account, whatever its role. */
-const workplaceSection: NavigationSection = {
-  id: "workplace",
-  label: "Workplace",
-  items: [
-    { label: "Action Center", to: "/actions", icon: Inbox, shortLabel: "Actions" },
-    { label: "My tasks", to: "/tasks", icon: ClipboardCheck, shortLabel: "Tasks" },
-    { label: "People", to: "/people", icon: Contact },
-    { label: "Org chart", to: "/org", icon: Network, shortLabel: "Org" },
-    { label: "Calendar", to: "/calendar", icon: CalendarRange },
-    { label: "Recognition", to: "/recognition", icon: Award, shortLabel: "Kudos" },
-    { label: "Announcements", to: "/announcements", icon: Megaphone, shortLabel: "News" },
-  ],
-};
-
-export function navigationSectionsFor(subject: NavigationSubject): NavigationSection[] {
-  const own = subject.role === "admin" ? companySection : meSection;
-  return subject.isManager ? [own, teamSection, workplaceSection] : [own, workplaceSection];
+function adminSections(): NavigationSection[] {
+  return [
+    { id: "people", label: "People", items: [to.employees, to.departments, to.people, to.org] },
+    { id: "time", label: "Time & leave", items: [to.adminAttendance, to.adminLeave, to.calendar] },
+    { id: "workflows", label: "Workflows", items: [to.actions, to.tasks, to.onboarding, to.offboarding, to.performance] },
+    { id: "pay", label: "Pay & insights", items: [to.payroll, to.reports] },
+    { id: "workplace", label: "Workplace", items: [to.recognition, to.announcements] },
+    { id: "administration", label: "Administration", items: [to.importData, to.exportData, to.audit, to.settings] },
+  ];
 }
 
-/** Every destination, flattened in sidebar order. */
+function employeeSections(): NavigationSection[] {
+  return [
+    { id: "me", label: "Me", items: [to.myAttendance, to.myLeave, to.payslips, to.goals, to.reviews, to.profile] },
+    { id: "workplace", label: "Workplace", items: [to.actions, to.tasks, to.people, to.org, to.calendar, to.recognition, to.announcements] },
+  ];
+}
+
+/** The App Launcher's groups: every destination this session may open. */
+export function navigationSectionsFor(subject: NavigationSubject): NavigationSection[] {
+  const sections = subject.role === "admin" ? adminSections() : employeeSections();
+  if (!subject.isManager) return sections;
+  // The team layer sits right after the account's own area: after Me for an
+  // employee, and after People for HR.
+  return [sections[0], teamSection, ...sections.slice(1)];
+}
+
+/** Every launcher destination, flattened in launcher order. */
 export function navigationFor(subject: NavigationSubject): NavigationItem[] {
   return navigationSectionsFor(subject).flatMap((section) => section.items);
 }
 
 /**
- * Which destinations reach the bottom bar directly.
+ * The four persistent destinations: Home, People, a role's insight
+ * destination and Workflows.
  *
- * Named explicitly rather than taken as the first N of the sidebar list. That
- * shortcut looked equivalent and was not: it silently promoted Departments and
- * demoted Leave, because bar membership is about what people reach daily and
- * sidebar order is about how the sections group.
- *
- * The bar has five slots. Five destinations or fewer are all direct; more than
- * five means four direct and the rest behind "More" - never five plus More.
+ * The third slot is honest rather than uniform. HR's Insights is Reports.
+ * A manager's best insight destination is their team overview, which carries
+ * the team insights, so it is named Team. An employee has no reporting
+ * destination at all, and a page invented to fill the slot would be fake UI,
+ * so theirs is Growth: goals and reviews, their own progress.
  */
-function mobilePrimaryPaths(subject: NavigationSubject): string[] {
+export function primaryNavigationFor(subject: NavigationSubject): PrimaryItem[] {
+  const home: PrimaryItem = { id: "home", label: "Home", to: roleDashboard(subject.role), icon: House, sections: [] };
+  const people: PrimaryItem = {
+    id: "people",
+    label: "People",
+    to: "/people",
+    icon: Users,
+    sections: subject.role === "admin" ? ["/people", "/org", "/admin/employees", "/admin/departments"] : ["/people", "/org"],
+  };
+  const workflows: PrimaryItem = {
+    id: "workflows",
+    label: "Workflows",
+    to: "/actions",
+    icon: Workflow,
+    sections:
+      subject.role === "admin"
+        ? ["/actions", "/tasks", "/notifications", "/lifecycle", "/admin/onboarding", "/admin/offboarding", "/admin/lifecycle", "/admin/performance"]
+        : ["/actions", "/tasks", "/notifications", "/lifecycle"],
+  };
+
+  let third: PrimaryItem;
   if (subject.role === "admin") {
-    return ["/admin/dashboard", "/admin/employees", "/admin/attendance", "/admin/leave"];
+    third = { id: "insights", label: "Insights", to: "/admin/reports", icon: BarChart3, sections: ["/admin/reports"] };
+  } else if (subject.isManager) {
+    third = { id: "team", label: "Team", to: "/team", icon: UsersRound, sections: ["/team"] };
+  } else {
+    third = { id: "growth", label: "Growth", to: "/goals", icon: Target, sections: ["/goals", "/reviews"] };
   }
-  if (subject.isManager) {
-    return ["/employee/dashboard", "/team", "/employee/attendance", "/employee/leave"];
-  }
-  return ["/employee/dashboard", "/employee/attendance", "/employee/leave", "/people"];
+
+  return [home, people, third, workflows];
 }
 
-export function mobilePrimaryFor(subject: NavigationSubject): NavigationItem[] {
-  const all = navigationFor(subject);
-  if (all.length <= 5) return all;
-
-  // Mapped from the named paths rather than filtered, so the bar keeps the
-  // order above rather than inheriting the sidebar's.
-  return mobilePrimaryPaths(subject).slice(0, 4).map((path) => {
-    const item = all.find((candidate) => candidate.to === path);
-    if (!item) throw new Error(`Bottom navigation names an unknown route: ${path}`);
-    return item;
-  });
+/** Whether a header destination owns the current page. */
+export function isPrimaryActive(item: PrimaryItem, pathname: string): boolean {
+  if (pathname === item.to) return true;
+  return item.sections.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-/** The destinations behind "More". Empty when everything fits in the bar. */
-export function mobileOverflowFor(subject: NavigationSubject): NavigationItem[] {
-  const primary = new Set(mobilePrimaryFor(subject).map((item) => item.to));
-  return navigationFor(subject).filter((item) => !primary.has(item.to));
+/** Whether a launcher destination is the current page (Team overview must not light up on /team/leave). */
+export function isDestinationActive(item: NavigationItem, pathname: string): boolean {
+  if (item.to === "/team") return pathname === "/team";
+  return pathname === item.to || pathname.startsWith(`${item.to}/`);
+}
+
+/** The launcher's filter: label, group name and keywords, case-insensitive. */
+export function filterSections(sections: NavigationSection[], query: string): NavigationSection[] {
+  const term = query.trim().toLowerCase();
+  if (!term) return sections;
+  return sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) =>
+        `${item.label} ${item.shortLabel ?? ""} ${section.label} ${item.keywords ?? ""}`.toLowerCase().includes(term),
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
 }

@@ -1,148 +1,58 @@
-import { Ellipsis } from "lucide-react";
-import { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
-import {
-  mobileOverflowFor,
-  mobilePrimaryFor,
-  type NavigationItem,
-} from "../../routes/navigation";
+import { isPrimaryActive, primaryNavigationFor } from "../../routes/navigation";
 import { cn } from "../../utils/cn";
-import Sheet from "../ui/Sheet";
-
-const slot =
-  "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 px-1 text-[11px] font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
 
 /**
- * The bottom navigation, and the only navigation below md.
+ * The bottom bar: the header's four persistent destinations, within thumb
+ * reach below md.
  *
- * It replaces the slide-out drawer rather than joining it. Two navigations
- * over the same destinations is two things to keep in step and two things for
- * a user to learn, and the drawer's own comment already showed the cost: it
- * needed `visibility: hidden` purely so its links left the tab order while
- * off-screen. Nothing is off-screen here.
- *
- * Five slots. An employee has exactly five destinations, so all five are
- * direct. An administrator has eleven, so four are direct and the rest open in
- * a sheet behind "More" - the sheet reuses Modal, so it inherits the focus
- * trap and focus restore rather than reimplementing them.
+ * It no longer carries a "More" slot. Every other module lives in the App
+ * Launcher, which opens from the header at every width - so a phone and a
+ * laptop reach the same directory the same way, and the bar's four slots are
+ * wide enough to read without truncation.
  */
 export default function MobileNav() {
   const { user } = useAuth();
   const { pathname } = useLocation();
-  const [isMoreOpen, setIsMoreOpen] = useState(false);
-
-  // A route change must close the sheet, or tapping a destination inside it
-  // navigates behind a panel that stays up.
-  useEffect(() => setIsMoreOpen(false), [pathname]);
 
   if (!user) return null;
 
-  const primary = mobilePrimaryFor(user);
-  const overflow = mobileOverflowFor(user);
-  // Exact for "/team" so the overview in the bar and the team pages behind
-  // "More" do not both light up.
-  const isOverflowActive = overflow.some((item) =>
-    item.to === "/team" ? pathname === "/team" : pathname.startsWith(item.to),
-  );
-
-  const renderLink = ({ icon: Icon, label, shortLabel, to }: NavigationItem) => (
-    <NavLink
-      key={to}
-      to={to}
-      end={to === "/team"}
-      className={({ isActive }) =>
-        cn(slot, isActive ? "text-primary" : "text-fg-muted hover:text-fg")
-      }
-    >
-      {({ isActive }) => (
-        <>
-          {/* The active slot is marked by a filled pill behind the icon as
-              well as by hue, so the state does not rest on colour alone.
-              NavLink sets aria-current itself. */}
-          <span
-            className={cn(
-              "grid h-7 w-12 place-items-center rounded-full transition-colors",
-              isActive && "bg-primary-soft",
-            )}
-          >
-            <Icon size={19} aria-hidden="true" />
-          </span>
-          <span className="max-w-full truncate">{shortLabel ?? label}</span>
-        </>
-      )}
-    </NavLink>
-  );
-
   return (
-    <>
-      <nav
-        aria-label="Primary"
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface md:hidden",
-          // Keeps the row clear of the home indicator on a notched phone.
-          "pb-[env(safe-area-inset-bottom)]",
-        )}
-      >
-        {primary.map(renderLink)}
-
-        {overflow.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setIsMoreOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={isMoreOpen}
-            className={cn(
-              slot,
-              // "More" also lights up when the page you are on lives inside
-              // it, so the bar never claims nothing is selected.
-              isOverflowActive || isMoreOpen
-                ? "text-primary"
-                : "text-fg-muted hover:text-fg",
-            )}
-          >
-            <span
-              className={cn(
-                "grid h-7 w-12 place-items-center rounded-full transition-colors",
-                (isOverflowActive || isMoreOpen) && "bg-primary-soft",
-              )}
-            >
-              <Ellipsis size={19} aria-hidden="true" />
-            </span>
-            More
-          </button>
-        )}
-      </nav>
-
-      <Sheet
-        isOpen={isMoreOpen}
-        onClose={() => setIsMoreOpen(false)}
-        title="More"
-        description={user.role === "admin" ? "The rest of the administration area." : "Everything else you can open."}
-      >
-        <ul className="mt-4 grid grid-cols-3 gap-2">
-          {overflow.map(({ icon: Icon, label, to }) => (
-            <li key={to}>
-              <NavLink
-                to={to}
-                end={to === "/team"}
-                className={({ isActive }) =>
-                  cn(
-                    "flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border p-3 text-center text-xs font-medium transition-colors",
-                    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                    isActive
-                      ? "border-primary bg-primary-soft text-primary"
-                      : "border-line text-fg-muted hover:border-line-strong hover:text-fg",
-                  )
-                }
+    <nav
+      aria-label="Primary"
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-40 border-t border-line bg-header md:hidden",
+        // Keeps the row clear of the home indicator on a notched phone.
+        "pb-[env(safe-area-inset-bottom)]",
+      )}
+    >
+      <ul className="flex">
+        {primaryNavigationFor(user).map((item) => {
+          const active = isPrimaryActive(item, pathname);
+          return (
+            <li key={item.id} className="flex-1">
+              <Link
+                to={item.to}
+                aria-current={pathname === item.to ? "page" : active ? "true" : undefined}
+                className={cn(
+                  "flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-xs font-medium transition-colors",
+                  "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+                  active ? "text-primary" : "text-fg-muted hover:text-fg",
+                )}
               >
-                <Icon size={20} aria-hidden="true" />
-                {label}
-              </NavLink>
+                {/* The active slot is marked by a filled pill behind a filled
+                    icon as well as by hue, so the state does not rest on
+                    colour alone. */}
+                <span className={cn("grid h-8 w-14 place-items-center rounded-full transition-colors", active && "bg-primary-soft")}>
+                  <item.icon size={20} fill={active && item.id === "home" ? "currentColor" : "none"} aria-hidden="true" />
+                </span>
+                {item.label}
+              </Link>
             </li>
-          ))}
-        </ul>
-      </Sheet>
-    </>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }

@@ -80,3 +80,52 @@ Nothing is fabricated. Checked against the demo API for each role:
 The reference's trend chips ("↑ 6%", "+8 from last month") have no source: V3 records no
 historical snapshots, and the analytics design already reports counts, never trends. Those
 positions carry real facts about the same figure instead.
+
+## U1 — Design system (14 September 2026)
+
+- **Tokens.** Light palette sampled from the reference; a designed deep-navy dark palette; eight
+  tint pairs for tiles and markers; a `--header` surface; a shell `--gutter` custom property
+  (16 / 24 / 32 / 36 px) that full-bleed elements can cancel exactly. Every text, control and tint
+  pair re-measured (lowest: body text 4.55:1, control borders 3.26:1, tint glyphs 4.73:1).
+- **Primitives.** Cards lose the rule under their header (it returns only over full-bleed tables),
+  titles are navy with a navy icon, radii soften to 12 px, table headers are sentence case, page
+  titles are semibold, StatCard takes the reference KPI layout, and buttons gain an `inverse`
+  variant for controls on photography.
+
+## U2 — Authenticated shell (14 September 2026)
+
+The permanent sidebar is removed, not hidden: `Sidebar.tsx` and its tokens are deleted.
+
+| Area | Now |
+| --- | --- |
+| Header | mountain mark and wordmark (tagline from 1440 px), four persistent destinations, then Search, App Launcher, Notifications and the account |
+| Persistent destinations | built from one registry in `routes/navigation.ts` for the session's capabilities |
+| App Launcher | the complete, grouped, permission-aware directory; a popover from md, a bottom sheet on phones; filter field, arrow-key grid navigation, Escape and outside-pointer close with focus return |
+| Account menu | profile (employees), a labelled Theme group (Light, Dark, System) and Sign out; the theme control therefore lives in one place at every width |
+| Notifications | the reference's unread dot; the count stays in the button's name and the panel |
+| Search | the reference's white pill from 1280 px, an icon below; ⌘K / Ctrl+K unchanged, palette still loaded on demand |
+| Breadcrumbs | rooted at Home, rendered inside each page's own content width (PageHeader, and the profile page) from md up |
+| Phone | compact header with every utility, and a bottom bar with the same four destinations; no More slot, because the launcher opens from the header at every width |
+
+The four destinations are honest per role rather than uniform:
+
+| Role | Home | People | Third | Workflows |
+| --- | --- | --- | --- | --- |
+| HR administrator | Admin Home | directory (also lit on employee and department records) | **Insights** → Reports | Action Center (also lit on onboarding, offboarding, performance) |
+| Manager | Employee Home | directory | **Team** → team overview, which carries the team insights | Action Center |
+| Employee | Employee Home | directory | **Growth** → goals and reviews | Action Center |
+
+An employee has no reporting destination, and inventing one to keep the label would be fake UI;
+a manager's insight destination is their team overview, so it is named for what it is.
+
+Launcher groups: HR — People, Time & leave, Workflows, Pay & insights, Workplace, Administration
+(20 destinations, plus My team if the account manages people); employee — Me, Workplace
+(13), with My team between them for a manager (18).
+
+Verification (`u2-shell.mjs`, real sign-ins on the demo stack): **129/129**. Header destinations
+and launcher contents per role, with nothing an account may not open; launcher focus, arrow keys,
+filter, Enter, Escape and outside close; theme group applies Dark; no overflow or clipped header
+control at 1536, 1280, 1024, 834, 390 and 375 in light and dark; one primary navigation visible
+at each width; the phone sheet fits and returns focus; the manager's Team slot stays lit on team
+pages. The first run found the 1280 header 34–36 px too wide; the account name and role now
+appear from 1440 px.

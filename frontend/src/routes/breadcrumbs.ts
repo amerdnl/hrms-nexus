@@ -4,13 +4,17 @@ import type { Crumb } from "../components/ui/Breadcrumbs";
  * Breadcrumb trails, derived from the pathname in the shell rather than passed
  * up from each page.
  *
- * Doing it here is what keeps the redesign out of 25 page files: a page does
- * not know, and should not need to know, where it sits in the navigation.
+ * Doing it here is what keeps the shell out of 50 page files: a page does not
+ * know, and should not need to know, where it sits in the navigation.
+ *
+ * Every trail starts at Home. The sidebar that used to say which area a page
+ * belonged to is gone, so the trail is now the one persistent statement of
+ * "where am I" below the header - and "Admin" or "Employee" as an unlinked
+ * root said nothing a person could act on.
  *
  * Dynamic segments are rendered as a generic label ("Details", "Edit") rather
  * than as the raw id, because "Employees / 42 / Edit" is worse than no name at
- * all. Substituting the real record name needs data the shell has not
- * fetched; that is a later stage, and this shape accepts it without changing.
+ * all.
  */
 interface Pattern {
   /** Path split on "/", with ":" marking a dynamic segment. */
@@ -19,7 +23,6 @@ interface Pattern {
 }
 
 const ADMIN: Record<string, string> = {
-  dashboard: "Dashboard",
   employees: "Employees",
   departments: "Departments",
   attendance: "Attendance",
@@ -36,7 +39,6 @@ const ADMIN: Record<string, string> = {
 };
 
 const EMPLOYEE: Record<string, string> = {
-  dashboard: "Dashboard",
   profile: "Profile",
   attendance: "Attendance",
   leave: "Leave",
@@ -88,52 +90,48 @@ function matches(pattern: Pattern, segments: string[]): boolean {
   );
 }
 
-export function breadcrumbsFor(pathname: string): Crumb[] {
+/**
+ * The trail for a page, rooted at the session's Home. Empty on Home itself
+ * and on any address the shell does not know, where a trail would only guess.
+ */
+export function breadcrumbsFor(pathname: string, homePath: string): Crumb[] {
   const segments = pathname.split("/").filter(Boolean);
-  if (segments.length === 0) return [];
+  if (segments.length === 0 || pathname === homePath) return [];
 
+  const home: Crumb = { label: "Home", to: homePath };
+  const trail = (...crumbs: Crumb[]): Crumb[] => [home, ...crumbs];
   const [scope, ...rest] = segments;
 
-  // The workplace pages belong to no portal, so they have no scope crumb.
+  // The workplace pages belong to every account.
   if (scope === "people") {
-    return rest[0] ? [{ label: "People", to: "/people" }, { label: "Profile" }] : [{ label: "People" }];
+    return rest[0] ? trail({ label: "People", to: "/people" }, { label: "Profile" }) : trail({ label: "People" });
   }
-  if (scope === "org") return [{ label: "Org chart" }];
-  if (scope === "actions") return [{ label: "Action Center" }];
-  if (scope === "tasks") return [{ label: "My tasks" }];
-  if (scope === "recognition") return [{ label: "Recognition" }];
-  if (scope === "goals") return rest[0] ? [{ label: "My goals", to: "/goals" }, { label: "Goal" }] : [{ label: "My goals" }];
-  if (scope === "reviews") return rest[0] ? [{ label: "Reviews", to: "/reviews" }, { label: "Review" }] : [{ label: "My reviews" }];
-  if (scope === "lifecycle") return [{ label: "My tasks", to: "/tasks" }, { label: "Plan" }];
-  if (scope === "notifications") return [{ label: "Notifications" }];
-  if (scope === "calendar") return [{ label: "Calendar" }];
+  if (scope === "org") return trail({ label: "Org chart" });
+  if (scope === "actions") return trail({ label: "Action Center" });
+  if (scope === "tasks") return trail({ label: "My tasks" });
+  if (scope === "recognition") return trail({ label: "Recognition" });
+  if (scope === "goals") return rest[0] ? trail({ label: "Goals", to: "/goals" }, { label: "Goal" }) : trail({ label: "Goals" });
+  if (scope === "reviews") return rest[0] ? trail({ label: "Reviews", to: "/reviews" }, { label: "Review" }) : trail({ label: "Reviews" });
+  if (scope === "lifecycle") return trail({ label: "My tasks", to: "/tasks" }, { label: "Plan" });
+  if (scope === "notifications") return trail({ label: "Notifications" });
+  if (scope === "calendar") return trail({ label: "Calendar" });
   if (scope === "announcements") {
-    return rest[0] ? [{ label: "Announcements", to: "/announcements" }, { label: "Announcement" }] : [{ label: "Announcements" }];
+    return rest[0] ? trail({ label: "Announcements", to: "/announcements" }, { label: "Announcement" }) : trail({ label: "Announcements" });
   }
 
   // The team area: its overview is a real page, so it is the linked root.
   if (scope === "team") {
     const leaf = rest[0] ? TEAM[rest[0]] : undefined;
-    return leaf ? [{ label: "My team", to: "/team" }, { label: leaf }] : [{ label: "My team" }];
+    return leaf ? trail({ label: "My team", to: "/team" }, { label: leaf }) : trail({ label: "My team" });
   }
 
-  const root: Crumb = {
-    label: scope === "admin" ? "Admin" : "Employee",
-    // Not linked: the scope is a grouping, not a page. Breadcrumbs marks a
-    // crumb without `to` as plain text.
-  };
+  if (scope !== "admin" && scope !== "employee") return [];
+  if (rest[0] === "dashboard") return [];
 
   const pattern = patterns.find((candidate) => matches(candidate, segments));
-  if (pattern) return [root, ...pattern.crumbs];
+  if (pattern) return trail(...pattern.crumbs);
 
   const labels = scope === "admin" ? ADMIN : EMPLOYEE;
   const leaf = rest[0] ? labels[rest[0]] : undefined;
-
-  return leaf ? [root, { label: leaf }] : [root];
-}
-
-/** The page's own name, used as the mobile header title. */
-export function pageTitleFor(pathname: string): string {
-  const crumbs = breadcrumbsFor(pathname);
-  return crumbs.length > 0 ? crumbs[crumbs.length - 1].label : "HR Nexus";
+  return leaf ? trail({ label: leaf }) : [];
 }

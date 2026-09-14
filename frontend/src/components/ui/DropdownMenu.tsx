@@ -26,6 +26,12 @@ export interface MenuItem {
    * screen reader "3 of 3, selected" rather than reading a plain command.
    */
   checked?: boolean;
+  /**
+   * Consecutive items sharing a group render inside one labelled
+   * role="group" with a visible heading and a rule above it - how the account
+   * menu keeps its three theme choices apart from Sign out.
+   */
+  group?: string;
 }
 
 interface DropdownMenuProps {
@@ -36,6 +42,17 @@ interface DropdownMenuProps {
   label: string;
   align?: "start" | "end";
   className?: string;
+}
+
+/** Consecutive items that share a `group`, in order. Items without one form their own runs. */
+function groupItems(items: MenuItem[]): Array<{ group?: string; items: MenuItem[] }> {
+  const runs: Array<{ group?: string; items: MenuItem[] }> = [];
+  for (const item of items) {
+    const last = runs[runs.length - 1];
+    if (last && last.group === item.group) last.items.push(item);
+    else runs.push({ group: item.group, items: [item] });
+  }
+  return runs;
 }
 
 const MENU_WIDTH = 224;
@@ -92,7 +109,7 @@ export default function DropdownMenu({
      * Flip above the trigger when there is no room below it.
      *
      * This is not a nicety. A trigger sitting at the bottom of a full-height
-     * column - the theme control in the sidebar footer is exactly that - has
+     * column - a control at the foot of a screen is exactly that - has
      * only a few pixels beneath it, and because the menu is `fixed` the page
      * cannot be scrolled to reveal what hangs off the bottom. Opening downward
      * there put all but the first few pixels of the menu out of reach.
@@ -236,29 +253,45 @@ export default function DropdownMenu({
             style={{ top: position.top, left: position.left, width: MENU_WIDTH }}
             className="fixed z-[80] overflow-hidden rounded-xl border border-line bg-elevated py-1 shadow-panel"
           >
-            {enabled.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                role={item.checked === undefined ? "menuitem" : "menuitemradio"}
-                aria-checked={item.checked}
-                tabIndex={-1}
-                onClick={() => {
-                  close();
-                  item.onSelect();
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors",
-                  "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
-                  item.tone === "danger"
-                    ? "text-danger-fg hover:bg-danger-soft"
-                    : "text-fg hover:bg-surface-muted",
-                )}
+            {groupItems(enabled).map((run, runIndex) => (
+              <div
+                key={`${run.group ?? "items"}-${runIndex}`}
+                role={run.group ? "group" : undefined}
+                aria-label={run.group}
+                className={cn(runIndex > 0 && "mt-1 border-t border-line pt-1")}
               >
-                {item.icon}
-                <span className="flex-1 truncate">{item.label}</span>
-                {item.trailing}
-              </button>
+                {run.group && (
+                  // The group's name is already its aria-label, so the visible
+                  // heading is hidden from assistive tech rather than read twice.
+                  <p aria-hidden="true" className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">
+                    {run.group}
+                  </p>
+                )}
+                {run.items.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    role={item.checked === undefined ? "menuitem" : "menuitemradio"}
+                    aria-checked={item.checked}
+                    tabIndex={-1}
+                    onClick={() => {
+                      close();
+                      item.onSelect();
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors",
+                      "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+                      item.tone === "danger"
+                        ? "text-danger-fg hover:bg-danger-soft"
+                        : "text-fg hover:bg-surface-muted",
+                    )}
+                  >
+                    {item.icon}
+                    <span className="flex-1 truncate">{item.label}</span>
+                    {item.trailing}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>,
           document.body,
