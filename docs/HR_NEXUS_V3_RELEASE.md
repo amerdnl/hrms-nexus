@@ -16,7 +16,9 @@ These hold before and after every step, and are re-read at release:
   SHA-256 (below).
 - The five historical attendance rows without an employee record are unchanged
   (fingerprint `1:1,3:1,4:2,5:1,6:1`). They are never reconciled or deleted.
-- The September 2026 payroll period exists and is not destroyed.
+- The September 2026 payroll period exists and is not destroyed. Its accepted state is
+  `calculated` (with no payroll records), set by the owner through the application on
+  14 September 2026; it changes only through the normal payroll workflow.
 - Employees, accounts and attendance on the application database are unchanged by any
   release step. No demo data is ever written there.
 - `HR_NEXUS_V2_MASTER.md` and `docs/schema.dbml` stay untracked.

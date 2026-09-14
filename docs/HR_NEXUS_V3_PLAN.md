@@ -905,7 +905,7 @@ Source integrity (master §40), read-only:
 | Employees / accounts / attendance | 1 / 2 / 5 |
 | Historical orphans | `1:1,3:1,4:2,5:1,6:1`, row digest unchanged |
 | Accounts flagged for a password change | 0 |
-| September 2026 payroll period | **`calculated`** since 01:38:51 UTC on 14 September, by source user 1 through the source application (audit entries 31–32); no payroll records. Not caused or reverted by this work |
+| September 2026 payroll period | **`calculated`** since 01:38:51 UTC on 14 September, by source user 1 through the source application (audit entries 31–32); no payroll records. Not caused or reverted by this work; confirmed by the owner as an authorized action (below) |
 | Audit events | 33; entries 24–33 are the owner's own sign-ins, an export and the recalculation |
 | Release backup | `.local-backups/v3-release-20260914/hr_nexus_v3_release.dump`, 191,857 bytes, SHA-256 `a90ed5bfff94d60a6784058504c713e50057c07aaad73c342a7fdcfd4f7a6dc7`; restored into an isolated laboratory database and matched source in every digest and the ledger; source unchanged across the dump |
 | Final fingerprint | identical to the reading taken with the release backup |
@@ -913,8 +913,25 @@ Source integrity (master §40), read-only:
 | Docker volume | `hr-nexus_postgres_data`, created 7 August 2026, never removed |
 | Repository | clean except the protected untracked `HR_NEXUS_V2_MASTER.md` and `docs/schema.dbml`; `database/` unchanged since `v2.0.0-rc1`; V3 adds migrations 0010–0016 |
 
-M10 status: **complete.** Every engineering gate passes. The release report is **NOT READY**
-on one item only: the protected baseline expected the September 2026 payroll period to
-remain `draft`, and it was recalculated through the source application. The owner needs to
-confirm that was intended. No code or data change is needed if it was. The `v3.0.0` tag has
-not been created.
+The first release report was **NOT READY** on one item only: the protected baseline
+expected the September 2026 payroll period to remain `draft`, and it had been recalculated
+through the source application.
+
+Owner confirmation, 14 September. The owner confirmed they intentionally recalculated the
+September 2026 period through the source application, that the `calculated` state is an
+authorized user action and the current source baseline, and that it must not be reverted.
+The final integrity assessment was re-run read-only against source:
+
+| Item | State |
+| --- | --- |
+| Business-data fingerprint | identical to the reading taken with the release backup, in every V2 digest, the orphan rows, the September 2026 state, the flagged-account count and the sequences |
+| September 2026 payroll period | `calculated`, last changed 01:38:51 UTC; payroll records, items and compensation all 0 |
+| Audit events | 33; entry 33 (the owner's sign-in at 02:02:16 UTC) is still the latest, so nothing has happened on source since the backup |
+| Ledger | 0001–0016, V3 checksums unchanged |
+| Base tables | 34; every V3 table still empty |
+| Release backup | present, SHA-256 unchanged (`a90ed5bf…6dc7`), so it captures the accepted baseline |
+| Isolation, volume, repository, tags | unchanged: networks as above, volume created 7 August 2026, clean tree apart from the two protected untracked files, only `v2.0.0-rc1` locally and on `origin` |
+
+M10 status: **complete.** Every engineering gate passes and no blocker remains. The release
+report is **READY FOR v3.0.0**. The `v3.0.0` tag has not been created; tagging is left to a
+person (see the release procedure).
