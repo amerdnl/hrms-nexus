@@ -34,8 +34,8 @@ typecheck, Oxlint and production build pass; the entry chunk is 569.69 kB (161.7
 | M4 | Onboarding & offboarding | complete |
 | M5 | Recognition & employee timeline | complete |
 | M6 | Goals & performance reviews | complete |
-| M7 | Attendance, leave & payroll V3 | — |
-| M8 | Analytics, reports, export & settings | — |
+| M7 | Attendance, leave & payroll V3 | complete |
+| M8 | Analytics, reports, export & settings | complete |
 | M9 | Mobile, performance, security & accessibility hardening | — |
 | M10 | Complete demo, final QA & release | — |
 
@@ -216,6 +216,25 @@ plus route-splitting build assertions and axe/keyboard browser checks.
   period, a "paid" notification to each eligible payslip holder (title only, no amount),
   and HR's next-step items. Integer-sen values, the state machine, snapshots and
   approved/paid immutability are untouched.
+- **14 Sep 2026 — Analytics count, they do not trend.** Every figure is a count or sum of
+  stored records over a stated scope and window (the last 90 company days, or the leave
+  year). There are no period-over-period percentages: at this company's size a month's
+  change is noise, and master §22 forbids decorative deltas. Company attendance, leave and
+  payroll stay on the V2 reports, which already answer those questions.
+- **14 Sep 2026 — Team analytics name nobody.** A manager's figures cover current working
+  reports only, open review cycles only, and company-visible recognition only, so a
+  private thank-you cannot be inferred from a count. Names stay on the pages that already
+  authorise them.
+- **14 Sep 2026 — Analytics live inside Reports and My team,** not a new destination: HR
+  gains Onboarding, Performance and Recognition tabs, and managers a Team insights card.
+  Every plan and cycle links to the page it summarises.
+- **14 Sep 2026 — V3 exports carry records, not private words.** Review summaries, ratings
+  and responses; the words of private recognition; private goal descriptions; task and
+  goal progress notes; and notifications are not exported. Review participation is status
+  and submission times only.
+- **14 Sep 2026 — No new settings in M8.** Timezone, working week and office location
+  (V2) and holidays (M3) are the settings with real effects, and all are revisioned. No
+  V3 module needs another, and master §24 forbids decorative ones.
 
 ## M0 — Architecture & foundation (11 September 2026)
 
@@ -706,3 +725,49 @@ Verification:
 | Source fingerprint (14 September) | identical to the post-0016 record except audit entry 26, the administrator sign-in at 00:56:38 UTC already recorded in M6; no entry since |
 
 M7 status: **complete.**
+
+## M8 — Analytics, reports, export & settings (14 September 2026)
+
+No migration.
+
+Delivered:
+
+- **Company analytics** `GET /api/analytics/company` (HR): onboarding and offboarding in
+  progress, overdue tasks, each plan in progress with tasks finished (done or skipped),
+  completions in the last 90 company days; goal counts for working employees; progress of
+  every opened review cycle (open first, drafts never); recognition by category and how
+  many working employees received any, hidden recognition excluded.
+- **Team analytics** `GET /api/analytics/team` (current managers): the same kinds of count
+  for current working reports, plus approved leave days by type this year, with private
+  recognition excluded and no names in the response.
+- **Reports**: Onboarding, Performance and Recognition tabs; plans and cycles open their
+  own pages. **My team**: a Team insights card with goals, open reviews by visible cycle
+  name, leave taken by type and recognition, linking to Team reviews, leave and goals.
+- **Export**: ten V3 datasets (reporting lines, company holidays, company events,
+  announcements, lifecycle plans, lifecycle tasks, recognition, goals, review cycles,
+  review participation) under the existing authorisation, size ceiling, injection
+  protection and audit, with the exclusions in the decisions log.
+- **Settings**: reviewed against master §24; nothing added (see the log). Holidays gain
+  an export and further tests.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Backend typecheck (source and tests) | pass |
+| M8 analytics and export suite | **7/7** (`analytics-export.integration.test.ts`): company figures equal hand counts for plans, overdue and skipped tasks, the 90-day window's first and last days, goals of former employees, cycle order and drafts, and hidden recognition; company analytics refused to managers and employees; team figures for current working reports only, with private recognition and every name and private word absent; a report who moves leaves the figures on the next request; HR without reports has no team; every export dataset free of eight private markers, with titles, public words and participation status present and no content columns; exports refused to employees and managers; holiday validation, duplicate date, stale revision, removal and export |
+| Backend full laboratory suite | **543 pass, 0 fail, 0 skipped** (+8), first run clean |
+| Frontend typecheck, Oxlint (0 warnings), production build | pass |
+| Initial JS | 351.29 kB (gzip 113.76 kB), 146 chunks: +0.11 kB over M7; the analytics panels load with the Reports and My team chunks |
+| M8 browser smoke on the V3 demo stack | **30/30**, no page errors: each tab's figures equal the API's, every plan listed with its task counts, plan and cycle drill-down, the V2 Workforce report unchanged, the V3 datasets offered with their exclusions and no content columns; Team insights equal to the team API with visible cycle names and drill-down; managers refused company analytics; employees refused both and export; 390 and 375 dark with no overflow |
+| V2 navigation gate on the V3 bundle | **51/51** |
+| Source fingerprint (14 September) | V2 business data, orphans and ledger identical to the M7 reading, plus audit entry 27: a CSV `DATA_EXPORTED` by an administrator at 01:29:05 UTC. It came through the source app. Source Postgres is reachable only on the compose network, every laboratory run and the demo API use the isolated lab network, and nothing in this work called the source API. A CSV export reads data and changes none |
+
+Recorded:
+
+- **A defect found in screenshot review.** Team insights drew each open cycle's progress
+  bar with the cycle name only in the bar's accessible title, so a manager could not see
+  which cycle it was. The name and managers' due date are now visible, and the smoke
+  checks visibility rather than text presence.
+
+M8 status: **complete.**

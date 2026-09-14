@@ -232,8 +232,8 @@ guard.
 | `/api/reviews` | mixed | HR `GET/POST /cycles`, `GET/PUT /cycles/:id` (draft only), `POST /cycles/:id/open` (whole company or one department), `POST /cycles/:id/close`; employee record `GET /mine`; manager `GET /team`; any session `GET /participants/:id` (employee, current manager or HR, else 404; HR reads audited as `REVIEW_VIEWED`; lists never carry content), `PUT /participants/:id/self`, `PUT /participants/:id/manager` (current manager, or HR only when there is no manager), `PUT /participants/:id/response` |
 | `/api/settings` | admin | `GET/PUT` unchanged; `GET/POST/PUT/DELETE /holidays` (revisioned, one per date, audited) |
 | `/api/company` | any session | `GET /calendar-config` timezone, working days, today and last/this/next year's holidays — no other setting — the safe exposure Leave V3 needs |
-| `/api/analytics` | admin / manager | `GET /company/*` (admin), `GET /team/*` (manager) |
-| `/api/export` | admin | new datasets: reporting lines, holidays, announcements, lifecycle, recognition, goals, review participation (status only, no content) |
+| `/api/analytics` | per route | admin `GET /company`: onboarding and offboarding in progress, overdue tasks, plans in progress with task counts, completions in the last 90 company days, goal counts for working employees, progress of every opened review cycle, and recognition by category with people recognised (hidden excluded); manager `GET /team`: the same kinds of count for current working reports only, open cycles only, approved leave days by type this year, company-visible recognition only, and no names |
+| `/api/export` | admin | ten V3 datasets: reporting lines, company holidays, company events, announcements, lifecycle plans, lifecycle tasks (no notes), recognition (no words for private thanks), goals (no description for private goals), review cycles, review participation (status and submission times only; no summaries, ratings or response). Notifications and the timeline are not exported |
 
 Every list endpoint is bounded (page size ≤ 100) and sorted by a stable key. Every id
 is parsed as a positive safe integer before SQL. Every write is a single transaction.
@@ -249,8 +249,8 @@ role alone.
 | --- | --- | --- |
 | Workplace | `/actions`, `/tasks` (onboarding/offboarding work for every role), `/lifecycle/plans/:id`, `/recognition` (company, received, given; HR moderation), `/people`, `/people/:id`, `/org`, `/calendar`, `/announcements`, `/announcements/:id`, `/notifications` | everyone |
 | Me | `/employee/dashboard` (with a recent recognition card), `/attendance`, `/leave`, `/payroll`, `/profile`, `/goals`, `/reviews` (own onboarding and offboarding live on `/tasks`) | employee record |
-| Team | `/team`, `/team/attendance`, `/team/leave`, `/team/goals`, `/team/reviews` (team onboarding and offboarding live on `/tasks`) | manager |
-| Company | existing `/admin/*` plus `/admin/announcements/new` and `/:id/edit` (HR manages from `/announcements`, which gains Drafts and Archived tabs), `/admin/onboarding`, `/admin/offboarding`, `/admin/lifecycle/templates`, `/admin/lifecycle/plans/:id`, `/admin/performance`, `/admin/performance/cycles/:id`, `/admin/analytics`, holidays inside `/admin/settings` | admin |
+| Team | `/team` (with Team insights), `/team/attendance`, `/team/leave`, `/team/goals`, `/team/reviews` (team onboarding and offboarding live on `/tasks`) | manager |
+| Company | existing `/admin/*` plus `/admin/announcements/new` and `/:id/edit` (HR manages from `/announcements`, which gains Drafts and Archived tabs), `/admin/onboarding`, `/admin/offboarding`, `/admin/lifecycle/templates`, `/admin/lifecycle/plans/:id`, `/admin/performance`, `/admin/performance/cycles/:id`, Onboarding, Performance and Recognition tabs inside `/admin/reports` (no separate analytics route), holidays inside `/admin/settings` | admin |
 
 Global search is a header command palette (keyboard `⌘K`/`Ctrl+K`, a combobox over one listbox), not a route. The header also carries the notification bell, whose unread count refreshes on navigation, every minute while the tab is visible, and when the tab returns.
 Navigation renders in sections (Workplace, Me, Team, Company); the phone bottom bar keeps
