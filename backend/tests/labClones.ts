@@ -25,8 +25,30 @@ export async function dropLabClones(
     [suffix],
   );
   for (const { datname } of rows) {
+    await waitUntilIdle(admin, datname);
     // The identifier came back from pg_database, so it already exists; quoting
     // it keeps the statement well-formed whatever the name contains.
     await admin.query(`DROP DATABASE IF EXISTS "${datname.replaceAll('"', '""')}" WITH (FORCE)`);
+  }
+}
+
+/**
+ * The intermittent recorded since V2 ("terminating connection due to
+ * administrator command" failing a whole file after every check passed): the
+ * forced drop could reach a connection of this run that had not finished
+ * leaving - a backend still exiting after its pool ended, or work a request had
+ * started still completing. A terminated connection without an error listener
+ * then fails the file. Waiting for the clone to have no other sessions removes
+ * that window; the forced drop stays as the backstop for a session that never
+ * leaves, after five seconds.
+ */
+async function waitUntilIdle(admin: pg.Pool, datname: string): Promise<void> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const { rows } = await admin.query<{ connected: number }>(
+      "SELECT count(*)::int AS connected FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()",
+      [datname],
+    );
+    if (rows[0]!.connected === 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
