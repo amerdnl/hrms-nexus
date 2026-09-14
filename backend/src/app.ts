@@ -28,6 +28,7 @@ import { actionCenterRouter, searchRouter } from "./routes/workplaceRoutes.js";
 import lifecycleRoutes from "./routes/lifecycleRoutes.js";
 import recognitionRoutes from "./routes/recognitionRoutes.js";
 import { goalRouter, reviewRouter } from "./routes/performanceRoutes.js";
+import analyticsRoutes from "./routes/analyticsRoutes.js";
 
 import { authenticateToken } from "./middleware/authMiddleware.js";
 import { authorizeRoles } from "./middleware/roleMiddleware.js";
@@ -83,6 +84,7 @@ app.use("/api/lifecycle", lifecycleRoutes);
 app.use("/api/recognition", recognitionRoutes);
 app.use("/api/goals", goalRouter);
 app.use("/api/reviews", reviewRouter);
+app.use("/api/analytics", analyticsRoutes);
 
 app.use(
   "/api/attendance",

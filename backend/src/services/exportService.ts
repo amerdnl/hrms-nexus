@@ -22,6 +22,13 @@
  *   schema_migrations              file checksums; internal, not company data
  *   employees.profile_image        an internal storage path, useless without
  *                                  the file it points at
+ *   review content                 self and manager summaries, ratings and the
+ *                                  employee's response; participation only
+ *   private recognition words      a private thank-you is between two people
+ *   private goal descriptions      the same reasoning; titles are kept
+ *   lifecycle task notes           free text written while doing a task
+ *   goal progress notes            free text on a goal's history
+ *   notifications and timeline     messages derived from records exported here
  *
  * Queries are set-based and ordered by a stable key, so exporting twice over
  * unchanged data produces byte-identical output.
@@ -451,6 +458,235 @@ export const datasets: readonly Dataset[] = [
         row.employee_number, row.item_type, row.code, row.label,
         money(row.amount_sen), row.is_manual, row.is_statutory, row.note,
         iso(row.created_at),
+      ]);
+    },
+  },
+
+  // ------------------------------------------------------------------- V3
+  {
+    key: "reporting-lines",
+    label: "Reporting lines",
+    description: "Who each employee reports to now, including former employees.",
+    headers: [
+      "Employee ID", "Employee number", "Full name", "Employment status",
+      "Manager employee ID", "Manager employee number", "Manager name",
+    ],
+    load: async (db) => {
+      const { rows } = await db.query(
+        `SELECT e.id, e.employee_number, e.full_name, e.employment_status,
+                m.id AS manager_id, m.employee_number AS manager_number, m.full_name AS manager_name
+         FROM public.employees e
+         LEFT JOIN public.employees m ON m.id = e.manager_id
+         ORDER BY e.id`,
+      );
+      return rows.map((row) => [
+        Number(row.id), row.employee_number, row.full_name, row.employment_status,
+        row.manager_id === null ? null : Number(row.manager_id), row.manager_number, row.manager_name,
+      ]);
+    },
+  },
+
+  {
+    key: "company-holidays",
+    label: "Company holidays",
+    description: "Every company holiday on record.",
+    headers: ["Holiday ID", "Date", "Name", "Created at", "Updated at"],
+    load: async (db) => {
+      const { rows } = await db.query(
+        `SELECT id::text, holiday_date::text AS holiday_date, name, created_at, updated_at
+         FROM public.company_holidays ORDER BY holiday_date, id`,
+      );
+      return rows.map((row) => [row.id, row.holiday_date, row.name, iso(row.created_at), iso(row.updated_at)]);
+    },
+  },
+
+  {
+    key: "company-events",
+    label: "Company events",
+    description: "Company events on the shared calendar.",
+    headers: ["Event ID", "Title", "Starts on", "Ends on", "Start time", "End time", "Location", "Description", "Created at"],
+    load: async (db) => {
+      const { rows } = await db.query(
+        `SELECT id::text, title, starts_on::text AS starts_on, ends_on::text AS ends_on,
+                start_time::text AS start_time, end_time::text AS end_time, location, description, created_at
+         FROM public.company_events ORDER BY starts_on, id`,
+      );
+      return rows.map((row) => [
+        row.id, row.title, row.starts_on, row.ends_on, row.start_time, row.end_time,
+        row.location, row.description, iso(row.created_at),
+      ]);
+    },
+  },
+
+  {
+    key: "announcements",
+    label: "Announcements",
+    description: "Announcements with their audience, status and how many people read them.",
+    headers: [
+      "Announcement ID", "Title", "Body", "Priority", "Audience", "Department", "Status",
+      "Expires on", "Published at", "Archived at", "Readers", "Created at",
+    ],
+    load: async (db) => {
+      const { rows } = await db.query(
+        `SELECT a.id::text, a.title, a.body, a.priority, a.audience, COALESCE(d.name, '') AS department_name,
+                a.status, a.expires_on::text AS expires_on, a.published_at, a.archived_at, a.created_at,
+                (SELECT count(*)::int FROM public.announcement_reads r WHERE r.announcement_id = a.id) AS readers
+         FROM public.announcements a
+         LEFT JOIN public.departments d ON d.id = a.department_id
+         ORDER BY a.id`,
+      );
+      return rows.map((row) => [
+        row.id, row.title, row.body, row.priority, row.audience, row.department_name, row.status,
+        row.expires_on, iso(row.published_at), iso(row.archived_at), row.readers, iso(row.created_at),
+      ]);
+    },
+  },
+
+  {
+    key: "lifecycle-plans",
+    label: "Onboarding and offboarding",
+    description: "Every onboarding and offboarding plan and how far it got.",
+    headers: [
+      "Plan ID", "Employee number", "Employee", "Kind", "Title", "Status", "Starts on",
+      "Target date", "Exit status", "Tasks finished", "Tasks", "Completed at", "Cancelled at", "Created at",
+    ],
+    load: async (db) => {
+      const { rows } = await db.query(
+        `SELECT p.id::text, e.employee_number, e.full_name, p.kind, p.title, p.status,
+                p.starts_on::text AS starts_on, p.target_date::text AS target_date, p.exit_status,
+                (SELECT count(*)::int FROM public.lifecycle_tasks t WHERE t.plan_id = p.id AND t.status <> 'pending') AS finished,
+                (SELECT count(*)::int FROM public.lifecycle_tasks t WHERE t.plan_id = p.id) AS total,
+                p.completed_at, p.cancelled_at, p.created_at
+         FROM public.lifecycle_plans p
+         JOIN public.employees e ON e.id = p.employee_id
+         ORDER BY p.id`,
+      );
+      return rows.map((row) => [
+        row.id, row.employee_number, row.full_name, row.kind, row.title, row.status, row.starts_on,
+        row.target_date, row.exit_status, row.finished, row.total,
+        iso(row.completed_at), iso(row.cancelled_at), iso(row.created_at),
+      ]);
+    },
+  },
+
+  {
+    key: "lifecycle-tasks",
+    label: "Lifecycle tasks",
+    description: "The tasks on each plan. Notes written while doing a task are not included.",
+    headers: ["Task ID", "Plan ID", "Employee number", "Position", "Title", "Instructions", "For", "Due on", "Status", "Completed at"],
+    load: async (db) => {
+      const { rows } = await db.query(
+        `SELECT t.id::text, t.plan_id::text, e.employee_number, t.position, t.title, t.instructions,
+                t.assignee_role, t.due_on::text AS due_on, t.status, t.completed_at
+         FROM public.lifecycle_tasks t
+         JOIN public.lifecycle_plans p ON p.id = t.plan_id
+         JOIN public.employees e ON e.id = p.employee_id
+         ORDER BY t.plan_id, t.position, t.id`,
+      );
+      return rows.map((row) => [
+        row.id, row.plan_id, row.employee_number, row.position, row.title, row.instructions,
+        row.assignee_role, row.due_on, row.status, iso(row.completed_at),
+      ]);
+    },
+  },
+
+  {
+    key: "recognitions",
+    label: "Recognition",
+    description: "Recognition given. The words of a private thank-you are not included.",
+    headers: [
+      "Recognition ID", "Given on", "Giver number", "Giver", "Receiver number", "Receiver",
+      "Category", "Visibility", "Message", "Hidden at",
+    ],
+    load: async (db) => {
+      const { rows } = await db.query(
+        `SELECT r.id::text, r.given_on::text AS given_on, g.employee_number AS giver_number, g.full_name AS giver_name,
+                rc.employee_number AS receiver_number, rc.full_name AS receiver_name, r.category, r.visibility,
+                CASE WHEN r.visibility = 'company' THEN r.message END AS message, r.hidden_at
+         FROM public.recognitions r
+         JOIN public.employees g ON g.id = r.giver_employee_id
+         JOIN public.employees rc ON rc.id = r.receiver_employee_id
+         ORDER BY r.id`,
+      );
+      return rows.map((row) => [
+        row.id, row.given_on, row.giver_number, row.giver_name, row.receiver_number, row.receiver_name,
+        row.category, row.visibility, row.message, iso(row.hidden_at),
+      ]);
+    },
+  },
+
+  {
+    key: "goals",
+    label: "Goals",
+    description: "Goals and their progress. A private goal's description is not included.",
+    headers: [
+      "Goal ID", "Owner number", "Owner", "Title", "Description", "Visibility", "Status",
+      "Progress %", "Starts on", "Due on", "Set by", "Created at", "Completed at", "Cancelled at",
+    ],
+    load: async (db) => {
+      const { rows } = await db.query(
+        `SELECT g.id::text, e.employee_number, e.full_name, g.title,
+                CASE WHEN g.visibility <> 'private' THEN g.description END AS description,
+                g.visibility, g.status, g.progress, g.starts_on::text AS starts_on, g.due_on::text AS due_on,
+                g.created_as, g.created_at, g.completed_at, g.cancelled_at
+         FROM public.goals g
+         JOIN public.employees e ON e.id = g.owner_employee_id
+         ORDER BY g.id`,
+      );
+      return rows.map((row) => [
+        row.id, row.employee_number, row.full_name, row.title, row.description, row.visibility, row.status,
+        row.progress, row.starts_on, row.due_on, row.created_as,
+        iso(row.created_at), iso(row.completed_at), iso(row.cancelled_at),
+      ]);
+    },
+  },
+
+  {
+    key: "review-cycles",
+    label: "Review cycles",
+    description: "Performance review cycles, their dates and how many people took part.",
+    headers: [
+      "Cycle ID", "Name", "Period start", "Period end", "Self-review due", "Manager review due",
+      "Status", "Opened at", "Closed at", "Participants",
+    ],
+    load: async (db) => {
+      const { rows } = await db.query(
+        `SELECT c.id::text, c.name, c.period_start::text AS period_start, c.period_end::text AS period_end,
+                c.self_due_on::text AS self_due_on, c.manager_due_on::text AS manager_due_on, c.status,
+                c.opened_at, c.closed_at,
+                (SELECT count(*)::int FROM public.review_participants p WHERE p.cycle_id = c.id) AS participants
+         FROM public.review_cycles c
+         ORDER BY c.id`,
+      );
+      return rows.map((row) => [
+        row.id, row.name, row.period_start, row.period_end, row.self_due_on, row.manager_due_on,
+        row.status, iso(row.opened_at), iso(row.closed_at), row.participants,
+      ]);
+    },
+  },
+
+  {
+    key: "review-participation",
+    label: "Review participation",
+    description: "Where each person's review stands. What was written and the ratings are not included.",
+    headers: [
+      "Cycle ID", "Cycle", "Employee number", "Employee", "Status",
+      "Self-review submitted at", "Manager review submitted at", "Responded",
+    ],
+    load: async (db) => {
+      // Participation only, deliberately: summaries, ratings and the response
+      // are selected nowhere in this query.
+      const { rows } = await db.query(
+        `SELECT p.cycle_id::text, c.name, e.employee_number, e.full_name, p.status,
+                p.self_submitted_at, p.manager_submitted_at, (p.responded_at IS NOT NULL) AS responded
+         FROM public.review_participants p
+         JOIN public.review_cycles c ON c.id = p.cycle_id
+         JOIN public.employees e ON e.id = p.employee_id
+         ORDER BY p.cycle_id, e.employee_number, p.id`,
+      );
+      return rows.map((row) => [
+        row.cycle_id, row.name, row.employee_number, row.full_name, row.status,
+        iso(row.self_submitted_at), iso(row.manager_submitted_at), row.responded ? "Yes" : "No",
       ]);
     },
   },
