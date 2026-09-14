@@ -57,6 +57,7 @@ import {
   demoGoals,
   demoReviewCycles,
   seededRandom,
+  demoCompany,
 } from "./demoData.js";
 
 function argument(name: string): string | null {
@@ -168,6 +169,23 @@ async function main(): Promise<void> {
          (SELECT count(*) FROM public.employees
           WHERE id < ${DEMO_ID_MIN} OR id > ${DEMO_ID_MAX}) AS outside`,
     );
+
+    // ------------------------------------------------------ company settings
+    // The demo company's calendar, hours and office, so "today", leave counting
+    // and verified attendance behave as they would for a real company. Only a
+    // settings row that was never configured is filled in.
+    const configured = await client.query(
+      `UPDATE public.company_settings
+       SET company_name = $1, timezone = $2, working_days = $3::smallint[], work_start_time = $4::time,
+           work_end_time = $5::time, grace_period_minutes = $6, office_latitude = $7, office_longitude = $8,
+           attendance_radius_meters = $9, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = 1 AND company_name IS NULL`,
+      [
+        demoCompany.name, demoCompany.timezone, demoCompany.workingDays, demoCompany.workStart, demoCompany.workEnd,
+        demoCompany.graceMinutes, demoCompany.officeLatitude, demoCompany.officeLongitude, demoCompany.radiusMeters,
+      ],
+    );
+    if (configured.rowCount === 0) console.log("Company settings were already configured; left unchanged.");
 
     // ------------------------------------------------------ clear previous run
     // Scoped to the demo range only, deepest dependency first.

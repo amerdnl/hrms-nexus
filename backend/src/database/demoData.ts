@@ -340,3 +340,21 @@ export function seededRandom(seed: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+/**
+ * The demo company's own settings: a Malaysian calendar, office hours that match
+ * the seeded clock-ins, and an office location for verified attendance. Applied
+ * only to a settings row that has never been configured, so a company's saved
+ * settings are never overwritten.
+ */
+export const demoCompany = {
+  name: "Nexus Demo Sdn. Bhd.",
+  timezone: "Asia/Kuala_Lumpur",
+  workingDays: [1, 2, 3, 4, 5],
+  workStart: "09:00",
+  workEnd: "18:00",
+  graceMinutes: 0,
+  officeLatitude: 3.1478,
+  officeLongitude: 101.6953,
+  radiusMeters: 150,
+};
