@@ -44,7 +44,10 @@ function unavailable(response: Response, error: unknown, action: string): void {
   response.status(503).json({ success: false, message: "Goals and reviews are temporarily unavailable. Please try again." });
 }
 
-async function inTransaction(response: Response, action: string, work: (client: PoolClient) => Promise<void>): Promise<void> {
+/** Records the response a transaction sends once it has committed. */
+type Reply = (status: number, body: unknown) => void;
+
+async function inTransaction(response: Response, action: string, work: (client: PoolClient, reply: Reply) => Promise<void>): Promise<void> {
   let client: PoolClient;
   try {
     client = await pool.connect();
@@ -52,10 +55,15 @@ async function inTransaction(response: Response, action: string, work: (client: 
     unavailable(response, error, action);
     return;
   }
+  const outcome: { reply?: { status: number; body: unknown } } = {};
+  const reply: Reply = (status, body) => { outcome.reply = { status, body }; };
   try {
     await client.query("BEGIN");
-    await work(client);
+    await work(client, reply);
     await client.query("COMMIT");
+    // Sent only now: a client told the change is done must be able to read it,
+    // and a failed COMMIT must never follow a success response.
+    if (outcome.reply) response.status(outcome.reply.status).json(outcome.reply.body);
   } catch (error) {
     try { await client.query("ROLLBACK"); } catch { /* already lost */ }
     if (response.headersSent) return;
@@ -114,9 +122,9 @@ export async function postGoal(request: Request, response: Response): Promise<vo
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: validation.errors });
     return;
   }
-  await inTransaction(response, "goal creation", async (client) => {
+  await inTransaction(response, "goal creation", async (client, reply) => {
     const id = await createGoal(client, request.user!, validation.data);
-    response.status(201).json({ success: true, message: "Goal saved.", data: { id } });
+    reply(201, { success: true, message: "Goal saved.", data: { id } });
   });
 }
 
@@ -128,9 +136,9 @@ export async function putGoal(request: Request, response: Response): Promise<voi
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: validation.errors });
     return;
   }
-  await inTransaction(response, "goal update", async (client) => {
+  await inTransaction(response, "goal update", async (client, reply) => {
     await updateGoal(client, request.user!, id, validation.data);
-    response.status(200).json({ success: true, message: "Goal saved." });
+    reply(200, { success: true, message: "Goal saved." });
   });
 }
 
@@ -142,9 +150,9 @@ export async function postGoalUpdate(request: Request, response: Response): Prom
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: validation.errors });
     return;
   }
-  await inTransaction(response, "goal progress", async (client) => {
+  await inTransaction(response, "goal progress", async (client, reply) => {
     const result = await recordProgress(client, request.user!, id, validation.data);
-    response.status(201).json({
+    reply(201, {
       success: true,
       message: result.status === "completed" ? "Goal completed." : result.status === "cancelled" ? "Goal cancelled." : "Progress recorded.",
       data: result,
@@ -169,9 +177,9 @@ export async function postCycle(request: Request, response: Response): Promise<v
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: validation.errors });
     return;
   }
-  await inTransaction(response, "cycle creation", async (client) => {
+  await inTransaction(response, "cycle creation", async (client, reply) => {
     const id = await createCycle(client, request.user!, validation.data);
-    response.status(201).json({ success: true, message: "Cycle drafted.", data: { id } });
+    reply(201, { success: true, message: "Cycle drafted.", data: { id } });
   });
 }
 
@@ -183,9 +191,9 @@ export async function putCycle(request: Request, response: Response): Promise<vo
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: validation.errors });
     return;
   }
-  await inTransaction(response, "cycle update", async (client) => {
+  await inTransaction(response, "cycle update", async (client, reply) => {
     await updateCycle(client, request.user!, id, validation.data);
-    response.status(200).json({ success: true, message: "Cycle saved." });
+    reply(200, { success: true, message: "Cycle saved." });
   });
 }
 
@@ -198,18 +206,18 @@ export async function postCycleOpen(request: Request, response: Response): Promi
     response.status(400).json({ success: false, message: "Invalid department.", errors: { departmentId: "Choose a department or the whole company." } });
     return;
   }
-  await inTransaction(response, "cycle opening", async (client) => {
+  await inTransaction(response, "cycle opening", async (client, reply) => {
     const result = await openCycle(client, request.user!, id, departmentId);
-    response.status(200).json({ success: true, message: `Opened for ${result.participants} people. Each has been told their self-review is due.`, data: result });
+    reply(200, { success: true, message: `Opened for ${result.participants} people. Each has been told their self-review is due.`, data: result });
   });
 }
 
 export async function postCycleClose(request: Request, response: Response): Promise<void> {
   const id = idOr400(request, response, "id", "cycle ID");
   if (id === null) return;
-  await inTransaction(response, "cycle closing", async (client) => {
+  await inTransaction(response, "cycle closing", async (client, reply) => {
     await closeCycle(client, request.user!, id);
-    response.status(200).json({ success: true, message: "Cycle closed. Reviews can no longer be written." });
+    reply(200, { success: true, message: "Cycle closed. Reviews can no longer be written." });
   });
 }
 
@@ -235,9 +243,9 @@ export async function putSelfReview(request: Request, response: Response): Promi
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: validation.errors });
     return;
   }
-  await inTransaction(response, "self-review", async (client) => {
+  await inTransaction(response, "self-review", async (client, reply) => {
     const result = await writeSelf(client, request.user!, id, validation.data);
-    response.status(200).json({ success: true, message: result.submitted ? "Self-review submitted. Your manager has been told." : "Draft saved. Only you can see it.", data: result });
+    reply(200, { success: true, message: result.submitted ? "Self-review submitted. Your manager has been told." : "Draft saved. Only you can see it.", data: result });
   });
 }
 
@@ -249,9 +257,9 @@ export async function putManagerReview(request: Request, response: Response): Pr
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: validation.errors });
     return;
   }
-  await inTransaction(response, "manager review", async (client) => {
+  await inTransaction(response, "manager review", async (client, reply) => {
     const result = await writeManager(client, request.user!, id, validation.data);
-    response.status(200).json({ success: true, message: result.submitted ? "Review submitted. They have been told it is ready to read." : "Draft saved. They cannot see it until you submit.", data: result });
+    reply(200, { success: true, message: result.submitted ? "Review submitted. They have been told it is ready to read." : "Draft saved. They cannot see it until you submit.", data: result });
   });
 }
 
@@ -265,8 +273,8 @@ export async function putResponse(request: Request, response: Response): Promise
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: { response: extra.length > 0 ? `Unexpected field: ${extra[0]}.` : "Write a response of up to 2000 characters." } });
     return;
   }
-  await inTransaction(response, "review response", async (client) => {
+  await inTransaction(response, "review response", async (client, reply) => {
     await respond(client, request.user!, id, text);
-    response.status(200).json({ success: true, message: "Response saved." });
+    reply(200, { success: true, message: "Response saved." });
   });
 }

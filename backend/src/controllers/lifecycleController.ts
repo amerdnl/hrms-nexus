@@ -35,7 +35,10 @@ function unavailable(response: Response, error: unknown, action: string): void {
   });
 }
 
-async function inTransaction(response: Response, action: string, work: (client: PoolClient) => Promise<void>): Promise<void> {
+/** Records the response a transaction sends once it has committed. */
+type Reply = (status: number, body: unknown) => void;
+
+async function inTransaction(response: Response, action: string, work: (client: PoolClient, reply: Reply) => Promise<void>): Promise<void> {
   let client: PoolClient;
   try {
     client = await pool.connect();
@@ -43,10 +46,15 @@ async function inTransaction(response: Response, action: string, work: (client: 
     unavailable(response, error, action);
     return;
   }
+  const outcome: { reply?: { status: number; body: unknown } } = {};
+  const reply: Reply = (status, body) => { outcome.reply = { status, body }; };
   try {
     await client.query("BEGIN");
-    await work(client);
+    await work(client, reply);
     await client.query("COMMIT");
+    // Sent only now: a client told the change is done must be able to read it,
+    // and a failed COMMIT must never follow a success response.
+    if (outcome.reply) response.status(outcome.reply.status).json(outcome.reply.body);
   } catch (error) {
     try {
       await client.query("ROLLBACK");
@@ -92,9 +100,9 @@ export async function postTemplate(request: Request, response: Response): Promis
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: validation.errors });
     return;
   }
-  await inTransaction(response, "template creation", async (client) => {
+  await inTransaction(response, "template creation", async (client, reply) => {
     const id = await createTemplate(client, validation.data, request.user!);
-    response.status(201).json({ success: true, message: "Checklist saved.", data: { id } });
+    reply(201, { success: true, message: "Checklist saved.", data: { id } });
   });
 }
 
@@ -109,9 +117,9 @@ export async function putTemplate(request: Request, response: Response): Promise
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: validation.errors });
     return;
   }
-  await inTransaction(response, "template update", async (client) => {
+  await inTransaction(response, "template update", async (client, reply) => {
     await updateTemplate(client, id, validation.data, request.user!);
-    response.status(200).json({ success: true, message: "Checklist saved. Plans already started keep their own tasks." });
+    reply(200, { success: true, message: "Checklist saved. Plans already started keep their own tasks." });
   });
 }
 
@@ -140,9 +148,9 @@ export async function postPlan(request: Request, response: Response): Promise<vo
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: validation.errors });
     return;
   }
-  await inTransaction(response, "plan start", async (client) => {
+  await inTransaction(response, "plan start", async (client, reply) => {
     const id = await startPlan(client, validation.data, request.user!);
-    response.status(201).json({
+    reply(201, {
       success: true,
       message: validation.data.kind === "onboarding" ? "Onboarding started." : "Offboarding started. Their account stays active until you complete it.",
       data: { id },
@@ -174,9 +182,9 @@ export async function postPlanComplete(request: Request, response: Response): Pr
     response.status(400).json({ success: false, message: "Invalid plan ID" });
     return;
   }
-  await inTransaction(response, "plan completion", async (client) => {
+  await inTransaction(response, "plan completion", async (client, reply) => {
     const result = await completePlan(client, id, request.user!);
-    response.status(200).json({
+    reply(200, {
       success: true,
       message: result.deactivated ? "Offboarding completed. The employee is deactivated and their history is kept." : "Onboarding completed.",
       data: result,
@@ -190,9 +198,9 @@ export async function postPlanCancel(request: Request, response: Response): Prom
     response.status(400).json({ success: false, message: "Invalid plan ID" });
     return;
   }
-  await inTransaction(response, "plan cancellation", async (client) => {
+  await inTransaction(response, "plan cancellation", async (client, reply) => {
     await cancelPlan(client, id, request.user!);
-    response.status(200).json({ success: true, message: "Plan cancelled. Employment is unchanged." });
+    reply(200, { success: true, message: "Plan cancelled. Employment is unchanged." });
   });
 }
 
@@ -217,9 +225,9 @@ export async function putTask(request: Request, response: Response): Promise<voi
     response.status(400).json({ success: false, message: "Check the highlighted fields.", errors: validation.errors });
     return;
   }
-  await inTransaction(response, "task update", async (client) => {
+  await inTransaction(response, "task update", async (client, reply) => {
     const result = await updateTask(client, id, validation.data, request.user!);
-    response.status(200).json({
+    reply(200, {
       success: true,
       message: result.planCompleted ? "Done. That was the last task: onboarding is complete." : "Task updated.",
       data: result,
