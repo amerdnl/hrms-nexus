@@ -33,7 +33,7 @@ typecheck, Oxlint and production build pass; the entry chunk is 569.69 kB (161.7
 | M3 | Action Center, search, notifications, calendar & announcements | complete |
 | M4 | Onboarding & offboarding | complete |
 | M5 | Recognition & employee timeline | complete |
-| M6 | Goals & performance reviews | — |
+| M6 | Goals & performance reviews | complete |
 | M7 | Attendance, leave & payroll V3 | — |
 | M8 | Analytics, reports, export & settings | — |
 | M9 | Mobile, performance, security & accessibility hardening | — |
@@ -176,6 +176,19 @@ plus route-splitting build assertions and axe/keyboard browser checks.
   colleague is a database rule; five a day per giver is checked under a per-giver lock. A
   trigger refuses edits and deletion; HR hides and restores instead, and the audit records
   that without copying the words.
+- **13 Sep 2026 — Goals: three visibilities and a manager who is never stored.** Private
+  goals are for the owner, their current manager and HR; team goals also for colleagues
+  who share that manager; company goals for everyone. Progress is a whole percentage the
+  owner or manager records, with every change kept, and a completed goal is at 100 by
+  database rule. HR reads goals but does not change them.
+- **13 Sep 2026 — Reviews run self first, then manager, then an optional response.** The
+  order is a database CHECK, and a trigger refuses rewriting anything already submitted.
+  The reviewer is the current manager; HR writes the manager review only for someone
+  with no manager. Ratings are 1 needs improvement, 2 developing, 3 meets expectations, 4
+  exceeds expectations, 5 outstanding.
+- **13 Sep 2026 — Review content is private and HR reads are audited.** Lists carry
+  status and dates only. The detail endpoint is the one place content appears, filtered by
+  role; every HR read writes `REVIEW_VIEWED`, and no audit entry carries words or ratings.
 - **13 Sep 2026 — `/api/company/calendar-config` ships in M3,** because the calendar needs
   it. It exposes the timezone, working week, company today and holidays, and nothing else
   from settings. M7 builds the leave preview and cancellation fixes on it.
@@ -555,3 +568,75 @@ Recorded:
   visual polish.
 
 M5 status: **complete.**
+
+## M6 — Goals & performance reviews (14 September 2026)
+
+Delivered:
+
+- **Migration 0016 `goals_reviews`** (SHA-256 `a124d261f81655bfeb9fad77c6c2e92bab5b62b36d43186b31a80f3335acb442`):
+  `goals` and append-only `goal_updates`; `review_cycles` and `review_participants`, with
+  the review order and completeness enforced by CHECK constraints, and
+  `prevent_review_rewrite` and `prevent_goal_history_change` refusing rewrites and
+  deletion. New objects only; this is the last V3 migration the architecture planned.
+- **Goals API** `/api/goals`: your goals, a manager's team goals, a person's goals and one
+  goal filtered by relation (owner, current manager and HR see all; a peer sharing the
+  manager sees team and company; a coworker sees company). Owners and current managers
+  create, edit (revision) and record progress; managers only for current reports.
+  Completion notifies the manager (or the owner, when the manager acts), and a completed
+  company goal reaches the company timeline.
+- **Reviews API** `/api/reviews`: HR drafts, edits, opens (whole company or one
+  department) and closes cycles; each participant writes a draft or submitted
+  self-review, the current manager then writes theirs, and the employee may respond once.
+  Drafts are visible only to their writer. Submission notifies the next person and writes
+  a self-tier timeline event on completion. HR reads of content are audited.
+- **Action Center and search**: self-reviews to write, reports to review, cycles running
+  past their manager due date (HR), and your own overdue goals; destinations for goals,
+  reviews and Performance.
+- **Frontend**: My goals and a goal page with history, progress and edit dialogs; Team
+  goals with "Set a goal"; My reviews and a review page with self and manager forms (1–5
+  scale, drafts, confirmation before the final submit) and a response; Team reviews;
+  HR's Performance cycle list and cycle page with open and close; a goals card on
+  profiles and the employee dashboard.
+- **Demo**: five goals with history (one past due), a closed Annual 2025 cycle with a
+  complete review and response, and an open Mid-year 2026 cycle at every stage.
+
+Source application of 0016, 13 September 2026 12:58:46 UTC, through the guarded procedure
+(evidence `.local-backups/0016-20260913/`), run only after the migration suites passed:
+backup `e441bb57…6c8af49c` restore-verified; pending set exactly 0016; rehearsal apply,
+no-op, identical business data, rollback, re-apply; source apply of exactly 0016, no-op,
+identical business data; ledger 0001–0016; post-apply dump `152a8426…c0f9a6ea`. The goal
+and review routes were mounted only after this.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Backend typecheck (source and tests) | pass |
+| V3 migration suite | 0010–0016 each additive, idempotent and reversible; the chain applies to a fresh `schema.sql` |
+| M6 performance suite | **9/9**: goal creation scope; visibility per relation and 404 for private goals; progress history, completion at 100 and read-only relations; a moved report's private goals leaving the old manager at once; HR-only, validated cycles opening for the working people in scope; nobody outside a review reading it and drafts staying private; self first; ratings bounded; submitted text immutable; lists without content; HR reads audited and no words or ratings in the audit; HR writing only for someone without a manager; a moved report's review changing hands; closing stopping writes |
+| Backend full laboratory suite | **528 pass, 0 fail, 0 skipped** (+10: performance 9, migration suite 1) |
+| Frontend typecheck, Oxlint (0 warnings), production build | pass |
+| Initial JS | 351.04 kB (gzip 113.72 kB), 144 chunks: +2.94 kB over M5 for navigation and routes; every goal and review page is its own chunk |
+| M6 browser smoke on the V3 demo stack | **40/40**, no page errors: the employee's Action Center, goals, progress and history, a completed and an open review, draft then submitted self-review; peer and coworker goal visibility and review 404s; the manager's Action Center, team reviews, a submitted manager review, team goals and setting one; HR's cycles, audited review reading, drafting and opening a cycle for one department; 390 light and 375 dark with no overflow |
+| V2 navigation gate on the V3 bundle | **51/51**: the admin sidebar now has 14 destinations with Performance |
+| Source fingerprint (14 September) | V2 business data, orphans and ledger as recorded after 0016, plus one audit entry: a successful administrator sign-in at 00:56:38 UTC on 14 September made through the source app; goal and review tables empty on source |
+
+Recorded:
+
+- **A V2 export test that could match a timestamp.** The first full run failed "employees
+  must not contain 20.0". The suite looked for the fixture's GPS accuracy (12.5) and
+  distance (20.0) as plain substrings, which ordinary values can contain. It passed twice
+  on its own. The two short numbers are now checked as whole CSV cells, while coordinates
+  and column words stay as substring checks. My first version also forbade a bare "20"
+  cell, which an audit-log cell legitimately held; that was removed.
+- **The teardown race again.** One full run failed at file level for the migration suite
+  after all its checks passed ("terminating connection due to administrator command" when
+  the clone was dropped). The suite passed 15/15 on its own and the next full run was
+  clean. The harness fix is still planned for M9.
+- **Defects found before release.** The typecheck caught an icon prop the Alert component
+  does not accept. Screenshot review caught the progress slider collapsing to a dot, because
+  the number field's full-width style won; it now has a fixed-width wrapper. The smoke
+  script's rating click was ambiguous where a rating label already showed the same words;
+  it is scoped to the form.
+
+M6 status: **complete.**
