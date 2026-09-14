@@ -18,7 +18,7 @@ export default function HomeGreeting({ name, lines, action }: { name: string | n
         <br />
         {lines[1]}
       </p>
-      {action && <div className="mt-5">{action}</div>}
+      {action && <div className="mt-5 min-[80rem]:mt-7">{action}</div>}
     </div>
   );
 }

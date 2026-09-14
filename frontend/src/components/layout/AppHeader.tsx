@@ -108,7 +108,7 @@ export default function AppHeader() {
           isScrolled ? "border-line bg-header/95 backdrop-blur-sm" : "border-transparent bg-transparent",
         )}
       >
-        <div className="relative mx-auto flex h-16 w-full max-w-[calc(89rem+var(--gutter)*2)] items-center gap-3 px-(--gutter) md:h-20">
+        <div className="relative mx-auto flex h-16 w-full max-w-[calc(89rem+var(--gutter)*2)] items-center gap-3 px-(--gutter) md:h-20 min-[80rem]:h-[5.1875rem]">
           <BrandMark homePath={homePath} />
 
           <nav aria-label="Primary" className="ml-8 hidden md:block lg:ml-14 xl:ml-[5.5rem]">

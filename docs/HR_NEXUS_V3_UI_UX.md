@@ -251,3 +251,101 @@ The review by eye found:
 - a centred attendance corner on phones.
 
 All three were fixed and re-verified.
+
+## U5–U7 — People, Team, workplace and HR operational pages
+
+Every page was captured at 1280 and 390 for each role and reviewed by eye (`u5-audit.mjs`,
+**86/86**, no overflow). The shared primitives already carry the reference's tokens, cards,
+tables, tabs and forms, so the work that remained was systemic rather than page by page:
+
+| Finding | Fix |
+| --- | --- |
+| Pages centred themselves at seven widths (2xl to 7xl), so the left edge jumped between 40 and 256 px under a fixed header | every page sits inside one 89rem frame that matches the header, keeping its own readable maximum width but sharing the header's left edge (72 page roots) |
+| Card-header navigation ("Attendance", "Team leave", "See all", "Show in org chart") rendered as grey ghost buttons that did not read as links | a `link` button variant in the reference's teal, applied to all 15 |
+| Two-across StatCards on phones broke labels ("Not clocked / in") | the icon stacks above the text in a card narrower than 11.5rem |
+| The profile page's trail overlapped its identity card | Tailwind v4 `space-y` is a bottom margin; the trail now sets its own |
+| Dates read "09 Sept 2026" in tables and "14 Sep" on Home | one form everywhere: "9 Sep 2026", "21–22 Sep 2026" |
+
+Unchanged on purpose:
+- the People directory, profile and org chart flow (directory, profile, manager, team, org chart, profile);
+- the team layer's pages;
+- the attendance verification panel;
+- the payroll stepper;
+- the report tabs;
+- the settings forms.
+
+All of these already follow the system after the primitive changes, and redesigning working
+workflows was outside this phase's brief.
+
+## Source integrity during the pass
+
+A read-only fingerprint at the end of the pass differs from the authorised baseline read at
+02:51:37 UTC on 14 September. The audit log explains every difference, and none was caused by
+this pass:
+
+| Difference | Explanation |
+| --- | --- |
+| Audit events 33 → 43 | entries 34–43 are sign-ins and sign-outs through the source application between 02:55 and 07:18 UTC: administrator (user 1) and an employee account (user 4), with four failed attempts |
+| Leave entitlements 0 → 4 (sequence 0 → 40) | employee 3's 2026 entitlements (annual 12, medical 10, emergency 2, unpaid 0), created at 03:05:26.44 UTC, 0.36 s after that employee signed in, by the existing V2 default-policy code (`leaveBalanceService`, commit `9f0a17a`, insert-if-absent), noted "Applied from the company default policy" |
+
+Every other digest is unchanged: employees, accounts, attendance, the five historical orphans,
+payroll (September 2026 still `calculated`), the ledger (16) and 34 base tables. Every UI-pass
+script targets only the isolated demo stack (:5190 and :5018); none references a source port or
+container. The source frontend container mounts this working tree and hot-reloaded the new UI,
+which writes no data. Nothing was reverted.
+
+## U9 — Exact comparison with the final reference
+
+Admin Home was compared with the reference at the reference's own viewport (1536 × 1024, light,
+real HR sign-in on the demo stack) by measuring every region's box and by reviewing side-by-side,
+50 % blend and difference composites (`u9-compare.mjs`).
+
+The first measurement showed:
+- the upper half within 5 px;
+- 17 px gaps where the reference uses 12–14 px, pushing the KPI cards right by up to 16 px;
+- the brand card 12 px low, because its height was a percentage;
+- the bottom row 313 px tall against 232 px.
+
+Corrected:
+
+| Area | Change |
+| --- | --- |
+| Header | 84 px |
+| Greeting | spacing to the reference |
+| Gaps | row gaps 12–16 px and column gaps 12–14 px |
+| Brand column | 300 px; the brand card a fixed 328 px, bottom-aligned with Today |
+| KPI row | stops 16 px short of the brand column, as drawn |
+| Bottom-row cards | tighter padding; compact Who's out and Recent activity rows |
+| Insights | bars 64 px tall; the comparison period moved from a visible footnote into each delta's name and title at this width |
+
+Final measurement (reference → implementation, left, top, width, height in px):
+
+| Region | Reference | Implementation | Largest delta |
+| --- | --- | --- | --- |
+| Header | 0, 0, 1536 × 84 | 0, 0, 1536 × 84 | 0 |
+| Greeting h1 top | 150 | 150 | 0 |
+| Primary action | 56, 283 | 56, 283 | 0 (width +35: "Add employee" is longer than "New Request") |
+| KPI 1–4 | 58/374/642/895, 351; 304/256/241/255 × 125 | 56/372/640/894, 351; 304/256/242/256 × 124 | 2 |
+| Today | 56, 492, 748 × 232 | 56, 491, 751 × 233 | 3 |
+| Tasks for today | 818, 492, 348 × 232 | 821, 491, 345 × 233 | 3 |
+| Brand card | 1180, 396, 300 × 328 | 1180, 396, 300 × 328 | 0 |
+| Who's out, Recent activity, Insights | 56/537/999, 736; 469/450/481 × 232 | 56/537/999, 736; 469/450/481 × 235 | 3 |
+
+Every region is within 3 px. What still differs is content, not layout, and each difference is
+deliberate:
+
+| Reference | Implementation | Reason |
+| --- | --- | --- |
+| "28°C · Shah Alam, MY" | "Working day · Kuala Lumpur time" | no weather or location source exists; fabricating one is forbidden |
+| "Welcome back, Ameer." | "Welcome back." for an administrator account with no employee record; employees are greeted by given name | the demo HR account has no person's name to use |
+| "New Request" | "Add employee" (HR), "Request leave" (employee) | the button names a real action for the role |
+| Photographed avatars | initials | no invented faces; real photos appear where uploaded |
+| "↑ 2%", "↓ 20%" deltas coloured by direction | coloured by what is better, "pts" for a percentage difference | direction alone misreports late check-ins |
+| "Morning" chip, four checked tasks, 48 employees | "All day" or "Pending", real tasks, real counts | real V3 data only |
+| "⌘ K" in the launcher field | no shortcut hint | the launcher filter has no shortcut; ⌘K opens global search |
+| Footer "v2.0" | "V3" | the actual version |
+
+Employee Home uses the same grid, measurements and card language, with its own content: a
+personal KPI row, attendance in Today's corner, For you, and the leave column where HR has the
+brand card. The Admin Home and Employee Home checks were re-run after the changes: **45/45** and
+**46/46**, plus the shell **132/132**.

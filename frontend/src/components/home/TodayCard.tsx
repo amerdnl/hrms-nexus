@@ -67,7 +67,7 @@ export default function TodayCard({ state, calendar, className, aside }: {
   }, []);
 
   const shell = cn(
-    "relative overflow-hidden rounded-card p-5 text-feature-fg shadow-raised sm:p-6 lg:px-[1.625rem] lg:pb-6 lg:pt-[1.375rem]",
+    "relative overflow-hidden rounded-card p-5 text-feature-fg shadow-raised sm:p-6 lg:px-[1.625rem] lg:pb-5 lg:pt-5",
     "bg-linear-to-br from-feature to-feature-deep dark:ring-1 dark:ring-white/5",
     className,
   );

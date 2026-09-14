@@ -112,7 +112,7 @@ export default function EmployeeDashboardPage() {
       <HomeMountain className="absolute -top-6 right-0 hidden w-[52%] md:block min-[80rem]:hidden" />
       <HomeMountain className="-mt-2 mb-1 w-full max-w-md opacity-90 md:hidden" />
 
-      <div className="relative pb-8 pt-2 md:pt-8">
+      <div className="relative pb-8 pt-2 md:pt-8 min-[80rem]:pb-6 min-[80rem]:pt-6">
         <HomeGreeting
           name={name ? givenName(name) : null}
           lines={["Here’s your day at a glance.", "Let’s keep things moving."]}
@@ -138,9 +138,9 @@ export default function EmployeeDashboardPage() {
       )}
       {message && <Alert tone="success" className="mb-4" onDismiss={() => setMessage("")}>{message}</Alert>}
 
-      <div className="grid gap-4 [&>*]:min-w-0 min-[80rem]:grid-cols-[minmax(0,1fr)_20.73%] min-[80rem]:gap-[1.0625rem]">
-        <div className="min-w-0 space-y-4 min-[80rem]:space-y-[1.0625rem]">
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 [&>*]:min-w-0 lg:grid-cols-4 min-[80rem]:grid-cols-[1.19fr_1fr_0.945fr_1fr] min-[80rem]:gap-[1.0625rem]">
+      <div className="grid gap-4 [&>*]:min-w-0 min-[80rem]:grid-cols-[minmax(0,1fr)_21.07%] min-[80rem]:gap-x-3.5 min-[80rem]:gap-y-3">
+        <div className="min-w-0 space-y-4 min-[80rem]:space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 [&>*]:min-w-0 lg:grid-cols-4 min-[80rem]:mr-4 min-[80rem]:grid-cols-[1.19fr_1fr_0.945fr_1fr] min-[80rem]:gap-3">
             <KpiCard
               icon={Clock3}
               tint="teal"
@@ -186,7 +186,7 @@ export default function EmployeeDashboardPage() {
             />
           </div>
 
-          <div className="grid gap-4 [&>*]:min-w-0 lg:grid-cols-[minmax(0,2.174fr)_minmax(0,1fr)] min-[80rem]:gap-[1.0625rem]">
+          <div className="grid gap-4 [&>*]:min-w-0 lg:grid-cols-[minmax(0,2.174fr)_minmax(0,1fr)] min-[80rem]:gap-3.5">
             <TodayCard state={calendarState} calendar={calendar} aside={attendanceAside} />
             <ActionsCard data={actions} failed={actionsFailed} />
           </div>
@@ -216,7 +216,7 @@ export default function EmployeeDashboardPage() {
         </div>
       )}
 
-      <div className="mt-4 grid gap-4 [&>*]:min-w-0 md:grid-cols-2 min-[80rem]:mt-[1.0625rem] min-[80rem]:grid-cols-[469fr_450fr_469fr] min-[80rem]:gap-[1.0625rem]">
+      <div className="mt-4 grid gap-4 [&>*]:min-w-0 md:grid-cols-2 min-[80rem]:mt-3 min-[80rem]:grid-cols-[469fr_450fr_481fr] min-[80rem]:gap-3">
         {bottomCards}
       </div>
     </div>

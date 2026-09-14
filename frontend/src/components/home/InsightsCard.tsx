@@ -132,7 +132,7 @@ export default function InsightsCard({ today, workingDays, className }: { today:
   const average = data?.shown.rate;
 
   return (
-    <section aria-labelledby="home-insights-title" className={cn("flex flex-col rounded-card border border-line bg-surface p-5 shadow-card sm:p-6", className)}>
+    <section aria-labelledby="home-insights-title" className={cn("flex flex-col rounded-card border border-line bg-surface p-5 shadow-card sm:px-6 sm:pb-3 sm:pt-[1.125rem]", className)}>
       <div className="flex items-center justify-between gap-3">
         <h2 id="home-insights-title" className="text-[1.0625rem] font-semibold text-fg">Insights</h2>
         <DropdownMenu
@@ -161,7 +161,7 @@ export default function InsightsCard({ today, workingDays, className }: { today:
               ? `Attendance rate by working day, ${periodLabel.toLowerCase()}${average != null ? `, ${Math.round(average * 100)}% overall` : ", nothing recorded yet"}`
               : "Loading attendance by day"}
             aria-busy={state === "loading" || undefined}
-            className="mt-5 flex h-[5.5rem] items-end justify-between gap-[3px]"
+            className="mt-4 flex h-[5.5rem] items-end justify-between gap-[3px] min-[80rem]:h-16"
           >
             {bars.map((day) => {
               const entry = data?.byDay.get(day);
@@ -180,7 +180,7 @@ export default function InsightsCard({ today, workingDays, className }: { today:
             })}
           </div>
 
-          <dl className="mt-5 grid grid-cols-3 divide-x divide-line">
+          <dl className="mt-4 grid grid-cols-3 divide-x divide-line">
             {[
               {
                 label: "Attendance rate",
@@ -202,11 +202,14 @@ export default function InsightsCard({ today, workingDays, className }: { today:
                 <dt className="sr-only">{stat.label}</dt>
                 <dd className="text-xl font-semibold tabular-nums text-fg">{state === "loading" ? "—" : stat.value}</dd>
                 <dd aria-hidden="true" className="mt-0.5 truncate text-[0.8125rem] text-fg-muted">{stat.label}</dd>
-                <dd className="mt-1 text-[0.8125rem]">{state === "ready" ? stat.delta : <span className="text-fg-subtle">&nbsp;</span>}</dd>
+                <dd className="mt-1 text-[0.8125rem]" title={period === "this" ? "Compared with the same days last month" : "Compared with the month before"}>
+                  {state === "ready" ? stat.delta : <span className="text-fg-subtle">&nbsp;</span>}
+                  <span className="sr-only">{period === "this" ? ", compared with the same days last month" : ", compared with the month before"}</span>
+                </dd>
               </div>
             ))}
           </dl>
-          <p className="mt-3 text-xs text-fg-subtle">
+          <p className="mt-3 text-xs text-fg-subtle min-[80rem]:sr-only">
             Compared with {period === "this" ? "the same days last month" : "the month before"}.
           </p>
         </>

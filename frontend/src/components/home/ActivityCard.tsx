@@ -26,7 +26,7 @@ export default function ActivityCard({ state, entries, viewAllTo, className, emp
   emptyText: string;
 }) {
   return (
-    <section aria-labelledby="home-activity-title" className={cn("flex flex-col rounded-card border border-line bg-surface p-5 shadow-card sm:p-6", className)}>
+    <section aria-labelledby="home-activity-title" className={cn("flex flex-col rounded-card border border-line bg-surface p-5 shadow-card sm:px-6 sm:pb-3 sm:pt-[1.125rem]", className)}>
       <div className="flex items-center justify-between gap-3">
         <h2 id="home-activity-title" className="text-[1.0625rem] font-semibold text-fg">Recent activity</h2>
         <Link to={viewAllTo} className="inline-flex min-h-8 items-center gap-1.5 rounded-md text-[0.8125rem] font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
@@ -35,7 +35,7 @@ export default function ActivityCard({ state, entries, viewAllTo, className, emp
         </Link>
       </div>
 
-      <div className="mt-3 flex-1">
+      <div className="mt-2 flex-1">
         {state === "failed" && <p className="text-sm text-fg-muted">Recent activity could not be loaded.</p>}
         {state === "loading" && (
           <div aria-busy="true" className="space-y-4">
@@ -51,11 +51,11 @@ export default function ActivityCard({ state, entries, viewAllTo, className, emp
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "grid size-9 shrink-0 place-items-center rounded-full",
+                      "grid size-7 shrink-0 place-items-center rounded-full",
                       entry.tone === "alert" ? "bg-danger-soft text-danger-fg" : "bg-surface-muted text-fg",
                     )}
                   >
-                    <entry.icon size={16} />
+                    <entry.icon size={14} />
                   </span>
                   <span className="min-w-0 flex-1 truncate text-sm text-fg" title={entry.text}>{entry.text}</span>
                   <time dateTime={entry.at} className="shrink-0 text-[0.8125rem] text-fg-subtle">{compactAgo(entry.at)}</time>
@@ -64,11 +64,11 @@ export default function ActivityCard({ state, entries, viewAllTo, className, emp
               return (
                 <li key={entry.key}>
                   {entry.to ? (
-                    <Link to={entry.to} className="-mx-2 flex items-center gap-4 rounded-lg px-2 py-2 transition-colors hover:bg-surface-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
+                    <Link to={entry.to} className="-mx-2 flex items-center gap-4 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
                       {inner}
                     </Link>
                   ) : (
-                    <div className="flex items-center gap-4 py-2">{inner}</div>
+                    <div className="flex items-center gap-4 py-1.5">{inner}</div>
                   )}
                 </li>
               );

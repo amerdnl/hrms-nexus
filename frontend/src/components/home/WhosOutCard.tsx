@@ -16,10 +16,10 @@ const LEAVE_LABELS: Record<string, string> = {
 
 function AbsenceRow({ absence, chip }: { absence: Absence; chip: string }) {
   return (
-    <li className="flex items-center gap-3.5 py-2.5">
-      <Avatar name={absence.name} src={resolveProfileImageUrl(absence.profileImage)} size="md" />
+    <li className="flex items-center gap-3.5 py-1.5">
+      <Avatar name={absence.name} src={resolveProfileImageUrl(absence.profileImage)} size="md" className="size-9" />
       <div className="min-w-0 flex-1">
-        <Link to={`/people/${absence.employeeId}`} className="block truncate rounded text-[0.9375rem] font-medium text-fg hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+        <Link to={`/people/${absence.employeeId}`} className="block truncate rounded text-sm font-medium text-fg hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
           {absence.name}
         </Link>
         <p className="truncate text-[0.8125rem] text-fg-muted">
@@ -28,7 +28,7 @@ function AbsenceRow({ absence, chip }: { absence: Absence; chip: string }) {
         </p>
       </div>
       <span className={cn(
-        "shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-[0.8125rem]",
+        "shrink-0 whitespace-nowrap rounded-full px-3 py-0.5 text-[0.8125rem]",
         absence.status === "approved" ? "bg-info-soft text-info-fg" : "bg-warning-soft text-warning-fg",
       )}>
         {chip}
@@ -58,7 +58,7 @@ export default function WhosOutCard({ state, calendar, className, limit = 3 }: {
     .slice(0, Math.max(0, limit - shown.length));
 
   return (
-    <section aria-labelledby="home-out-title" className={cn("flex flex-col rounded-card border border-line bg-surface p-5 shadow-card sm:p-6", className)}>
+    <section aria-labelledby="home-out-title" className={cn("flex flex-col rounded-card border border-line bg-surface p-5 shadow-card sm:px-6 sm:pb-3 sm:pt-[1.125rem]", className)}>
       <div className="flex items-center justify-between gap-3">
         <h2 id="home-out-title" className="text-[1.0625rem] font-semibold text-fg">Who’s out today</h2>
         <Link to={`/calendar?date=${today}`} className="inline-flex min-h-8 items-center gap-1.5 rounded-md text-[0.8125rem] font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
@@ -97,7 +97,7 @@ export default function WhosOutCard({ state, calendar, className, limit = 3 }: {
         )}
         {state === "ready" && next.length > 0 && (
           <>
-            <p className="mb-0.5 mt-3 text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-fg-subtle">Away next</p>
+            <p className="mt-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-fg-subtle">Away next</p>
             <ul aria-label="Away next" className="divide-y divide-line">
               {next.map((absence) => (
                 <AbsenceRow key={`${absence.employeeId}-${absence.startDate}`} absence={absence} chip={formatDayRange(absence.startDate, absence.endDate)} />
