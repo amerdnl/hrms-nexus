@@ -312,7 +312,7 @@ export default function EmployeeListPage() {
   const pendingCopy = pendingAction ? actionCopy[pendingAction.type] : null;
 
   return (
-    <section className="mx-auto max-w-7xl space-y-6">
+    <section className="max-w-7xl space-y-6">
       <PageHeader
         title="Employee management"
         description="View and manage employees."

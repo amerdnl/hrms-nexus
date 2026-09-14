@@ -64,7 +64,7 @@ export default function TeamAttendancePage() {
   }, [loadDay]);
 
   return (
-    <section className="mx-auto max-w-7xl space-y-6">
+    <section className="max-w-7xl space-y-6">
       <PageHeader
         title="Team attendance"
         description="Who clocked in and when, for the people who report to you."

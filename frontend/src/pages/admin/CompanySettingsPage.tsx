@@ -202,7 +202,7 @@ export default function CompanySettingsPage() {
   const locationSet = draft ? draft.office_latitude !== "" && draft.office_longitude !== "" : false;
 
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
+    <section className="max-w-4xl space-y-6">
       <PageHeader
         title="Company settings"
         description="Your company profile, working week and the office point used to verify attendance."

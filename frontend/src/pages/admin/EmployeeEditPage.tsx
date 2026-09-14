@@ -155,7 +155,7 @@ export default function EmployeeEditPage() {
     );
 
     return isLoading ? (
-      <section className="mx-auto max-w-3xl space-y-6" aria-busy="true">
+      <section className="max-w-3xl space-y-6" aria-busy="true">
         {header}
         <p className="sr-only" aria-live="polite">Loading employee</p>
         {[4, 4, 6].map((fields, index) => (
@@ -173,7 +173,7 @@ export default function EmployeeEditPage() {
         ))}
       </section>
     ) : (
-      <section className="mx-auto max-w-3xl space-y-6">
+      <section className="max-w-3xl space-y-6">
         {header}
         <SectionCard>
           <ErrorState
@@ -186,7 +186,7 @@ export default function EmployeeEditPage() {
   }
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="max-w-3xl space-y-6">
       <PageHeader
         title="Edit employee"
         description="Update employee information."

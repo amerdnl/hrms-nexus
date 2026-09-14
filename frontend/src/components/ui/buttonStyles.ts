@@ -6,7 +6,8 @@ export type ButtonVariant =
   | "danger"
   | "ghost"
   | "danger-ghost"
-  | "inverse";
+  | "inverse"
+  | "link";
 export type ButtonSize = "sm" | "md";
 
 /**
@@ -45,6 +46,10 @@ const variants: Record<ButtonVariant, string> = {
   // Home editorial card). Fixed colours on purpose, like the image itself:
   // navy on white measures 17.35:1.
   inverse: "bg-white text-[#0b1b2e] shadow-card hover:bg-white/90",
+  // A quiet navigation link in a card header ("View all", "Team leave"), in
+  // the reference's teal. Teal text alone reads as a link here; the underline
+  // on hover confirms it.
+  link: "font-medium text-primary underline-offset-4 hover:underline",
 };
 
 /**
@@ -71,7 +76,8 @@ export function buttonClass(
   return cn(
     base,
     variants[variant],
-    sizes[size],
+    // A link keeps a comfortable target but carries no button padding.
+    variant === "link" ? "px-1 py-1 text-[0.8125rem] pointer-coarse:min-h-9" : sizes[size],
     fullWidth && "w-full",
     className,
   );

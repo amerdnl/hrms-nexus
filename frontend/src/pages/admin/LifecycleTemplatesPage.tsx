@@ -178,7 +178,7 @@ export default function LifecycleTemplatesPage() {
   useEffect(load, [load]);
 
   return (
-    <section className="mx-auto max-w-5xl space-y-6">
+    <section className="max-w-5xl space-y-6">
       <PageHeader
         title="Checklists"
         description="The tasks copied into each new onboarding or offboarding plan."

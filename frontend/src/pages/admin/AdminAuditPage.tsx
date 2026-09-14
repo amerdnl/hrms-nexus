@@ -104,7 +104,7 @@ export default function AdminAuditPage() {
     value.charAt(0).toUpperCase() + value.slice(1).replaceAll("_", " ");
 
   return (
-    <section className="mx-auto max-w-5xl space-y-6">
+    <section className="max-w-5xl space-y-6">
       <PageHeader
         title="Audit log"
         description="Who changed what, and when. Entries are appended and can never be edited or removed."

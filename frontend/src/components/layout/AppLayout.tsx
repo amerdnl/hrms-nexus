@@ -43,9 +43,13 @@ export default function AppLayout() {
           isHome ? "pt-2 md:pt-4" : "pt-4 md:pt-6",
         )}
       >
-        <Suspense fallback={<PageFallback />}>
-          <Outlet />
-        </Suspense>
+        {/* One frame for every page, matching the header's content width, so a
+            narrow form and a wide table share the header's left edge. */}
+        <div className="mx-auto w-full max-w-[89rem]">
+          <Suspense fallback={<PageFallback />}>
+            <Outlet />
+          </Suspense>
+        </div>
       </main>
 
       <footer className="mx-auto hidden w-full max-w-[calc(89rem+var(--gutter)*2)] items-center justify-between px-(--gutter) pb-7 text-xs text-fg-subtle md:flex">

@@ -99,7 +99,7 @@ export default function PlanDetailPage() {
 
   if (state === "missing" || state === "failed") {
     return (
-      <section className="mx-auto max-w-4xl space-y-6">
+      <section className="max-w-4xl space-y-6">
         <PageHeader title="Plan" backTo={back} backLabel="Back" />
         <SectionCard>
           {state === "missing" ? (
@@ -114,7 +114,7 @@ export default function PlanDetailPage() {
 
   if (!detail) {
     return (
-      <section className="mx-auto max-w-4xl space-y-6">
+      <section className="max-w-4xl space-y-6">
         <SectionCard><p className="sr-only" role="status">Loading the plan</p><SkeletonText lines={8} /></SectionCard>
       </section>
     );
@@ -126,7 +126,7 @@ export default function PlanDetailPage() {
   const canAct = (task: LifecycleTask) => isActive && (isHr || roles.includes(task.assigneeRole));
 
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
+    <section className="max-w-4xl space-y-6">
       <PageHeader
         title={`${kindLabels[plan.kind]}: ${plan.employeeName}`}
         description={plan.title}

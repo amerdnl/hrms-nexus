@@ -123,7 +123,7 @@ export default function EmployeeFormPage() {
   }
 
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
+    <section className="max-w-4xl space-y-6">
       <PageHeader
         title="Add employee"
         description="Create an employee record and user account."

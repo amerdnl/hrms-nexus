@@ -81,7 +81,7 @@ export default function RecognitionPage() {
   const remaining = feed?.givenToday !== null && feed?.givenToday !== undefined ? feed.dailyLimit - feed.givenToday : null;
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="max-w-3xl space-y-6">
       <PageHeader
         title="Recognition"
         description="Thank-yous between colleagues, in their own words."

@@ -27,7 +27,7 @@ export default function TeamSummaryCard() {
     <SectionCard
       title="Your team"
       icon={UsersRound}
-      actions={<LinkButton to="/team" variant="ghost" size="sm">Open</LinkButton>}
+      actions={<LinkButton to="/team" variant="link" size="sm">Open</LinkButton>}
     >
       {state === "loading" && <SkeletonText lines={3} />}
       {state === "failed" && (

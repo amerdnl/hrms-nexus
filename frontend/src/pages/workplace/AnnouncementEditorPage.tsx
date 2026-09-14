@@ -100,7 +100,7 @@ export default function AnnouncementEditorPage() {
 
   if (state === "failed") {
     return (
-      <section className="mx-auto max-w-3xl space-y-6">
+      <section className="max-w-3xl space-y-6">
         <PageHeader title={title} backTo="/announcements" backLabel="Announcements" />
         <SectionCard><ErrorState title="This announcement could not be loaded" description={formError} onRetry={() => window.location.reload()} /></SectionCard>
       </section>
@@ -108,7 +108,7 @@ export default function AnnouncementEditorPage() {
   }
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="max-w-3xl space-y-6">
       <PageHeader
         title={title}
         description={audienceLocked ? "Corrections reach the same audience. Nobody is notified again." : "Save a draft, or publish to notify its audience."}

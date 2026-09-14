@@ -31,7 +31,7 @@ export default function PerformanceAdminPage() {
   useEffect(load, [load]);
 
   return (
-    <section className="mx-auto max-w-5xl space-y-6">
+    <section className="max-w-5xl space-y-6">
       <PageHeader
         title="Performance"
         description="Review cycles. Each review runs self first, then the manager, rated 1 to 5."

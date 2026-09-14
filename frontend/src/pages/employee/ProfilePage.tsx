@@ -177,7 +177,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-6xl space-y-6" aria-busy="true">
+      <div className="max-w-6xl space-y-6" aria-busy="true">
         <p className="sr-only" aria-live="polite">Loading your profile</p>
         <Skeleton className="h-8 w-48" />
         <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
@@ -194,7 +194,7 @@ export default function ProfilePage() {
 
   if (!profile?.employee) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="max-w-3xl">
         <SectionCard>
           {error ? (
             <ErrorState
@@ -220,7 +220,7 @@ export default function ProfilePage() {
   const isPhotoBusy = isUploadingPhoto || isRemovingPhoto;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="max-w-6xl">
       <PageHeader
         title="My profile"
         description="Your employment details, your contact information and your sign-in."

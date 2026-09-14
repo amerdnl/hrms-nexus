@@ -127,7 +127,7 @@ export default function AnnouncementsPage() {
   ];
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="max-w-3xl space-y-6">
       <PageHeader
         title="Announcements"
         description={isAdmin

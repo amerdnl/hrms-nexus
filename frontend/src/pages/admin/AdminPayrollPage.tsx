@@ -213,7 +213,7 @@ export default function AdminPayrollPage() {
   );
 
   return (
-    <section className="mx-auto max-w-7xl space-y-6">
+    <section className="max-w-7xl space-y-6">
       <PageHeader
         title="Payroll"
         description="Open a period, calculate it, then review, approve and pay."

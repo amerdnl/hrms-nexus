@@ -55,7 +55,7 @@ export default function TasksPage() {
   const planLink = (id: number) => (user?.role === "admin" ? `/admin/lifecycle/plans/${id}` : `/lifecycle/plans/${id}`);
 
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
+    <section className="max-w-4xl space-y-6">
       <PageHeader
         title="My tasks"
         description={work

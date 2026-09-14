@@ -54,7 +54,9 @@ export default function StatCard({
 }: StatCardProps) {
   const content = (
     <div className="@container">
-      <div className="flex items-center gap-3 @min-[14rem]:gap-4">
+      {/* Stacked in a narrow card (two across on a phone), so a label such as
+          "Not clocked in" keeps the full width instead of breaking mid-phrase. */}
+      <div className="flex flex-col items-start gap-3 @min-[11.5rem]:flex-row @min-[11.5rem]:items-center @min-[14rem]:gap-4">
         {Icon && (
           <span
             className={cn(

@@ -88,7 +88,7 @@ export default function EmployeePayslipsPage() {
   ) : null;
 
   return (
-    <section className="mx-auto max-w-6xl space-y-6">
+    <section className="max-w-6xl space-y-6">
       <PageHeader
         title="Payslips"
         description="Your published payslips. Only approved payroll appears here."

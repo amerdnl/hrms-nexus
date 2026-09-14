@@ -66,14 +66,14 @@ export default function CycleDetailPage() {
 
   if (error) {
     return (
-      <section className="mx-auto max-w-5xl space-y-6">
+      <section className="max-w-5xl space-y-6">
         <PageHeader title="Review cycle" backTo="/admin/performance" backLabel="Performance" />
         <SectionCard><ErrorState title="This cycle could not be loaded" description={error} onRetry={load} /></SectionCard>
       </section>
     );
   }
   if (!data) {
-    return <section className="mx-auto max-w-5xl space-y-6"><SectionCard><p className="sr-only" role="status">Loading the cycle</p><SkeletonText lines={6} /></SectionCard></section>;
+    return <section className="max-w-5xl space-y-6"><SectionCard><p className="sr-only" role="status">Loading the cycle</p><SkeletonText lines={6} /></SectionCard></section>;
   }
 
   const { cycle, participants } = data;
@@ -81,7 +81,7 @@ export default function CycleDetailPage() {
   const overdue = participants.filter((participant) => participant.overdue).length;
 
   return (
-    <section className="mx-auto max-w-5xl space-y-6">
+    <section className="max-w-5xl space-y-6">
       <PageHeader
         title={cycle.name}
         description={`${formatDate(cycle.periodStart)} – ${formatDate(cycle.periodEnd)} · self-reviews due ${formatDate(cycle.selfDueOn)} · manager reviews due ${formatDate(cycle.managerDueOn)}`}

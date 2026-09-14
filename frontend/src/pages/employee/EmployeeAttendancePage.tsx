@@ -140,7 +140,7 @@ function EmployeeAttendancePage() {
   }));
 
   return (
-    <section className="mx-auto max-w-6xl space-y-6">
+    <section className="max-w-6xl space-y-6">
       <PageHeader
         title="My attendance"
         description="Check in and out with the office QR code, and see your record."

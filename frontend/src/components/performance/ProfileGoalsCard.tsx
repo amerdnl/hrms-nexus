@@ -28,7 +28,7 @@ export default function ProfileGoalsCard({ personId, isSelf }: { personId: numbe
     <SectionCard
       title="Goals"
       icon={Target}
-      actions={isSelf ? <LinkButton to="/goals" variant="ghost" size="sm">My goals</LinkButton> : undefined}
+      actions={isSelf ? <LinkButton to="/goals" variant="link" size="sm">My goals</LinkButton> : undefined}
     >
       {failed ? (
         <p className="text-sm text-fg-muted">Goals could not be loaded.</p>

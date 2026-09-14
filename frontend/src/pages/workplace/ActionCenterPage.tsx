@@ -34,7 +34,7 @@ export default function ActionCenterPage() {
 
   if (error) {
     return (
-      <section className="mx-auto max-w-4xl space-y-6">
+      <section className="max-w-4xl space-y-6">
         <PageHeader title="Action Center" description="Work waiting for you." />
         <SectionCard><ErrorState title="The Action Center could not be loaded" description={error} onRetry={load} /></SectionCard>
       </section>
@@ -42,7 +42,7 @@ export default function ActionCenterPage() {
   }
 
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
+    <section className="max-w-4xl space-y-6">
       <PageHeader
         title="Action Center"
         description={data
@@ -81,7 +81,7 @@ export default function ActionCenterPage() {
           <SectionCard
             title="Recent notifications"
             icon={Bell}
-            actions={<LinkButton to="/notifications" variant="ghost" size="sm">See all</LinkButton>}
+            actions={<LinkButton to="/notifications" variant="link" size="sm">See all</LinkButton>}
           >
             {data.recent.length === 0 ? (
               <EmptyState icon={Bell} title="No notifications yet" className="py-8" />

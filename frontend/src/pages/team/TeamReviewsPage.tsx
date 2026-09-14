@@ -28,7 +28,7 @@ export default function TeamReviewsPage() {
   const cycles = [...new Map((reviews ?? []).map((review) => [review.cycle.id, review.cycle])).values()];
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="max-w-3xl space-y-6">
       <PageHeader title="Team reviews" description="Write each review after the self-review arrives." />
       {error ? (
         <SectionCard><ErrorState title="Team reviews could not be loaded" description={error} onRetry={load} /></SectionCard>

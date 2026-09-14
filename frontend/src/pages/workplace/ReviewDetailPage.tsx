@@ -99,7 +99,7 @@ export default function ReviewDetailPage() {
 
   if (state === "missing" || state === "failed") {
     return (
-      <section className="mx-auto max-w-3xl space-y-6">
+      <section className="max-w-3xl space-y-6">
         <PageHeader title="Review" backTo="/reviews" backLabel="My reviews" />
         <SectionCard>
           {state === "missing"
@@ -110,7 +110,7 @@ export default function ReviewDetailPage() {
     );
   }
   if (!review) {
-    return <section className="mx-auto max-w-3xl space-y-6"><SectionCard><p className="sr-only" role="status">Loading the review</p><SkeletonText lines={8} /></SectionCard></section>;
+    return <section className="max-w-3xl space-y-6"><SectionCard><p className="sr-only" role="status">Loading the review</p><SkeletonText lines={8} /></SectionCard></section>;
   }
 
   const meta = reviewStatusMeta(review.status);
@@ -119,7 +119,7 @@ export default function ReviewDetailPage() {
   const firstName = review.employee.fullName.split(" ")[0];
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="max-w-3xl space-y-6">
       <PageHeader
         title={isEmployee ? `${review.cycle.name} review` : `${review.cycle.name}: ${review.employee.fullName}`}
         description={`${formatDate(review.cycle.periodStart)} – ${formatDate(review.cycle.periodEnd)}`}

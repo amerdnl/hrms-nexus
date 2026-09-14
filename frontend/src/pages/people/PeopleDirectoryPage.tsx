@@ -77,7 +77,7 @@ export default function PeopleDirectoryPage() {
   const filtered = Boolean(params.get("search") || department);
 
   return (
-    <section className="mx-auto max-w-7xl space-y-6">
+    <section className="max-w-7xl space-y-6">
       <PageHeader
         title="People"
         description="Everyone at the company. Search by name, role, department or skill."

@@ -23,7 +23,7 @@ export default function ReviewsPage() {
   useEffect(load, [load]);
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="max-w-3xl space-y-6">
       <PageHeader title="My reviews" description="You write a self-review first; your manager's review follows, and you can respond to it." />
       <SectionCard>
         {error ? (

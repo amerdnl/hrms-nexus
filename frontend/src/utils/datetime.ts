@@ -32,7 +32,7 @@ export function toIsoDate(value: string | null | undefined): string {
 }
 
 /**
- * Formats a date for display, e.g. "11 Aug 2026".
+ * Formats a date for display, e.g. "9 Sep 2026".
  *
  * Lifted verbatim from the duplicated implementations in
  * AdminAttendancePage/EmployeeAttendancePage, including the fallback of
@@ -54,11 +54,15 @@ export function formatDate(value: string, fallback = "—"): string {
   // which is what avoids the UTC-midnight shift.
   const displayDate = new Date(year, month - 1, day);
 
-  return new Intl.DateTimeFormat("en-MY", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  }).format(displayDate);
+  return `${day} ${shortMonth(displayDate)} ${year}`;
+}
+
+/**
+ * "Sep", never "Sept": en-MY and en-GB abbreviate September to four letters,
+ * which left the product saying "Sept" in tables and "Sep" on Home.
+ */
+function shortMonth(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", { month: "short" }).format(date);
 }
 
 /**
@@ -131,10 +135,10 @@ export function timeToMinutes(time: string | null | undefined): number | null {
 /**
  * A date range with the shared parts said once.
  *
- *   same day    "02 Sept 2026"
- *   same month  "21–22 Sept 2026"
- *   same year   "28 Sept – 02 Oct 2026"
- *   otherwise   "30 Dec 2026 – 02 Jan 2027"
+ *   same day    "2 Sep 2026"
+ *   same month  "21–22 Sep 2026"
+ *   same year   "28 Sep – 2 Oct 2026"
+ *   otherwise   "30 Dec 2026 – 2 Jan 2027"
  *
  * Repeating the month and year on both sides was the widest thing in the leave
  * table and made a two-day request look like a long one. Parsed from the ISO
@@ -151,16 +155,14 @@ export function formatDateRange(start: string, end: string): string {
   const [endYear, endMonth, endDay] = b.split("-");
 
   const monthName = (year: string, month: string) =>
-    new Intl.DateTimeFormat("en-MY", { month: "short" }).format(
-      new Date(Number(year), Number(month) - 1, 1),
-    );
+    shortMonth(new Date(Number(year), Number(month) - 1, 1));
 
   if (startYear === endYear && startMonth === endMonth) {
-    return `${startDay}–${endDay} ${monthName(endYear, endMonth)} ${endYear}`;
+    return `${Number(startDay)}–${Number(endDay)} ${monthName(endYear, endMonth)} ${endYear}`;
   }
 
   if (startYear === endYear) {
-    return `${startDay} ${monthName(startYear, startMonth)} – ${endDay} ${monthName(endYear, endMonth)} ${endYear}`;
+    return `${Number(startDay)} ${monthName(startYear, startMonth)} – ${Number(endDay)} ${monthName(endYear, endMonth)} ${endYear}`;
   }
 
   return `${formatDate(start)} – ${formatDate(end)}`;

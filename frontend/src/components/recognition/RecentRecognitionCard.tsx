@@ -27,7 +27,7 @@ export default function RecentRecognitionCard() {
       title="Recognition"
       description={items ? (total === 0 ? "Nothing received yet." : `${total} received.`) : undefined}
       icon={Award}
-      actions={<LinkButton to="/recognition" variant="ghost" size="sm">Recognition</LinkButton>}
+      actions={<LinkButton to="/recognition" variant="link" size="sm">Recognition</LinkButton>}
     >
       {failed ? (
         <p className="text-sm text-fg-muted">Recognition could not be loaded.</p>

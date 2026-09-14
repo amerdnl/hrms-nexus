@@ -213,7 +213,7 @@ export default function EmployeeLeavePage() {
     ) : null;
 
   return (
-    <section className="mx-auto max-w-6xl space-y-6">
+    <section className="max-w-6xl space-y-6">
       <PageHeader
         title="My leave"
         description="Check your balances, request time off and follow each request."

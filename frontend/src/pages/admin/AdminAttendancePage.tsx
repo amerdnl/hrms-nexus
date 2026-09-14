@@ -396,7 +396,7 @@ function AdminAttendancePage() {
   );
 
   return (
-    <section className="mx-auto max-w-7xl space-y-6">
+    <section className="max-w-7xl space-y-6">
       <PageHeader
         title="Attendance"
         description="Daily records, how each one was verified, and corrections."

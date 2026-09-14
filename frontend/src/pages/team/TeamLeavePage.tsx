@@ -92,7 +92,7 @@ export default function TeamLeavePage() {
     );
 
   return (
-    <section className="mx-auto max-w-7xl space-y-6">
+    <section className="max-w-7xl space-y-6">
       <PageHeader
         title="Team leave"
         description="Decide requests from the people who report to you, and see what you have decided."

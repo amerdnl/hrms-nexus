@@ -27,7 +27,7 @@ export function ActionSummaryCard({ className }: { className?: string }) {
       description={data ? (count === 0 ? "Nothing waiting on you." : `${count} ${count === 1 ? "item" : "items"} in your Action Center.`) : undefined}
       icon={Inbox}
       className={className}
-      actions={<LinkButton to="/actions" variant="ghost" size="sm">Action Center</LinkButton>}
+      actions={<LinkButton to="/actions" variant="link" size="sm">Action Center</LinkButton>}
     >
       {failed ? (
         <p className="text-sm text-fg-muted">The Action Center could not be loaded.</p>
@@ -59,7 +59,7 @@ export function AnnouncementsCard({ className }: { className?: string }) {
       title="Announcements"
       icon={Megaphone}
       className={className}
-      actions={<LinkButton to="/announcements" variant="ghost" size="sm">All</LinkButton>}
+      actions={<LinkButton to="/announcements" variant="link" size="sm">All</LinkButton>}
     >
       {failed ? (
         <p className="text-sm text-fg-muted">Announcements could not be loaded.</p>

@@ -49,7 +49,7 @@ export default function DepartmentFormPage() {
   }
 
   return (
-    <section className="mx-auto max-w-2xl space-y-6">
+    <section className="max-w-2xl space-y-6">
       <PageHeader
         title="Add department"
         description="Create a new department."

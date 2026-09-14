@@ -264,7 +264,7 @@ export default function AdminReportsPage() {
   });
 
   return (
-    <section className="mx-auto max-w-7xl space-y-6">
+    <section className="max-w-7xl space-y-6">
       <PageHeader
         title="Reports"
         description="Company-wide workforce, attendance, leave, payroll, onboarding, performance and recognition reporting."

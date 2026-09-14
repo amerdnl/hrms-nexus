@@ -79,7 +79,7 @@ export default function DepartmentDetailsPage() {
 
   if (isLoading) {
     return (
-      <section className="mx-auto max-w-5xl space-y-6" aria-busy="true">
+      <section className="max-w-5xl space-y-6" aria-busy="true">
         {header()}
         <p className="sr-only" aria-live="polite">Loading department</p>
         <SectionCard>
@@ -100,7 +100,7 @@ export default function DepartmentDetailsPage() {
 
   if (error || !department) {
     return (
-      <section className="mx-auto max-w-5xl space-y-6">
+      <section className="max-w-5xl space-y-6">
         {header()}
         <SectionCard>
           <ErrorState
@@ -113,7 +113,7 @@ export default function DepartmentDetailsPage() {
   }
 
   return (
-    <section className="mx-auto max-w-5xl space-y-6">
+    <section className="max-w-5xl space-y-6">
       {header(
           <LinkButton
             to={`/admin/departments/${department.id}/edit`}

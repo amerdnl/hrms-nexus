@@ -82,7 +82,7 @@ export default function AboutMeCard({ employeeId }: { employeeId: number }) {
         title="About me"
         description="What colleagues see on your profile. Nothing here changes your HR record."
         icon={Sparkles}
-        actions={<LinkButton to={`/people/${employeeId}`} variant="ghost" size="sm" icon={Eye}>View as colleagues see it</LinkButton>}
+        actions={<LinkButton to={`/people/${employeeId}`} variant="link" size="sm" icon={Eye}>View as colleagues see it</LinkButton>}
       >
         {state === "loading" && <SkeletonText lines={4} />}
         {state === "failed" && <p className="text-sm text-fg-muted">This could not be loaded. Reload the page to try again.</p>}

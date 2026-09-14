@@ -102,7 +102,7 @@ export default function AdminDataExportPage() {
   }, [catalogue]);
 
   return (
-    <section className="mx-auto max-w-6xl space-y-6">
+    <section className="max-w-6xl space-y-6">
       <PageHeader
         title="Company data export"
         description="Take a complete copy of this company's HR data, as one workbook or as individual CSV files."

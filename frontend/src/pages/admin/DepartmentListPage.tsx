@@ -79,7 +79,7 @@ export default function DepartmentListPage() {
   }
 
   return (
-    <section className="mx-auto max-w-7xl space-y-6">
+    <section className="max-w-7xl space-y-6">
       <PageHeader
         title="Department management"
         description="View and manage departments."

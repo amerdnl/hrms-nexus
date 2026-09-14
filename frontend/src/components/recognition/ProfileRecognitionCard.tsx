@@ -44,7 +44,7 @@ export default function ProfileRecognitionCard({ personId, fullName, isSelf }: {
       actions={canGive ? (
         <Button variant="secondary" size="sm" icon={Plus} onClick={() => setIsGiving(true)}>Recognise {firstName}</Button>
       ) : isSelf ? (
-        <LinkButton to="/recognition?view=received" variant="ghost" size="sm">All received</LinkButton>
+        <LinkButton to="/recognition?view=received" variant="link" size="sm">All received</LinkButton>
       ) : undefined}
     >
       {notice && <Alert tone="success" className="mb-3" onDismiss={() => setNotice("")}>{notice}</Alert>}

@@ -323,7 +323,7 @@ export default function AdminLeavePage() {
     );
 
   return (
-    <section className="mx-auto max-w-7xl space-y-6">
+    <section className="max-w-7xl space-y-6">
       <PageHeader
         title="Leave"
         description="Review requests, then manage each employee's entitlements."

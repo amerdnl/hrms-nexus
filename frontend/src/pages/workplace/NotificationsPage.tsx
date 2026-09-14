@@ -85,7 +85,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="max-w-3xl space-y-6">
       <PageHeader
         title="Notifications"
         description={unread > 0 ? `${unread} unread.` : "You are all caught up."}

@@ -286,7 +286,7 @@ export default function ImportPage() {
         : status === "ready" ? "info" as const : "neutral" as const;
 
   return (
-    <section className="mx-auto max-w-6xl space-y-6">
+    <section className="max-w-6xl space-y-6">
       <PageHeader
         title="Import workforce data"
         description="Bring an existing company's employees into HR Nexus from a CSV or Excel file."

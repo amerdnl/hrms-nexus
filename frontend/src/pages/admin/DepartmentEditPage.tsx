@@ -98,7 +98,7 @@ export default function DepartmentEditPage() {
 
   if (isLoading) {
     return (
-      <section className="mx-auto max-w-2xl space-y-6" aria-busy="true">
+      <section className="max-w-2xl space-y-6" aria-busy="true">
         {header}
         <p className="sr-only" aria-live="polite">Loading department</p>
         <SectionCard>
@@ -113,7 +113,7 @@ export default function DepartmentEditPage() {
 
   if (loadFailed) {
     return (
-      <section className="mx-auto max-w-2xl space-y-6">
+      <section className="max-w-2xl space-y-6">
         {header}
         <SectionCard>
           <ErrorState title="This department could not be loaded" description={error} />
@@ -123,7 +123,7 @@ export default function DepartmentEditPage() {
   }
 
   return (
-    <section className="mx-auto max-w-2xl space-y-6">
+    <section className="max-w-2xl space-y-6">
       {header}
 
       {error && <Alert tone="danger">{error}</Alert>}

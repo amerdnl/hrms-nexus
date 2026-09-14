@@ -44,7 +44,7 @@ export default function LifecyclePlansPage({ kind }: { kind: LifecycleKind }) {
 
   const title = kind === "onboarding" ? "Onboarding" : "Offboarding";
   return (
-    <section className="mx-auto max-w-5xl space-y-6">
+    <section className="max-w-5xl space-y-6">
       <PageHeader
         title={title}
         description={kind === "onboarding"

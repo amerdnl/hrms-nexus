@@ -51,7 +51,7 @@ export default function GoalDetailPage() {
 
   if (state === "missing" || state === "failed") {
     return (
-      <section className="mx-auto max-w-3xl space-y-6">
+      <section className="max-w-3xl space-y-6">
         <PageHeader title="Goal" backTo="/goals" backLabel="My goals" />
         <SectionCard>
           {state === "missing"
@@ -62,7 +62,7 @@ export default function GoalDetailPage() {
     );
   }
   if (!detail) {
-    return <section className="mx-auto max-w-3xl space-y-6"><SectionCard><p className="sr-only" role="status">Loading the goal</p><SkeletonText lines={6} /></SectionCard></section>;
+    return <section className="max-w-3xl space-y-6"><SectionCard><p className="sr-only" role="status">Loading the goal</p><SkeletonText lines={6} /></SectionCard></section>;
   }
 
   const { goal, updates, relation } = detail;
@@ -70,7 +70,7 @@ export default function GoalDetailPage() {
   const back = relation === "owner" ? "/goals" : relation === "manager" ? "/team/goals" : `/people/${goal.ownerId}`;
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="max-w-3xl space-y-6">
       <PageHeader
         title={goal.title}
         backTo={back}

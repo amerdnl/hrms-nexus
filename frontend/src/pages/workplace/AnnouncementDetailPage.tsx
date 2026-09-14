@@ -95,7 +95,7 @@ export default function AnnouncementDetailPage() {
 
   if (state === "missing") {
     return (
-      <section className="mx-auto max-w-3xl space-y-6">
+      <section className="max-w-3xl space-y-6">
         <PageHeader title="Announcement" backTo="/announcements" backLabel="Announcements" />
         <SectionCard>
           <EmptyState
@@ -111,7 +111,7 @@ export default function AnnouncementDetailPage() {
 
   if (state === "failed") {
     return (
-      <section className="mx-auto max-w-3xl space-y-6">
+      <section className="max-w-3xl space-y-6">
         <PageHeader title="Announcement" backTo="/announcements" backLabel="Announcements" />
         <SectionCard><ErrorState title="This announcement could not be loaded" description={error} onRetry={load} /></SectionCard>
       </section>
@@ -120,7 +120,7 @@ export default function AnnouncementDetailPage() {
 
   if (state === "loading" || !announcement) {
     return (
-      <section className="mx-auto max-w-3xl space-y-6">
+      <section className="max-w-3xl space-y-6">
         <SectionCard><p className="sr-only" role="status">Loading the announcement</p><SkeletonText lines={8} /></SectionCard>
       </section>
     );
@@ -129,7 +129,7 @@ export default function AnnouncementDetailPage() {
   const stamp = announcement.publishedAt ?? announcement.updatedAt;
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="max-w-3xl space-y-6">
       <PageHeader
         title={announcement.title}
         backTo="/announcements"

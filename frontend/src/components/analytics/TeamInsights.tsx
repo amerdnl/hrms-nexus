@@ -70,7 +70,7 @@ export default function TeamInsights() {
                   </div>
                 ))
               )}
-              <LinkButton to="/team/reviews" variant="ghost" size="sm">Team reviews</LinkButton>
+              <LinkButton to="/team/reviews" variant="link" size="sm">Team reviews</LinkButton>
             </div>
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-fg">Leave taken in {data.leave.year}</h3>
@@ -86,8 +86,8 @@ export default function TeamInsights() {
                 />
               )}
               <div className="flex flex-wrap gap-2">
-                <LinkButton to="/team/leave" variant="ghost" size="sm">Team leave</LinkButton>
-                <LinkButton to="/team/goals" variant="ghost" size="sm">Team goals</LinkButton>
+                <LinkButton to="/team/leave" variant="link" size="sm">Team leave</LinkButton>
+                <LinkButton to="/team/goals" variant="link" size="sm">Team goals</LinkButton>
               </div>
             </div>
           </div>

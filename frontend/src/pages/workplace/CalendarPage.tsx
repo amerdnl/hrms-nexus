@@ -265,7 +265,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <section className="mx-auto max-w-6xl space-y-6">
+    <section className="max-w-6xl space-y-6">
       <PageHeader
         title="Calendar"
         description="Company holidays, events and who is out."

@@ -114,7 +114,7 @@ export default function PersonProfilePage() {
 
   if (isLoading) {
     return (
-      <section className="mx-auto max-w-6xl space-y-6" aria-busy="true">
+      <section className="max-w-6xl space-y-6" aria-busy="true">
         <p className="sr-only" aria-live="polite">Loading profile</p>
         <SectionCard>
           <div className="flex flex-col items-center gap-4 sm:flex-row">
@@ -133,7 +133,7 @@ export default function PersonProfilePage() {
   if (error || !profile) {
     const notFound = error?.status === 404;
     return (
-      <section className="mx-auto max-w-3xl space-y-6">
+      <section className="max-w-3xl space-y-6">
         <h1 className="text-2xl font-bold tracking-tight text-fg">Profile</h1>
         <SectionCard>
           {notFound ? (
@@ -158,8 +158,8 @@ export default function PersonProfilePage() {
     : false;
 
   return (
-    <section className="mx-auto max-w-6xl space-y-6">
-      {crumbs.length > 1 && <Breadcrumbs items={crumbs} className="-mb-3 hidden md:block" />}
+    <section className="max-w-6xl space-y-6">
+      {crumbs.length > 1 && <Breadcrumbs items={crumbs} className="mb-3 hidden md:block" />}
       <SectionCard>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
           <Avatar
@@ -221,7 +221,7 @@ export default function PersonProfilePage() {
             {relation === "admin" && <LinkButton to={`/admin/employees/${person.id}`} icon={IdCard} variant="secondary">Open HR record</LinkButton>}
             {/* A former employee is not on the chart, so HR is not offered a dead link. */}
             {(!person.employmentStatus || ["active", "probation"].includes(person.employmentStatus)) && (
-              <LinkButton to={`/org?focus=${person.id}`} icon={Network} variant="ghost">Show in org chart</LinkButton>
+              <LinkButton to={`/org?focus=${person.id}`} icon={Network} variant="link">Show in org chart</LinkButton>
             )}
           </div>
         </div>
@@ -261,7 +261,7 @@ export default function PersonProfilePage() {
               title="Team view"
               description="What you see as their manager. Colleagues do not."
               icon={Clock3}
-              actions={<LinkButton to="/team/attendance" variant="ghost" size="sm">Team attendance</LinkButton>}
+              actions={<LinkButton to="/team/attendance" variant="link" size="sm">Team attendance</LinkButton>}
             >
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm text-fg-muted">Today</span>

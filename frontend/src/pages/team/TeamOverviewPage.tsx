@@ -69,7 +69,7 @@ export default function TeamOverviewPage() {
 
   if (isLoading) {
     return (
-      <section className="mx-auto max-w-7xl space-y-6" aria-busy="true">
+      <section className="max-w-7xl space-y-6" aria-busy="true">
         {header}
         <p className="sr-only" aria-live="polite">Loading your team</p>
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
@@ -82,7 +82,7 @@ export default function TeamOverviewPage() {
 
   if (error || !overview) {
     return (
-      <section className="mx-auto max-w-7xl space-y-6">
+      <section className="max-w-7xl space-y-6">
         {header}
         <SectionCard>
           <ErrorState
@@ -99,7 +99,7 @@ export default function TeamOverviewPage() {
   const inToday = counts.present + counts.late;
 
   return (
-    <section className="mx-auto max-w-7xl space-y-6">
+    <section className="max-w-7xl space-y-6">
       {header}
 
       {notice && <Alert tone="success" onDismiss={() => setNotice("")}>{notice}</Alert>}
@@ -126,7 +126,7 @@ export default function TeamOverviewPage() {
           title="Today"
           description={formatDate(overview.today)}
           icon={Clock3}
-          actions={<LinkButton to="/team/attendance" variant="ghost" size="sm">Attendance</LinkButton>}
+          actions={<LinkButton to="/team/attendance" variant="link" size="sm">Attendance</LinkButton>}
           padded={members.length === 0}
         >
           {members.length === 0 ? (
@@ -187,7 +187,7 @@ export default function TeamOverviewPage() {
             )}
             {/* At the foot rather than in the header: the side column is too
                 narrow for a title and a link on one line. */}
-            <LinkButton to="/team/leave" variant="ghost" size="sm" className="mt-3">
+            <LinkButton to="/team/leave" variant="link" size="sm" className="mt-3">
               All team requests
             </LinkButton>
           </SectionCard>

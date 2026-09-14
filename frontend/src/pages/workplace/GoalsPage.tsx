@@ -34,7 +34,7 @@ export default function GoalsPage() {
   const shown = (goals ?? []).filter((goal) => goal.status === tab);
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="max-w-3xl space-y-6">
       <PageHeader
         title="My goals"
         description="What you are working towards, and how far along it is."

@@ -175,7 +175,7 @@ export default function OrgChartPage() {
   const managers = tree ? [...tree.children.keys()] : [];
 
   return (
-    <section className="mx-auto max-w-5xl space-y-6">
+    <section className="max-w-5xl space-y-6">
       <PageHeader
         title="Org chart"
         description="How the company is organised. Open anyone to see their profile."

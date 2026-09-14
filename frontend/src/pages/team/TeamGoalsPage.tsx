@@ -39,7 +39,7 @@ export default function TeamGoalsPage() {
   useEffect(load, [load]);
 
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
+    <section className="max-w-4xl space-y-6">
       <PageHeader
         title="Team goals"
         description="Goals for the people who report to you, private ones included."

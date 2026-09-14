@@ -123,7 +123,7 @@ export default function EmployeeDetailsPage() {
   // collapsing to a line of text, so nothing jumps when the record arrives.
   if (isLoading) {
     return (
-      <section className="mx-auto max-w-4xl space-y-6">
+      <section className="max-w-4xl space-y-6">
         <PageHeader
           title="Employee details"
           description="View employee information."
@@ -148,7 +148,7 @@ export default function EmployeeDetailsPage() {
 
   if (error || !employee) {
     return (
-      <section className="mx-auto max-w-4xl space-y-6">
+      <section className="max-w-4xl space-y-6">
         <PageHeader
           title="Employee details"
           backTo="/admin/employees"
@@ -167,7 +167,7 @@ export default function EmployeeDetailsPage() {
   const statusMeta = employmentStatusMeta(employee.employmentStatus);
 
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
+    <section className="max-w-4xl space-y-6">
       <PageHeader
         title="Employee details"
         description="View employee information."
