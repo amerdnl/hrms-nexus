@@ -30,7 +30,8 @@ import type {
   LeaveType,
 } from "../../types/leave";
 import { formatDate, formatDateRange } from "../../utils/datetime";
-import { calcLeaveDays, formatLeaveDuration } from "../../utils/leave";
+import { calcLeaveDays, countWorkingDays, describeWorkingWeek, formatLeaveDuration } from "../../utils/leave";
+import { getCalendarConfig } from "../../api/workplaceApi";
 import { leaveStatusMeta, leaveTypeMeta } from "../../utils/status";
 
 const initialForm: CreateLeaveRequestInput = {
@@ -86,6 +87,13 @@ export default function EmployeeLeavePage() {
   const [isLoadingBalances, setIsLoadingBalances] = useState(true);
   const [balancesFailed, setBalancesFailed] = useState(false);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  // The company's working week, holidays and today: the same ones the server
+  // uses to count a request and to decide whether it has started.
+  const [calendar, setCalendar] = useState<{ today: string; workingDays: number[] | null; holidays: Array<{ date: string; name: string }> } | null>(null);
+
+  useEffect(() => {
+    getCalendarConfig().then(setCalendar).catch(() => setCalendar(null));
+  }, []);
 
   const reload = useCallback(async () => {
     try {
@@ -165,14 +173,15 @@ export default function EmployeeLeavePage() {
     }
   }
 
-  // The calendar span of the chosen dates, and only that. The balance is
-  // charged WORKING days, which the server counts from the company's working
-  // week when the request is submitted. Employees cannot read that working
-  // week (Company Settings is administrator-only), so this page cannot
-  // preview the working-day figure and must not pretend to - it says so
-  // beside this number instead. The request's own working-day count appears
-  // in the history once submitted.
+  // The balance is charged WORKING days, counted from the company's working
+  // week. V3 exposes that week (and only that, with holidays and today) to
+  // every account, so the preview counts exactly as the server will. Without
+  // it the page falls back to the calendar span and says so.
   const requestedDays = calcLeaveDays(form.startDate, form.endDate);
+  const workingDaysInRange = calendar?.workingDays ? countWorkingDays(form.startDate, form.endDate, calendar.workingDays) : null;
+  const holidaysInRange = calendar && form.startDate && form.endDate
+    ? calendar.holidays.filter((holiday) => holiday.date >= form.startDate && holiday.date <= form.endDate)
+    : [];
   const selectedBalance = balances.find((balance) => balance.leaveType === form.leaveType) ?? null;
 
   const tabs: TabItem[] = [
@@ -184,8 +193,10 @@ export default function EmployeeLeavePage() {
     // Only leave that has not started can be withdrawn; anything else needs an
     // administrator correction, so no button is offered. The server enforces
     // the same rule and refuses otherwise.
+    // "Started" is judged by the company's today, as the server judges it -
+    // not by the browser's clock or its UTC date.
     (leave.status === "pending" || leave.status === "approved") &&
-    leave.startDate > new Date().toISOString().slice(0, 10);
+    leave.startDate > (calendar?.today ?? new Date().toISOString().slice(0, 10));
 
   const cancelButton = (leave: LeaveRequest) =>
     canCancel(leave) ? (
@@ -288,11 +299,19 @@ export default function EmployeeLeavePage() {
                   <div>
                     <p className="text-sm font-semibold text-fg">
                       {formatDateRange(form.startDate, form.endDate)} ·{" "}
-                      {requestedDays} calendar day{requestedDays === 1 ? "" : "s"}
+                      {workingDaysInRange !== null
+                        ? `${workingDaysInRange} working day${workingDaysInRange === 1 ? "" : "s"}`
+                        : `${requestedDays} calendar day${requestedDays === 1 ? "" : "s"}`}
                     </p>
                     <p className="mt-0.5 text-xs text-fg-muted">
-                      Your balance is charged only the working days in this range,
-                      counted from your company&rsquo;s working week when you submit.
+                      {workingDaysInRange === null
+                        ? "Your balance is charged only the working days in this range, counted from your company\u2019s working week when you submit."
+                        : workingDaysInRange === 0
+                          ? "There are no working days in this range, so there is no leave to request."
+                          : `Counted from your company\u2019s working week (${describeWorkingWeek(calendar!.workingDays!)}), exactly as your balance will be charged.`}
+                      {holidaysInRange.length > 0 && workingDaysInRange !== null && (
+                        ` Includes ${holidaysInRange.map((holiday) => holiday.name).join(", ")}: company holidays inside a leave range are still counted.`
+                      )}
                     </p>
                   </div>
                 </div>

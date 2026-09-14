@@ -53,7 +53,7 @@ import {
   type PayrollRecordDetail,
   type PayrollStatus,
 } from "../../types/payroll";
-import { formatDateRange } from "../../utils/datetime";
+import { formatDateRange, formatDateTime } from "../../utils/datetime";
 
 const statusTone: Record<PayrollStatus, "neutral" | "info" | "warning" | "success" | "primary"> = {
   draft: "neutral", calculated: "info", reviewed: "warning",
@@ -287,6 +287,17 @@ export default function AdminPayrollPage() {
                     {formatDateRange(period.start_date, period.end_date)} ·{" "}
                     {period.working_days} working days
                   </p>
+                  {/* When each step happened, so the state above is never a guess. */}
+                  {(period.calculated_at || period.reviewed_at || period.approved_at || period.paid_at) && (
+                    <p className="mt-1 text-xs text-fg-subtle">
+                      {[
+                        period.calculated_at && `Calculated ${formatDateTime(period.calculated_at)}`,
+                        period.reviewed_at && `Reviewed ${formatDateTime(period.reviewed_at)}`,
+                        period.approved_at && `Approved ${formatDateTime(period.approved_at)}`,
+                        period.paid_at && `Paid ${formatDateTime(period.paid_at)}`,
+                      ].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

@@ -1,5 +1,6 @@
 import {
   Award,
+  Clock,
   Bell,
   CalendarCheck2,
   CalendarClock,
@@ -29,6 +30,7 @@ export const notificationIcons: Record<NotificationKind, LucideIcon> = {
   leave_rejected: CircleX,
   leave_cancelled: CalendarX2,
   payslip_published: Wallet,
+  payroll_paid: Wallet,
   announcement_published: Megaphone,
   manager_changed: Network,
   report_added: UserPlus,
@@ -58,4 +60,5 @@ export const actionIcons: Record<ActionKind, LucideIcon> = {
   offboarding_ready: UserMinus,
   review: ClipboardList,
   goal_overdue: Target,
+  attendance_exception: Clock,
 };

@@ -10,6 +10,7 @@ export type NotificationKind =
   | "leave_rejected"
   | "leave_cancelled"
   | "payslip_published"
+  | "payroll_paid"
   | "announcement_published"
   | "manager_changed"
   | "report_added"
@@ -50,7 +51,8 @@ export type ActionKind =
   | "lifecycle_task"
   | "offboarding_ready"
   | "review"
-  | "goal_overdue";
+  | "goal_overdue"
+  | "attendance_exception";
 
 export interface ActionItem {
   id: string;

@@ -35,6 +35,42 @@ export function calcLeaveDays(
 }
 
 /**
+ * Working days between two dates, counted exactly as the server counts them
+ * when a request is submitted: every day whose ISO weekday (Monday = 1) is in
+ * the company's working week. Company holidays inside the range are counted
+ * like any other working day, as they are for balances and payroll.
+ */
+export function countWorkingDays(
+  startDate: string | null | undefined,
+  endDate: string | null | undefined,
+  workingDays: readonly number[],
+): number | null {
+  const start = toIsoDate(startDate);
+  const end = toIsoDate(endDate);
+  if (!start || !end || start > end) return null;
+  const [sy, sm, sd] = start.split("-").map(Number);
+  const [ey, em, ed] = end.split("-").map(Number);
+  const last = Date.UTC(ey, em - 1, ed);
+  let count = 0;
+  for (let day = Date.UTC(sy, sm - 1, sd); day <= last; day += 86_400_000) {
+    const weekday = new Date(day).getUTCDay();
+    if (workingDays.includes(weekday === 0 ? 7 : weekday)) count += 1;
+  }
+  return count;
+}
+
+const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** "Mon–Fri", or a list such as "Sun, Mon, Tue, Wed, Thu" when the week is not one run. */
+export function describeWorkingWeek(workingDays: readonly number[]): string {
+  const days = [...workingDays].sort((a, b) => a - b);
+  if (days.length === 0) return "no working days";
+  const contiguous = days.every((day, index) => index === 0 || day === days[index - 1]! + 1);
+  if (contiguous && days.length > 2) return `${WEEKDAY_NAMES[days[0]! - 1]}–${WEEKDAY_NAMES[days[days.length - 1]! - 1]}`;
+  return days.map((day) => WEEKDAY_NAMES[day - 1]).join(", ");
+}
+
+/**
  * How long a request is, in the unit that actually affects a balance.
  *
  * The server snapshots working days at submission - weekends and non-working
