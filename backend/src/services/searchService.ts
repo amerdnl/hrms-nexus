@@ -47,10 +47,14 @@ const destinations: Destination[] = [
   { label: "My attendance", description: "Check in and your history", path: "/employee/attendance", keywords: "check in clock in check out qr", requires: "employee" },
   { label: "Request leave", description: "Apply for time off and see balances", path: "/employee/leave", keywords: "leave holiday time off vacation annual medical balance apply", requires: "employee" },
   { label: "My payslips", description: "Approved payslips", path: "/employee/payroll", keywords: "payslip salary pay payroll", requires: "employee" },
+  { label: "My goals", description: "Your goals and their progress", path: "/goals", keywords: "goals objectives okr targets progress", requires: "employee" },
+  { label: "My reviews", description: "Self-reviews and your manager's reviews", path: "/reviews", keywords: "review performance appraisal self-review feedback rating", requires: "employee" },
   { label: "My profile", description: "Your details and About me", path: "/employee/profile", keywords: "profile about skills password account", requires: "employee" },
 
   { label: "Team overview", description: "Your direct reports today", path: "/team", keywords: "team reports manager direct", requires: "manager" },
   { label: "Team leave", description: "Decide your team's leave", path: "/team/leave", keywords: "team leave approve reject decide requests", requires: "manager" },
+  { label: "Team goals", description: "Your reports' goals", path: "/team/goals", keywords: "team goals objectives progress", requires: "manager" },
+  { label: "Team reviews", description: "Reviews to write for your reports", path: "/team/reviews", keywords: "team reviews performance appraisal", requires: "manager" },
   { label: "Team attendance", description: "Your team's attendance", path: "/team/attendance", keywords: "team attendance late absent", requires: "manager" },
 
   { label: "Company dashboard", description: "Workforce at a glance", path: "/admin/dashboard", keywords: "home overview admin", requires: "admin" },
@@ -64,6 +68,7 @@ const destinations: Destination[] = [
   { label: "Data export", description: "Download company data", path: "/admin/export", keywords: "export csv xlsx download", requires: "admin" },
   { label: "Import", description: "Bring in employee data", path: "/admin/import", keywords: "import upload spreadsheet csv", requires: "admin" },
   { label: "Company settings", description: "Working week, office and holidays", path: "/admin/settings", keywords: "settings timezone working week office geofence holidays", requires: "admin" },
+  { label: "Performance", description: "Review cycles", path: "/admin/performance", keywords: "performance review cycles appraisal goals", requires: "admin" },
   { label: "Onboarding", description: "New joiners' checklists", path: "/admin/onboarding", keywords: "onboarding new hire joiner starter checklist", requires: "admin" },
   { label: "Offboarding", description: "Leavers' checklists and deactivation", path: "/admin/offboarding", keywords: "offboarding leaver exit resignation checklist deactivate", requires: "admin" },
   { label: "New announcement", description: "Write to the company or a department", path: "/admin/announcements/new", keywords: "announcement publish post notice", requires: "admin" },

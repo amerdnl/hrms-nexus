@@ -19,7 +19,9 @@ import pool from "../config/db.js";
 import type { AuthenticatedUser } from "../types/auth.js";
 import { readerFor, unreadImportant } from "./announcementService.js";
 import { calendarConfig, eventsBetween, holidaysBetween } from "./calendarService.js";
+import { overdueGoals } from "./goalService.js";
 import { myWork, offboardingReadyToComplete } from "./lifecycleService.js";
+import { reviewActions } from "./reviewService.js";
 import { listFor } from "./notificationService.js";
 import { addDays } from "../utils/companyClock.js";
 import { formatDateRange, formatMonth, leaveTypeLabel, plural } from "../utils/dateText.js";
@@ -31,7 +33,7 @@ export interface ActionItem {
   id: string;
   kind:
     | "leave_decision" | "payroll_step" | "announcement" | "leave_waiting" | "leave_upcoming"
-    | "team_out" | "holiday" | "event" | "lifecycle_task" | "offboarding_ready";
+    | "team_out" | "holiday" | "event" | "lifecycle_task" | "offboarding_ready" | "review" | "goal_overdue";
   title: string;
   detail: string | null;
   /** The company date it concerns, when it has one. */
@@ -169,6 +171,18 @@ async function lifecycleActions(user: AuthenticatedUser, db: Db): Promise<Action
   return items;
 }
 
+/** Reviews to write, reports to review, cycles running late, and your own overdue goals. */
+async function performanceActions(user: AuthenticatedUser, db: Db): Promise<ActionItem[]> {
+  const reviews: ActionItem[] = (await reviewActions(user, db)).map((item) => ({
+    id: item.id, kind: "review", title: item.title, detail: item.detail, date: item.date, link: item.link, important: item.overdue,
+  }));
+  const goals: ActionItem[] = (await overdueGoals(user, db)).map((goal) => ({
+    id: `goal:${goal.id}`, kind: "goal_overdue", title: `Goal past due: ${goal.title}`,
+    detail: `${goal.progress}% done`, date: goal.dueOn, link: `/goals/${goal.id}`,
+  }));
+  return [...reviews, ...goals];
+}
+
 async function ownPendingLeave(user: AuthenticatedUser, db: Db): Promise<ActionItem[]> {
   if (user.employeeId === null) return [];
   const result = await db.query<PendingLeaveRow & { manager_name: string | null }>(
@@ -281,7 +295,8 @@ export async function actionCenterFor(user: AuthenticatedUser, db: Db = pool) {
   }));
 
   const requiresAction = [
-    ...announcements, ...uniqueDecisions, ...await lifecycleActions(user, db), ...await payrollSteps(user, db),
+    ...announcements, ...uniqueDecisions, ...await lifecycleActions(user, db), ...await performanceActions(user, db),
+    ...await payrollSteps(user, db),
   ];
   const recent = await listFor(user.id, { unreadOnly: false, beforeId: null, limit: 5 }, db);
 
