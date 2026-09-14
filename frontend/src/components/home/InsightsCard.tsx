@@ -193,7 +193,7 @@ export default function InsightsCard({ today, workingDays, className }: { today:
                 delta: <Delta current={data?.shown.leaveRequests ?? null} previous={data?.compared.leaveRequests ?? null} kind="relative" better="neither" />,
               },
               {
-                label: "Late check-ins",
+                label: "Late check‑ins",
                 value: data ? String(data.shown.late) : "—",
                 delta: <Delta current={data?.shown.late ?? null} previous={data?.compared.late ?? null} kind="relative" better="down" />,
               },
