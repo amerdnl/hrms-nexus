@@ -1,455 +1,224 @@
-import {
-  ArrowRight,
-  CalendarDays,
-  CalendarOff,
-  CalendarPlus,
-  Clock3,
-  ShieldAlert,
-  UserRound,
-  Wallet,
-} from "lucide-react";
+import { Award, Clock3, Inbox, LogIn, LogOut, Target, Users, Wallet, CalendarDays } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { getEmployeeDashboard } from "../../api/dashboardApi";
-import TodayAttendanceCard from "../../components/attendance/TodayAttendanceCard";
+import { getActionCenter } from "../../api/workplaceApi";
 import VerifiedClockPanel from "../../components/attendance/VerifiedClockPanel";
-import TeamSummaryCard from "../../components/team/TeamSummaryCard";
-import { ActionSummaryCard, AnnouncementsCard } from "../../components/workplace/WorkplaceCards";
-import RecentRecognitionCard from "../../components/recognition/RecentRecognitionCard";
-import ProfileGoalsCard from "../../components/performance/ProfileGoalsCard";
-import { useAuth } from "../../context/useAuth";
+import ActionsCard from "../../components/home/ActionsCard";
+import GoalsCard from "../../components/home/GoalsCard";
+import HomeGreeting from "../../components/home/HomeGreeting";
+import HomeMountain from "../../components/home/HomeMountain";
+import KpiCard from "../../components/home/KpiCard";
+import LeaveCard from "../../components/home/LeaveCard";
+import RecognitionCard from "../../components/home/RecognitionCard";
+import SplitAction from "../../components/home/SplitAction";
+import TeamCard from "../../components/home/TeamCard";
+import TodayCard from "../../components/home/TodayCard";
+import UpdatesCard from "../../components/home/UpdatesCard";
+import { formatClock, givenName } from "../../components/home/homeTime";
+import { useCompanyCalendar } from "../../components/home/useCompanyCalendar";
 import Alert from "../../components/ui/Alert";
-import EmptyState from "../../components/ui/EmptyState";
-import ErrorState from "../../components/ui/ErrorState";
-import LinkButton from "../../components/ui/LinkButton";
-import ProgressBar from "../../components/ui/ProgressBar";
-import SectionCard from "../../components/ui/SectionCard";
-import Skeleton, { SkeletonText } from "../../components/ui/Skeleton";
-import StatusBadge from "../../components/ui/StatusBadge";
-import type {
-  EmployeeAttendanceEntry,
-  EmployeeDashboardData,
-  EmployeeLeaveEntry,
-} from "../../types/dashboard";
-import { formatPeriod, formatSen } from "../../types/payroll";
-import { formatDate, formatDateRange, formatTime } from "../../utils/datetime";
-import { formatLeaveDuration } from "../../utils/leave";
-import {
-  attendanceStatusMeta,
-  leaveStatusMeta,
-  leaveTypeMeta,
-} from "../../utils/status";
+import { useAuth } from "../../context/useAuth";
+import type { EmployeeDashboardData } from "../../types/dashboard";
+import { formatSen } from "../../types/payroll";
+import type { ActionCenter } from "../../types/workplace";
+import { calcWorkMinutes, formatWorkHours } from "../../utils/attendance";
+import { attendanceStatusMeta } from "../../utils/status";
 
+type ClockMode = "check-in" | "check-out";
+
+const shortPeriod = (year: number, month: number) =>
+  new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 1)));
+
+/**
+ * The employee's Home: the same design language as HR's, arranged around one
+ * person's day rather than the company's - am I checked in, what needs me,
+ * what is on today, my leave, my goals, what the company is saying, and who
+ * thanked me. A manager additionally sees their team today; nothing here is an
+ * administration surface, and every card is the account's own data.
+ */
 export default function EmployeeDashboardPage() {
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState<EmployeeDashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [dashboardError, setDashboardError] = useState("");
+  const [actions, setActions] = useState<ActionCenter | null>(null);
+  const [actionsFailed, setActionsFailed] = useState(false);
+  const [clockMode, setClockMode] = useState<ClockMode | null>(null);
   const [message, setMessage] = useState("");
-  const [clockMode, setClockMode] = useState<"check-in" | "check-out" | null>(null);
+  const { state: calendarState, calendar } = useCompanyCalendar(14);
 
   const load = useCallback(async () => {
-    setError("");
+    setDashboardError("");
     try {
       setDashboard(await getEmployeeDashboard());
-    } catch (requestError) {
-      setError(getApiErrorMessage(requestError, "Unable to load your dashboard."));
-      // The stale payload is dropped: a failed reload must never be read as
-      // current information.
+    } catch (error) {
+      // A failed reload is never shown as current information.
       setDashboard(null);
-    } finally {
-      setIsLoading(false);
+      setDashboardError(getApiErrorMessage(error, "Your day could not be loaded."));
     }
   }, []);
 
   useEffect(() => {
     void load();
+    getActionCenter().then(setActions).catch(() => setActionsFailed(true));
   }, [load]);
 
-  if (isLoading) {
-    return (
-      <section className="mx-auto max-w-7xl space-y-6" aria-busy="true">
-        <p className="sr-only" aria-live="polite">Loading your dashboard</p>
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-72" />
-          <Skeleton className="h-4 w-56" />
-        </div>
-        <div className="grid items-start gap-6 lg:grid-cols-3">
-          <SectionCard className="lg:col-span-2">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="mt-4 h-10 w-56" />
-            <SkeletonText lines={2} className="mt-6" />
-          </SectionCard>
-          <SectionCard><SkeletonText lines={5} /></SectionCard>
-        </div>
-      </section>
-    );
-  }
+  const attendance = dashboard?.todayAttendance ?? null;
+  const checkedIn = Boolean(attendance?.checkInTime);
+  const checkedOut = Boolean(attendance?.checkOutTime);
+  const next: ClockMode | null = !dashboard ? null : !checkedIn ? "check-in" : !checkedOut ? "check-out" : null;
+  const annual = dashboard?.leaveBalances?.find((balance) => balance.leaveType === "annual") ?? null;
+  const balancesUnavailable = dashboard?.unavailable.includes("leaveBalances") ?? false;
+  const payslipUnavailable = dashboard?.unavailable.includes("payslip") ?? false;
+  const payslip = dashboard?.latestPayslip ?? null;
+  const actionCount = actions?.requiresAction.length ?? 0;
+  const loading = !dashboard && !dashboardError;
 
-  if (error || !dashboard) {
-    return (
-      <section className="mx-auto max-w-3xl">
-        <SectionCard>
-          <ErrorState
-            title="Your dashboard could not be loaded"
-            description={error || "No dashboard data was returned."}
-            onRetry={() => { setIsLoading(true); void load(); }}
-          />
-        </SectionCard>
-      </section>
-    );
-  }
-
-  const {
-    employee, todayAttendance, recentAttendance, leaveBalances, leaveYear,
-    pendingLeaveCount, upcomingLeave, recentLeaves, latestPayslip, unavailable,
-  } = dashboard;
-
-  const balancesUnavailable = unavailable.includes("leaveBalances");
-  const payslipUnavailable = unavailable.includes("payslip");
-
-  // Annual leave is the balance an employee asks about first; the rest are
-  // listed in full below. Absent rather than zero when it could not be read.
-  const annual = leaveBalances?.find((balance) => balance.leaveType === "annual") ?? null;
-
-  return (
-    <section className="mx-auto max-w-7xl space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
-          {greeting()}, {givenName(employee.fullName)}
-        </h1>
-        <p className="mt-1 text-sm text-fg-muted">
-          {formatDate(dashboard.today)} · {employee.jobTitle ?? "Employee"}
-          {employee.departmentName ? `, ${employee.departmentName}` : ""}
-        </p>
-      </header>
-
-      {message && <Alert tone="success" onDismiss={() => setMessage("")}>{message}</Alert>}
-
-      {/*
-        Three regions on one grid. Today leads; the side column (leave, pay,
-        recent attendance) spans both rows; the lists and employment sit under
-        Today. The first row is sized by Today alone (auto) and the second
-        takes the rest (1fr), so the side column's extra height lands at the
-        very bottom instead of opening a gap under Today. DOM order is Today,
-        side, lists - which is also the phone order, so checking in is the
-        first thing on a small screen.
-      */}
-      <div className="grid items-start gap-6 lg:grid-cols-3 lg:grid-rows-[auto_1fr]">
-        <div className="space-y-6 lg:col-span-2">
-          <TodayAttendanceCard
-            dateLabel={formatDate(dashboard.today)}
-            status={todayAttendance?.status ?? null}
-            checkInTime={todayAttendance?.checkInTime}
-            checkOutTime={todayAttendance?.checkOutTime}
-            verificationStatus={todayAttendance?.verificationStatus ?? null}
-            lateMinutes={todayAttendance?.lateMinutes ?? null}
-            actionsDisabled={clockMode !== null}
-            onStart={(mode) => { setClockMode(mode); setMessage(""); }}
-          />
-
-          {clockMode && (
-            <VerifiedClockPanel
-              mode={clockMode}
-              onRecorded={() => {
-                setClockMode(null);
-                setMessage(
-                  clockMode === "check-in" ? "Checked in successfully." : "Checked out successfully.",
-                );
-                // Re-read from the server rather than patching local state, so the
-                // dashboard shows what was actually recorded.
-                void load();
-              }}
-              onCancel={() => setClockMode(null)}
-            />
-          )}
-
-        </div>
-
-        <div className="space-y-6 lg:col-start-3 lg:row-span-2 lg:row-start-1">
-          {/* Only for someone who manages people; the card's own request is
-              refused by the server for anyone else. */}
-          {user?.isManager && <TeamSummaryCard />}
-          <ActionSummaryCard />
-          <AnnouncementsCard />
-          {user?.employeeId && <ProfileGoalsCard personId={user.employeeId} isSelf />}
-          <RecentRecognitionCard />
-
-          <SectionCard title="Annual leave" icon={CalendarDays} actions={<LinkButton to="/employee/leave" variant="ghost" size="sm">Leave</LinkButton>}>
-            {balancesUnavailable ? (
-              <p className="text-sm text-fg-muted">
-                Your balance could not be loaded. This is a temporary problem, not a balance of zero.
-              </p>
-            ) : annual ? (
-              <>
-                <p className="text-3xl font-bold tracking-tight text-fg">
-                  {annual.remainingDays}
-                  <span className="ml-1.5 text-sm font-medium text-fg-muted">
-                    of {annual.entitledDays} days left
-                  </span>
-                </p>
-                <ProgressBar
-                  className="mt-3"
-                  tone="primary"
-                  value={annual.remainingDays}
-                  max={annual.entitledDays}
-                  label={`${annual.remainingDays} of ${annual.entitledDays} annual leave days remaining`}
-                  isDecorative
-                />
-                <p className="mt-2 text-xs text-fg-subtle">
-                  {annual.availableDays} available after pending
-                  {pendingLeaveCount > 0 ? ` · ${pendingLeaveCount} request${pendingLeaveCount === 1 ? "" : "s"} pending` : ""}
-                  {leaveYear ? ` · ${leaveYear}` : ""}
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-fg-muted">No annual leave policy is active.</p>
-            )}
-          </SectionCard>
-
-          <SectionCard title="Latest payslip" icon={Wallet} actions={<LinkButton to="/employee/payroll" variant="ghost" size="sm">Payslips</LinkButton>}>
-            {payslipUnavailable ? (
-              <p className="text-sm text-fg-muted">
-                Could not be loaded. This is a temporary problem, not an absence of pay records.
-              </p>
-            ) : latestPayslip ? (
-              <>
-                <p className="text-xs font-medium text-fg-muted">
-                  {formatPeriod(latestPayslip.periodYear, latestPayslip.periodMonth)} · net pay
-                </p>
-                <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-fg">
-                  <span className="mr-1 text-base font-semibold text-fg-muted">RM</span>
-                  {formatSen(latestPayslip.netSen)}
-                </p>
-                <p className="mt-2 text-xs text-fg-subtle">
-                  Gross {formatSen(latestPayslip.grossSen)} · deductions {formatSen(latestPayslip.deductionsSen)}
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-fg-muted">
-                No payslip yet. One appears once a payroll period has been approved.
-              </p>
-            )}
-          </SectionCard>
-
-          <SectionCard
-            title="Recent attendance"
-            icon={Clock3}
-            actions={
-                <LinkButton
-                  to="/employee/attendance"
-                  variant="ghost"
-                  size="sm"
-                  icon={ArrowRight}
-                  aria-label="Attendance history"
-                  title="Attendance history"
-                />
-              }
-          >
-            {recentAttendance.length === 0 ? (
-              <EmptyState
-                icon={Clock3}
-                title="No attendance recorded yet"
-                description="Your check-ins appear here once you start recording them."
-                className="py-6"
-              />
-            ) : (
-              <ul className="divide-y divide-line">
-                {recentAttendance.map((entry) => (
-                  <AttendanceRow key={entry.id} entry={entry} />
-                ))}
-              </ul>
-            )}
-          </SectionCard>
-        </div>
-
-        <div className="space-y-6 lg:col-span-2 lg:row-start-2">
-          <div className="grid items-start gap-6 md:grid-cols-2">
-            <SectionCard
-              title="Leave balances"
-              description={leaveYear ? `Leave year ${leaveYear}` : undefined}
-              icon={CalendarDays}
-            >
-              {balancesUnavailable ? (
-                <EmptyState
-                  icon={ShieldAlert}
-                  title="Your leave balance could not be loaded"
-                  description="This is a temporary problem reading the balance, not a balance of zero."
-                  action={<LinkButton to="/employee/leave" variant="secondary">Open Leave</LinkButton>}
-                  className="py-6"
-                />
-              ) : (leaveBalances?.length ?? 0) === 0 ? (
-                <EmptyState
-                  icon={CalendarOff}
-                  title="No leave types are active"
-                  description="Once a leave policy is active your entitlement appears here."
-                  className="py-6"
-                />
-              ) : (
-                <ul className="space-y-4">
-                  {leaveBalances!.map((balance) => {
-                    const meta = leaveTypeMeta(balance.leaveType);
-                    return (
-                      <li key={balance.leaveType}>
-                        <div className="flex items-baseline justify-between gap-3 text-sm">
-                          <span className="font-medium text-fg">
-                            {meta.label}
-                            {!balance.isPaid && <span className="ml-2 text-xs font-normal text-fg-subtle">unpaid</span>}
-                          </span>
-                          {balance.deductsBalance ? (
-                            <span className="tabular-nums text-fg">
-                              <span className="font-semibold">{balance.remainingDays}</span>
-                              <span className="text-fg-subtle"> / {balance.entitledDays}</span>
-                            </span>
-                          ) : (
-                            <span className="text-xs text-fg-muted">{balance.usedDays} taken</span>
-                          )}
-                        </div>
-                        {balance.deductsBalance ? (
-                          <ProgressBar
-                            className="mt-2"
-                            size="sm"
-                            tone={meta.tone}
-                            value={balance.remainingDays}
-                            max={balance.entitledDays}
-                            label={`${meta.label}: ${balance.remainingDays} of ${balance.entitledDays} days remaining`}
-                            isDecorative
-                          />
-                        ) : (
-                          <p className="mt-1 text-xs text-fg-subtle">Does not deduct from a balance</p>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </SectionCard>
-
-            <SectionCard
-              title="Leave"
-              icon={CalendarDays}
-              actions={<LinkButton to="/employee/leave" variant="ghost" size="sm" icon={CalendarPlus}>Apply</LinkButton>}
-            >
-              {upcomingLeave && (
-                <div className="mb-4 rounded-xl bg-info-soft p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-info-fg">Next approved leave</p>
-                  <p className="mt-1 text-sm font-semibold text-fg">
-                    {formatDateRange(upcomingLeave.startDate, upcomingLeave.endDate)}
-                  </p>
-                  <p className="mt-0.5 text-xs text-fg-muted">
-                    {leaveTypeMeta(upcomingLeave.leaveType).label} · {formatLeaveDuration(upcomingLeave)}
-                  </p>
-                </div>
-              )}
-
-              {recentLeaves.length === 0 ? (
-                <EmptyState
-                  icon={CalendarOff}
-                  title="No leave requests yet"
-                  description="Requests you submit are listed here with their status."
-                  className="py-6"
-                />
-              ) : (
-                <ul className="divide-y divide-line">
-                  {recentLeaves.map((leave) => (
-                    <LeaveRow key={leave.id} leave={leave} />
-                  ))}
-                </ul>
-              )}
-            </SectionCard>
-
-          </div>
-        <SectionCard title="Employment" icon={UserRound} actions={<LinkButton to="/employee/profile" variant="ghost" size="sm">Profile</LinkButton>}>
-          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <Fact label="Employee number" value={employee.employeeNumber} />
-            <Fact label="Job title" value={employee.jobTitle ?? "Not recorded"} />
-            <Fact label="Department" value={employee.departmentName ?? "Not assigned"} />
-            <Fact label="Employment status" value={employee.employmentStatus.replaceAll("_", " ")} capitalize />
-            <Fact label="Joined" value={employee.employmentDate ? formatDate(employee.employmentDate) : "Not recorded"} />
-          </dl>
-        </SectionCard>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/**
- * Greeting word from the viewer's clock. Cosmetic only - nothing here decides
- * a date; the company-local date shown beside it comes from the server.
- */
-function greeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
-}
-
-/**
- * The name to greet someone by. For a patronymic name the given name is
- * everything before "bin", "binti", "a/l" or "a/p" - "Nurul Aisyah binti
- * Kamal" is greeted as "Nurul Aisyah", not "Nurul". Otherwise the first word.
- */
-function givenName(fullName: string): string {
-  const match = fullName.match(/^(.+?)\s+(?:bin|binti|bte|a\/l|a\/p)\s/i);
-  if (match) return match[1];
-  return fullName.split(/\s+/)[0] || fullName;
-}
-
-/**
- * `capitalize` is opt-in. Applied to everything it title-cases each word, which
- * turns a real job title such as "Head of People" into "Head Of People"; it is
- * only correct for the lowercase enum values stored for employment status.
- */
-function Fact(
-  { label, value, capitalize = false }:
-  { label: string; value: string; capitalize?: boolean },
-) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs text-fg-subtle">{label}</dt>
-      <dd className={`mt-0.5 break-words text-sm font-medium text-fg${capitalize ? " capitalize" : ""}`}>
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function AttendanceRow({ entry }: { entry: EmployeeAttendanceEntry }) {
-  return (
-    <li className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-fg">{formatDate(entry.attendanceDate)}</p>
-        <p className="mt-0.5 text-xs tabular-nums text-fg-subtle">
-          {formatTime(entry.checkInTime)} – {formatTime(entry.checkOutTime)}
-          {entry.lateMinutes !== null && entry.lateMinutes > 0 && (
-            <span className="ml-2 text-warning-fg">{entry.lateMinutes} min late</span>
-          )}
-        </p>
-      </div>
-
-      <StatusBadge {...attendanceStatusMeta(entry.status)} />
-    </li>
-  );
-}
-
-function LeaveRow({ leave }: { leave: EmployeeLeaveEntry }) {
-  return (
-    <li className="py-3 first:pt-0 last:pb-0">
-      <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 truncate text-sm font-medium text-fg">
-          {leaveTypeMeta(leave.leaveType).label} leave
-        </p>
-        <StatusBadge {...leaveStatusMeta(leave.status)} />
-      </div>
-
-      <p className="mt-0.5 text-xs text-fg-subtle">
-        {formatDateRange(leave.startDate, leave.endDate)} · {formatLeaveDuration(leave)}
+  const attendanceAside = dashboard ? (
+    <div className="text-left sm:text-right">
+      <p className="text-[0.9375rem] font-medium text-feature-fg">
+        {!checkedIn ? "Not checked in" : !checkedOut ? `Checked in ${formatClock(attendance!.checkInTime!)}` : "Done for today"}
       </p>
-
-      {leave.adminComment && (
-        <p className="mt-1 text-xs text-fg-muted">Admin: {leave.adminComment}</p>
+      <p className="mt-1 text-[0.8125rem] text-feature-muted">
+        {!checkedIn
+          ? "Verified with the office QR code"
+          : !checkedOut
+            ? attendance?.verificationStatus === "verified" ? "Verified check-in" : attendanceStatusMeta(attendance!.status).label
+            : `${formatWorkHours(calcWorkMinutes(attendance?.checkInTime, attendance?.checkOutTime))} worked`}
+      </p>
+      {next && (
+        <button
+          type="button"
+          onClick={() => { setClockMode(next); setMessage(""); }}
+          disabled={clockMode !== null}
+          className="mt-3 inline-flex h-9 items-center gap-2 rounded-full bg-white px-4 text-sm font-medium text-[#0b1b2e] transition-colors hover:bg-white/90 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7fd3bf]"
+        >
+          {next === "check-in" ? <LogIn size={15} aria-hidden="true" /> : <LogOut size={15} aria-hidden="true" />}
+          {next === "check-in" ? "Check in" : "Check out"}
+        </button>
       )}
-    </li>
+    </div>
+  ) : undefined;
+
+  const bottomCards = user?.isManager
+    ? [<TeamCard key="team" />, <GoalsCard key="goals" />, <UpdatesCard key="updates" className="md:col-span-2 min-[80rem]:col-span-1" />]
+    : [<GoalsCard key="goals" />, <UpdatesCard key="updates" />, <RecognitionCard key="recognition" className="md:col-span-2 min-[80rem]:col-span-1" />];
+
+  const name = dashboard?.employee.fullName ?? user?.employee?.fullName ?? null;
+
+  return (
+    <div className="relative mx-auto w-full max-w-[89rem]">
+      <HomeMountain showWords className="absolute -top-10 left-[29.1%] hidden w-[46.9%] min-[80rem]:block" />
+      <HomeMountain className="absolute -top-6 right-0 hidden w-[52%] md:block min-[80rem]:hidden" />
+      <HomeMountain className="-mt-2 mb-1 w-full max-w-md opacity-90 md:hidden" />
+
+      <div className="relative pb-8 pt-2 md:pt-8">
+        <HomeGreeting
+          name={name ? givenName(name) : null}
+          lines={["Here’s your day at a glance.", "Let’s keep things moving."]}
+          action={
+            <SplitAction
+              primary={{ label: "Request leave", to: "/employee/leave", icon: CalendarDays }}
+              more={[
+                { label: "Recognise someone", to: "/recognition", icon: Award },
+                { label: "My goals", to: "/goals", icon: Target },
+                { label: "My payslips", to: "/employee/payroll", icon: Wallet },
+                { label: "Find a colleague", to: "/people", icon: Users },
+              ]}
+            />
+          }
+        />
+      </div>
+
+      {dashboardError && (
+        <Alert tone="danger" className="mb-4">
+          {dashboardError}{" "}
+          <button type="button" onClick={() => void load()} className="font-semibold underline">Try again</button>
+        </Alert>
+      )}
+      {message && <Alert tone="success" className="mb-4" onDismiss={() => setMessage("")}>{message}</Alert>}
+
+      <div className="grid gap-4 [&>*]:min-w-0 min-[80rem]:grid-cols-[minmax(0,1fr)_20.73%] min-[80rem]:gap-[1.0625rem]">
+        <div className="min-w-0 space-y-4 min-[80rem]:space-y-[1.0625rem]">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 [&>*]:min-w-0 lg:grid-cols-4 min-[80rem]:grid-cols-[1.19fr_1fr_0.945fr_1fr] min-[80rem]:gap-[1.0625rem]">
+            <KpiCard
+              icon={Clock3}
+              tint="teal"
+              label="Checked in"
+              isLoading={loading}
+              value={attendance?.checkInTime ? formatClock(attendance.checkInTime) : "Not yet"}
+              detail={
+                !dashboard ? undefined
+                  : attendance?.checkOutTime ? `Out at ${formatClock(attendance.checkOutTime)}`
+                    : attendance ? `${attendanceStatusMeta(attendance.status).label}${attendance.verificationStatus === "verified" ? " · verified" : ""}`
+                      : "Check in from Today"
+              }
+              to="/employee/attendance"
+              showArrow
+            />
+            <KpiCard
+              icon={CalendarDays}
+              tint="blue"
+              label="Annual leave left"
+              isLoading={loading}
+              value={balancesUnavailable ? "—" : annual ? annual.remainingDays : "—"}
+              detail={!dashboard ? undefined : balancesUnavailable ? "Could not be loaded" : annual ? `of ${annual.entitledDays} days` : "No annual leave policy"}
+              to="/employee/leave"
+              showArrow
+            />
+            <KpiCard
+              icon={Inbox}
+              tint="amber"
+              label="Needs you"
+              isLoading={!actions && !actionsFailed}
+              value={actionsFailed ? "—" : actionCount}
+              detail={actionsFailed ? "Could not be loaded" : actionCount === 0 ? "All caught up" : actions?.requiresAction[0]?.title}
+              to="/actions"
+            />
+            <KpiCard
+              icon={Wallet}
+              tint="green"
+              label="Latest payslip"
+              isLoading={loading}
+              value={payslipUnavailable ? "—" : payslip ? shortPeriod(payslip.periodYear, payslip.periodMonth) : "None yet"}
+              detail={!dashboard ? undefined : payslipUnavailable ? "Could not be loaded" : payslip ? `Net RM ${formatSen(payslip.netSen)}` : "Appears once payroll is approved"}
+              to="/employee/payroll"
+            />
+          </div>
+
+          <div className="grid gap-4 [&>*]:min-w-0 lg:grid-cols-[minmax(0,2.174fr)_minmax(0,1fr)] min-[80rem]:gap-[1.0625rem]">
+            <TodayCard state={calendarState} calendar={calendar} aside={attendanceAside} />
+            <ActionsCard data={actions} failed={actionsFailed} />
+          </div>
+
+        </div>
+
+        <div className="min-[80rem]:flex min-[80rem]:flex-col">
+          <LeaveCard dashboard={dashboard} className="min-[80rem]:h-full" />
+        </div>
+      </div>
+
+      {/* Below the top grid and full width, so opening it never stretches the
+          leave column beside Today. */}
+      {clockMode && (
+        <div className="mt-4">
+          <VerifiedClockPanel
+            mode={clockMode}
+            onRecorded={() => {
+              setMessage(clockMode === "check-in" ? "Checked in successfully." : "Checked out successfully.");
+              setClockMode(null);
+              // Re-read from the server rather than patching local state, so
+              // Home shows what was actually recorded.
+              void load();
+            }}
+            onCancel={() => setClockMode(null)}
+          />
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-4 [&>*]:min-w-0 md:grid-cols-2 min-[80rem]:mt-[1.0625rem] min-[80rem]:grid-cols-[469fr_450fr_469fr] min-[80rem]:gap-[1.0625rem]">
+        {bottomCards}
+      </div>
+    </div>
   );
 }

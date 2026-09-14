@@ -209,3 +209,45 @@ were reviewed against the reference by eye. That review found:
 - "1 pts".
 
 All were fixed and re-verified.
+
+## U4 — Employee Home
+
+The same design system arranged around one person's day, not a restricted Admin Home. It has no
+company figures, no audit activity and no brand card.
+
+| Area | Real source |
+| --- | --- |
+| Greeting | the employee's given name (the patronymic rule: "Aiman Zulkifli bin Harun" is greeted "Aiman Zulkifli"); split action Request leave, with Recognise someone, My goals, My payslips and Find a colleague |
+| KPI row | Checked in (time, or "Not yet", with status and verification); Annual leave left; Needs you (the Action Center count and its first item); Latest payslip (period and net pay, the employee's own) |
+| Today | the same deep green card; its corner carries the employee's own attendance and a real Check in or Check out that opens the verified QR and location panel below the grid. Working day and company clock move beside the date. |
+| For you | the Action Center's items for this account: announcements to read, reviews to write, goals past due, onboarding tasks |
+| Your leave (right column) | annual balance with a bar, the other balances, the next approved leave, and the pending count; an unreadable balance says so rather than showing zero |
+| Bottom row | Your goals (progress, due or past due), Company updates (unread and important marked), Recognition received |
+| Manager layer | a manager's bottom row starts with Your team today: in, on leave, not clocked in, the decisions waiting, and each report's day-status badge. There is no pay and no location, as the team layer never carries either. Recognition stays one launcher tap away. |
+
+Differences from Admin Home, on purpose:
+
+| Admin Home | Employee Home | Reason |
+| --- | --- | --- |
+| Brand card | the employee's leave | what a person checks daily |
+| Tasks for today | For you | an employee's work arrives through the Action Center |
+| Recent activity and Insights | goals, updates and recognition | an employee has no company-wide activity or reporting to read |
+
+Verification (`u4-home.mjs`, real sign-ins as an employee and a manager): **46/46**, no page
+errors. It checks:
+- one h1 and the greeting;
+- personal KPIs;
+- no company figures, admin actions or brand card;
+- the employee's cards, and no team card for a non-manager;
+- no weather;
+- Check in opens the verified panel and records nothing;
+- the manager's team card with the waiting decision, and no other person's pay;
+- no overflow, stuck loading or failed card at 1280, 1024, 834, 390 and 375 in light and dark, and for the manager at 390;
+- System following the OS.
+
+The review by eye found:
+- a truncated KPI label;
+- the check-in panel stretching the leave column;
+- a centred attendance corner on phones.
+
+All three were fixed and re-verified.

@@ -1,5 +1,5 @@
 import { ArrowRight, Briefcase, CalendarClock, ChevronRight, Moon, PartyPopper, type LucideIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { CalendarData } from "../../types/workplace";
 import { cn } from "../../utils/cn";
@@ -49,7 +49,17 @@ function slotsFor(calendar: CalendarData): { today: Slot[]; upcoming: Slot[] } {
  * that corner carries what the company calendar does know: whether today is a
  * working day, a holiday or a day off, and whose clock "Now" is read from.
  */
-export default function TodayCard({ state, calendar, className }: { state: LoadState; calendar: CalendarData | null; className?: string }) {
+export default function TodayCard({ state, calendar, className, aside }: {
+  state: LoadState;
+  calendar: CalendarData | null;
+  className?: string;
+  /**
+   * Replaces the corner's working-day status with something personal - an
+   * employee's own attendance and its check-in action. The working-day status
+   * then moves beside the date, so it is never lost.
+   */
+  aside?: ReactNode;
+}) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -101,14 +111,22 @@ export default function TodayCard({ state, calendar, className }: { state: LoadS
         <div>
           <h2 id="home-today-title" className="text-lg font-medium leading-6 text-feature-accent">Today</h2>
           <p className="mt-1 text-lg font-medium leading-6 text-feature-fg">{formatLongDate(today)}</p>
+          {aside && (
+            <p className="mt-1 flex items-center gap-2 text-[0.8125rem] text-feature-muted">
+              <status.icon size={14} className="text-[#f0c070]" aria-hidden="true" />
+              {status.label} · {cityOf(config.timezone)} time
+            </p>
+          )}
         </div>
-        <div className="text-right">
-          <p className="flex items-center justify-end gap-2 text-[0.9375rem] font-medium text-feature-fg">
-            <status.icon size={17} className="text-[#f0c070]" aria-hidden="true" />
-            {status.label}
-          </p>
-          <p className="mt-1 text-[0.8125rem] text-feature-muted">{cityOf(config.timezone)} time</p>
-        </div>
+        {aside ?? (
+          <div className="text-right">
+            <p className="flex items-center justify-end gap-2 text-[0.9375rem] font-medium text-feature-fg">
+              <status.icon size={17} className="text-[#f0c070]" aria-hidden="true" />
+              {status.label}
+            </p>
+            <p className="mt-1 text-[0.8125rem] text-feature-muted">{cityOf(config.timezone)} time</p>
+          </div>
+        )}
       </div>
 
       <div className="relative mt-5">
