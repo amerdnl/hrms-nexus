@@ -32,6 +32,7 @@ const ADMIN: Record<string, string> = {
   settings: "Settings",
   onboarding: "Onboarding",
   offboarding: "Offboarding",
+  performance: "Performance",
 };
 
 const EMPLOYEE: Record<string, string> = {
@@ -45,9 +46,14 @@ const EMPLOYEE: Record<string, string> = {
 const TEAM: Record<string, string> = {
   leave: "Leave",
   attendance: "Attendance",
+  goals: "Goals",
+  reviews: "Reviews",
 };
 
 const patterns: Pattern[] = [
+  // Performance
+  { segments: ["admin", "performance", "cycles", ":"],
+    crumbs: [{ label: "Performance", to: "/admin/performance" }, { label: "Cycle" }] },
   // Onboarding and offboarding
   { segments: ["admin", "lifecycle", "templates"],
     crumbs: [{ label: "Checklists" }] },
@@ -96,6 +102,8 @@ export function breadcrumbsFor(pathname: string): Crumb[] {
   if (scope === "actions") return [{ label: "Action Center" }];
   if (scope === "tasks") return [{ label: "My tasks" }];
   if (scope === "recognition") return [{ label: "Recognition" }];
+  if (scope === "goals") return rest[0] ? [{ label: "My goals", to: "/goals" }, { label: "Goal" }] : [{ label: "My goals" }];
+  if (scope === "reviews") return rest[0] ? [{ label: "Reviews", to: "/reviews" }, { label: "Review" }] : [{ label: "My reviews" }];
   if (scope === "lifecycle") return [{ label: "My tasks", to: "/tasks" }, { label: "Plan" }];
   if (scope === "notifications") return [{ label: "Notifications" }];
   if (scope === "calendar") return [{ label: "Calendar" }];

@@ -16,6 +16,7 @@ import VerifiedClockPanel from "../../components/attendance/VerifiedClockPanel";
 import TeamSummaryCard from "../../components/team/TeamSummaryCard";
 import { ActionSummaryCard, AnnouncementsCard } from "../../components/workplace/WorkplaceCards";
 import RecentRecognitionCard from "../../components/recognition/RecentRecognitionCard";
+import ProfileGoalsCard from "../../components/performance/ProfileGoalsCard";
 import { useAuth } from "../../context/useAuth";
 import Alert from "../../components/ui/Alert";
 import EmptyState from "../../components/ui/EmptyState";
@@ -171,6 +172,7 @@ export default function EmployeeDashboardPage() {
           {user?.isManager && <TeamSummaryCard />}
           <ActionSummaryCard />
           <AnnouncementsCard />
+          {user?.employeeId && <ProfileGoalsCard personId={user.employeeId} isSelf />}
           <RecentRecognitionCard />
 
           <SectionCard title="Annual leave" icon={CalendarDays} actions={<LinkButton to="/employee/leave" variant="ghost" size="sm">Leave</LinkButton>}>

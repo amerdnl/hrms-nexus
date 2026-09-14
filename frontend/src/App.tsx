@@ -61,6 +61,14 @@ const AnnouncementDetailPage = lazy(() => import("./pages/workplace/Announcement
 const AnnouncementEditorPage = lazy(() => import("./pages/workplace/AnnouncementEditorPage"));
 const TasksPage = lazy(() => import("./pages/workplace/TasksPage"));
 const RecognitionPage = lazy(() => import("./pages/workplace/RecognitionPage"));
+const GoalsPage = lazy(() => import("./pages/workplace/GoalsPage"));
+const GoalDetailPage = lazy(() => import("./pages/workplace/GoalDetailPage"));
+const ReviewsPage = lazy(() => import("./pages/workplace/ReviewsPage"));
+const ReviewDetailPage = lazy(() => import("./pages/workplace/ReviewDetailPage"));
+const TeamGoalsPage = lazy(() => import("./pages/team/TeamGoalsPage"));
+const TeamReviewsPage = lazy(() => import("./pages/team/TeamReviewsPage"));
+const PerformanceAdminPage = lazy(() => import("./pages/admin/PerformanceAdminPage"));
+const CycleDetailPage = lazy(() => import("./pages/admin/CycleDetailPage"));
 const PlanDetailPage = lazy(() => import("./pages/workplace/PlanDetailPage"));
 const LifecyclePlansPage = lazy(() => import("./pages/admin/LifecyclePlansPage"));
 const LifecycleTemplatesPage = lazy(() => import("./pages/admin/LifecycleTemplatesPage"));
@@ -134,6 +142,8 @@ export default function App() {
             <Route path="/admin/onboarding" element={<LifecyclePlansPage kind="onboarding" />} />
             <Route path="/admin/offboarding" element={<LifecyclePlansPage kind="offboarding" />} />
             <Route path="/admin/lifecycle/templates" element={<LifecycleTemplatesPage />} />
+            <Route path="/admin/performance" element={<PerformanceAdminPage />} />
+            <Route path="/admin/performance/cycles/:id" element={<CycleDetailPage />} />
             <Route path="/admin/lifecycle/plans/:id" element={<PlanDetailPage />} />
           </Route>
         </Route>
@@ -164,6 +174,10 @@ export default function App() {
             <Route path="/announcements/:id" element={<AnnouncementDetailPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/recognition" element={<RecognitionPage />} />
+            <Route path="/goals" element={<GoalsPage />} />
+            <Route path="/goals/:id" element={<GoalDetailPage />} />
+            <Route path="/reviews" element={<ReviewsPage />} />
+            <Route path="/reviews/:id" element={<ReviewDetailPage />} />
             <Route path="/lifecycle/plans/:id" element={<PlanDetailPage />} />
           </Route>
         </Route>
@@ -175,6 +189,8 @@ export default function App() {
             <Route path="/team" element={<TeamOverviewPage />} />
             <Route path="/team/leave" element={<TeamLeavePage />} />
             <Route path="/team/attendance" element={<TeamAttendancePage />} />
+            <Route path="/team/goals" element={<TeamGoalsPage />} />
+            <Route path="/team/reviews" element={<TeamReviewsPage />} />
           </Route>
         </Route>
 

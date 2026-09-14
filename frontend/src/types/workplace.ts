@@ -48,7 +48,9 @@ export type ActionKind =
   | "holiday"
   | "event"
   | "lifecycle_task"
-  | "offboarding_ready";
+  | "offboarding_ready"
+  | "review"
+  | "goal_overdue";
 
 export interface ActionItem {
   id: string;

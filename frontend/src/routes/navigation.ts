@@ -2,6 +2,9 @@ import {
   BarChart3,
   Inbox,
   Award,
+  ClipboardList,
+  Target,
+  TrendingUp,
   ClipboardCheck,
   UserMinus,
   UserPlus,
@@ -68,6 +71,7 @@ const companySection: NavigationSection = {
     { label: "Leave", to: "/admin/leave", icon: CalendarDays },
     { label: "Onboarding", to: "/admin/onboarding", icon: UserPlus },
     { label: "Offboarding", to: "/admin/offboarding", icon: UserMinus },
+    { label: "Performance", to: "/admin/performance", icon: TrendingUp },
     { label: "Payroll", to: "/admin/payroll", icon: Wallet },
     { label: "Reports", to: "/admin/reports", icon: BarChart3 },
     { label: "Audit log", to: "/admin/audit", icon: ScrollText },
@@ -85,6 +89,8 @@ const meSection: NavigationSection = {
     { label: "Attendance", to: "/employee/attendance", icon: Clock3 },
     { label: "Leave", to: "/employee/leave", icon: CalendarDays },
     { label: "Payslips", to: "/employee/payroll", icon: Wallet },
+    { label: "Goals", to: "/goals", icon: Target },
+    { label: "Reviews", to: "/reviews", icon: ClipboardList },
     { label: "Profile", to: "/employee/profile", icon: UserRound },
   ],
 };
@@ -96,6 +102,8 @@ const teamSection: NavigationSection = {
     { label: "Team overview", to: "/team", icon: UsersRound, shortLabel: "Team" },
     { label: "Team leave", to: "/team/leave", icon: CalendarCheck2 },
     { label: "Team attendance", to: "/team/attendance", icon: Timer },
+    { label: "Team goals", to: "/team/goals", icon: Target },
+    { label: "Team reviews", to: "/team/reviews", icon: ClipboardList },
   ],
 };
 

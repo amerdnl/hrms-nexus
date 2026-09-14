@@ -56,4 +56,6 @@ export const actionIcons: Record<ActionKind, LucideIcon> = {
   event: CalendarClock,
   lifecycle_task: ClipboardCheck,
   offboarding_ready: UserMinus,
+  review: ClipboardList,
+  goal_overdue: Target,
 };
