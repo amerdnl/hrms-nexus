@@ -141,7 +141,9 @@ export default function DataTable({
                   // is a stable key here.
                   key={index}
                   scope="col"
-                  className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-fg-muted"
+                  // Sentence case, quiet weight: the header names the column
+                  // and gets out of the way of the records under it.
+                  className="whitespace-nowrap px-5 py-3 text-xs font-medium text-fg-muted"
                 >
                   {header}
                 </th>

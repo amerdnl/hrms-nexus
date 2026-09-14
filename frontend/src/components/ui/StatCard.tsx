@@ -9,11 +9,11 @@ interface StatCardProps {
   value: ReactNode;
   icon?: LucideIcon;
   tone?: StatusTone;
-  /** Secondary line, e.g. a percentage or "of 128 employees". */
+  /** Secondary line, e.g. "3 late" or "of 25 employees". Always a real fact. */
   hint?: string;
   /**
-   * Puts the icon beside the label instead of opposite it, which reads better
-   * in a narrow tile and is what the references show on the dashboard.
+   * Accepted for existing callers. The icon now always leads, as the
+   * reference's KPI row shows; the prop no longer changes the layout.
    */
   iconPlacement?: "trailing" | "leading";
   /** Rendered under the value, e.g. a ProgressBar. */
@@ -33,59 +33,58 @@ const toneStyles: Record<StatusTone, string> = {
   neutral: "bg-surface-muted text-fg-muted",
 };
 
+/**
+ * A headline figure, in the language of the reference's KPI row: a soft icon
+ * disc leading, the figure, and its label under it.
+ *
+ * Sized by its own width (@container), not the viewport's, because the same
+ * card sits five across on a laptop and two across on a phone: in a narrow
+ * card the disc shrinks and the label wraps rather than the figure being cut.
+ */
 export default function StatCard({
   label,
   value,
   icon: Icon,
   tone = "neutral",
   hint,
-  iconPlacement = "trailing",
   footer,
   to,
   isLoading = false,
   className,
 }: StatCardProps) {
-  const iconTile = Icon && (
-    <span
-      className={cn(
-        "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
-        toneStyles[tone],
-      )}
-      aria-hidden="true"
-    >
-      <Icon size={18} />
-    </span>
-  );
-
   const content = (
-    <>
-      <div
-        className={cn(
-          "flex items-start gap-3",
-          iconPlacement === "leading" ? "justify-start" : "justify-between",
+    <div className="@container">
+      <div className="flex items-center gap-3 @min-[14rem]:gap-4">
+        {Icon && (
+          <span
+            className={cn(
+              "grid size-10 shrink-0 place-items-center rounded-full @min-[14rem]:size-12",
+              toneStyles[tone],
+            )}
+            aria-hidden="true"
+          >
+            <Icon className="size-[18px] @min-[14rem]:size-5" />
+          </span>
         )}
-      >
-        {iconPlacement === "leading" && iconTile}
-        <p className="min-w-0 text-sm font-medium text-fg-muted">{label}</p>
-        {iconPlacement === "trailing" && iconTile}
+        <div className="min-w-0">
+          <p className="text-2xl font-semibold leading-tight tracking-tight text-fg tabular-nums">
+            {/* An em dash rather than a spinner: these sit in rows of four or
+                five, and spinners in every card read as an error state. */}
+            {isLoading ? <span className="text-fg-subtle">&mdash;</span> : value}
+          </p>
+          <p className="mt-0.5 text-sm leading-snug text-fg-muted">{label}</p>
+        </div>
       </div>
 
-      <p className="mt-3 text-2xl font-bold tracking-tight text-fg sm:text-3xl">
-        {/* An em dash rather than a spinner: these sit in grids of 4-5 cards,
-            and spinners in every tile read as an error state. */}
-        {isLoading ? <span className="text-fg-subtle">&mdash;</span> : value}
-      </p>
-
       {hint && !isLoading && (
-        <p className="mt-1 text-xs text-fg-subtle">{hint}</p>
+        <p className="mt-2 text-xs text-fg-subtle">{hint}</p>
       )}
 
       {footer && !isLoading && <div className="mt-3">{footer}</div>}
-    </>
+    </div>
   );
 
   const shared = cn(
-    // p-4 below sm, where the dashboard sets these two-up on a phone.
     "block rounded-card border border-line bg-surface p-4 shadow-card sm:p-5",
     className,
   );
@@ -96,7 +95,7 @@ export default function StatCard({
         to={to}
         className={cn(
           shared,
-          "transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+          "transition-colors hover:border-line-strong hover:shadow-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         )}
       >
         {content}

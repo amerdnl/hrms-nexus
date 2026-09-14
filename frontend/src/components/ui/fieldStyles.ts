@@ -9,7 +9,7 @@ import { cn } from "../../utils/cn";
  * itself, so an unstyled input renders white-on-white in dark mode.
  */
 const base = cn(
-  "w-full rounded-lg border px-3 py-2.5 text-sm",
+  "w-full rounded-xl border px-3 py-2.5 text-sm",
   // 44px on touch, per WCAG 2.5.5. Unchanged with a mouse, where the
   // current density is deliberate.
   "pointer-coarse:min-h-11",

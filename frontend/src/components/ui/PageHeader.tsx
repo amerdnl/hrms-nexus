@@ -43,7 +43,7 @@ export default function PageHeader({
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-fg">{title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-fg sm:text-[1.75rem] sm:leading-9">{title}</h1>
           {description && (
             <p className="mt-1 text-sm text-fg-muted">{description}</p>
           )}

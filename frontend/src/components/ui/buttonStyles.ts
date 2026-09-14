@@ -5,7 +5,8 @@ export type ButtonVariant =
   | "secondary"
   | "danger"
   | "ghost"
-  | "danger-ghost";
+  | "danger-ghost"
+  | "inverse";
 export type ButtonSize = "sm" | "md";
 
 /**
@@ -14,10 +15,10 @@ export type ButtonSize = "sm" | "md";
  *
  * Focus uses `outline` rather than `ring`: outline is drawn outside the box
  * and needs no offset colour, so the ring stays visible on any surface
- * (card, canvas, sidebar) without per-context tuning.
+ * (card, canvas, header) without per-context tuning.
  */
 const base = cn(
-  "inline-flex items-center justify-center gap-2 rounded-lg font-semibold",
+  "inline-flex items-center justify-center gap-2 rounded-xl font-semibold",
   "transition-colors",
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
   "disabled:cursor-not-allowed disabled:opacity-60",
@@ -40,6 +41,10 @@ const variants: Record<ButtonVariant, string> = {
   // would be a class conflict cn() cannot resolve without tailwind-merge,
   // so the honest fix is a variant rather than a bespoke button.
   "danger-ghost": "text-danger-fg hover:bg-danger-soft",
+  // For a control sitting on photography, which is dark in both themes (the
+  // Home editorial card). Fixed colours on purpose, like the image itself:
+  // navy on white measures 17.35:1.
+  inverse: "bg-white text-[#0b1b2e] shadow-card hover:bg-white/90",
 };
 
 /**
