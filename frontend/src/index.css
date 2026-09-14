@@ -12,35 +12,34 @@
      3. :root / .dark    - RUNTIME tokens, the only place the themes differ
      4. @theme inline    - maps runtime tokens to Tailwind colour utilities
      5. @layer base      - minimal global defaults
+     6. shell gutter
 
    Why runtime tokens instead of `dark:` variant pairs: writing every colour
    twice across 50 pages fails silently when one is missed. Here each colour
    decision is written once and the light/dark mapping lives in one reviewable
    block. The `dark` variant below is still declared for genuine one-offs
-   (the hero's scrim).
+   (the Home mountain's silhouette).
 
    THE REFERENCE
-   The light palette is sampled from the owner's approved mountain dashboard,
-   not invented: canvas #f3f6f7, a near-white cool header, white cards with an
-   edge you barely see, navy text and one restrained deep teal. The dark
-   palette is designed for the same hierarchy on deep navy - it is not an
-   inversion of the light one.
+   The light palette is sampled from the owner's final approved dashboard:
+   a cool soft-grey canvas the header sits on without a bar, near-white cards
+   with an edge you barely see, near-black navy type, one restrained deep teal,
+   a near-black "ink" for the single primary action, and a deep green feature
+   surface for Today. The dark palette carries the same hierarchy on deep navy;
+   it is designed, not inverted.
 
    CONTRAST
    Every ratio quoted in this file was measured with the WCAG 2.1 relative
    luminance formula, not estimated. They are load-bearing: if you change a
-   value, re-measure the pairs named beside it. Targets are 4.5:1 for body
-   text (1.4.3) and 3:1 for non-text indicators such as the focus ring
-   (1.4.11).
+   value, re-measure the pairs named beside it. Targets are 4.5:1 for text
+   (1.4.3) and 3:1 for non-text indicators such as the focus ring (1.4.11).
 ========================================================================== */
 
 /* --- 1. Dark mode variant --------------------------------------------------
    `:where()` holds specificity at 0 so this never out-ranks a plain utility. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* --- 2. Static tokens ------------------------------------------------------
-   Values that do not change between themes. A plain @theme block emits these
-   into :root and generates utilities (bg-brand-600, rounded-card, shadow-card). */
+/* --- 2. Static tokens ------------------------------------------------------ */
 @theme {
   /* Brand ramp - teal. Kept for the handful of fixed brand uses; product
      colour always comes from the runtime --primary below. */
@@ -55,162 +54,164 @@
   --color-brand-800: #115e59;
   --color-brand-900: #134e4a;
 
-  /* Cyan accent - supporting brand hue, used sparingly. */
   --color-accent-400: #22d3ee;
   --color-accent-500: #06b6d4;
   --color-accent-600: #0891b2;
   --color-accent-700: #0e7490;
 
-  /* Shape. The reference's cards measure about 12px; tiles and the hero's
-     pills are rounder. */
-  --radius-card: 0.75rem;
+  /* Shape. The reference's cards and the launcher measure 14-16px. */
+  --radius-card: 0.875rem;
 
-  /* Elevation. Deliberately faint: in the reference a card is separated from
-     the canvas mostly by being white, and the shadow only lifts it. */
-  --shadow-card: 0 1px 2px 0 rgb(16 42 52 / 0.04), 0 2px 12px -6px rgb(16 42 52 / 0.08);
-  --shadow-raised: 0 6px 18px -8px rgb(16 42 52 / 0.16), 0 2px 6px -2px rgb(16 42 52 / 0.06);
-  --shadow-panel: 0 18px 40px -16px rgb(10 25 35 / 0.28), 0 2px 8px -2px rgb(10 25 35 / 0.08);
+  /* Elevation. Faint: a card is separated from the canvas mostly by being
+     lighter, and the shadow only lifts it. */
+  --shadow-card: 0 1px 2px 0 rgb(15 30 40 / 0.04), 0 10px 28px -18px rgb(15 30 40 / 0.14);
+  --shadow-raised: 0 8px 22px -10px rgb(15 30 40 / 0.18), 0 2px 6px -2px rgb(15 30 40 / 0.06);
+  --shadow-panel: 0 24px 48px -20px rgb(10 22 30 / 0.28), 0 4px 12px -4px rgb(10 22 30 / 0.08);
 }
 
 /* --- 3a. Runtime tokens: LIGHT --------------------------------------------- */
 :root {
   /* Surfaces */
-  --canvas: #f3f6f7;        /* the reference's ground */
-  --surface: #ffffff;       /* cards */
-  --surface-muted: #f4f7f8; /* table headers, inset tiles, the Today date block */
-  --elevated: #ffffff;      /* modals, popovers */
-  --header: #f7fafb;        /* the top bar: a breath lighter than the canvas */
+  --canvas: #f1f4f6;        /* the ground; the header sits directly on it */
+  --surface: #fbfcfd;       /* cards */
+  --surface-muted: #eef1f4; /* inset fields, table headers, tiles */
+  --elevated: #ffffff;      /* the launcher, menus, dialogs */
+  --header: #f1f4f6;        /* the header once content scrolls under it */
 
   /* Text */
-  --fg: #0b1b2e;            /* 17.35:1 on --surface, 15.97:1 on --canvas */
-  --fg-muted: #4a5868;      /* 7.27:1 on --surface, 6.70:1 on --canvas */
-  --fg-subtle: #5d6b7a;     /* 5.46:1 on --surface, 5.02:1 on --canvas, 4.66:1 on --primary-soft */
+  --fg: #0a1421;            /* 18.01:1 on --surface, 16.75:1 on --canvas */
+  --fg-muted: #56616c;      /* 6.15:1 on --surface, 5.72:1 on --canvas, 5.58:1 on --surface-muted */
+  --fg-subtle: #5f6973;     /* 5.44:1 on --surface, 5.06:1 on --canvas, 4.93:1 on --surface-muted, 4.84:1 on --primary-soft */
 
-  /* Lines.
-     --line-strong is for STRUCTURE (dividers, rules), short of the 3:1 WCAG
-     1.4.11 asks of anything required to identify a CONTROL; interactive
-     boundaries get --control-border instead. */
-  --line: #e5eced;          /* default border: present, never loud */
-  --line-strong: #cfd9dc;   /* dividers and rules needing weight */
+  /* Lines. --line-strong is for STRUCTURE (1.45:1); interactive boundaries
+     use --control-border, which clears the 3:1 of WCAG 1.4.11. */
+  --line: #e6eaee;
+  --line-strong: #cdd5db;
+  --control-border: #7a8894; /* 3.54:1 on --surface, 3.29:1 on --canvas, 3.21:1 on --surface-muted */
 
-  /* The boundary that says "this is a control": text/select/textarea/file
-     inputs, the secondary button, the pagination arrows. Only those.
-     3.54:1 on --surface, 3.26:1 on --canvas, 3.29:1 on --surface-muted. */
-  --control-border: #7b8a99;
-
-  /* Interactive.
-     A deeper, calmer teal than V2's #0f766e, matching the reference's mark and
-     timeline. Used both as a fill carrying white text and as text on white,
-     and one value clears both: 7.49:1 either way. */
-  --primary: #0f5f5a;       /* 7.49:1 on --surface, 6.89:1 on --canvas */
-  --primary-hover: #0b4a46;
+  /* Interactive. Deep teal: the navigation underline, checked boxes, links. */
+  --primary: #0e5b52;       /* 7.75:1 on --surface, 7.21:1 on --canvas; white on it 7.96:1 */
+  --primary-hover: #0a473f;
   --primary-fg: #ffffff;
-  --primary-soft: #e2f0ee;  /* the active navigation pill; --primary on it: 6.39:1 */
+  --primary-soft: #e1f2f0;  /* icon tiles; --primary on it 6.89:1 */
   --accent: #0e7490;
-  --ring: #0f5f5a;          /* focus ring: 7.49:1 on --surface, 6.89:1 on --canvas */
+  --ring: #0e5b52;
+
+  /* Ink: the one primary action on a page (Home's split button). */
+  --ink: #15262d;           /* white on it 15.59:1 */
+  --ink-hover: #0c1a1f;
+  --ink-fg: #ffffff;
 
   /* Status - `soft` is the badge background, `fg` the badge text. */
   --success: #16a34a;
-  --success-soft: #dcfce7;
-  --success-fg: #15803d;    /* 4.57:1 on --success-soft */
+  --success-soft: #e3f3ea;
+  --success-fg: #1f7a4d;    /* 4.63:1 on its soft, 5.18:1 on --surface */
   --warning: #d97706;
-  --warning-soft: #fdf3e3;
-  --warning-fg: #9a5a0a;    /* 4.97:1 on its soft; the reference's "All day" chip */
+  --warning-soft: #f8f0df;
+  --warning-fg: #8a5a12;    /* 5.21:1 on its soft */
   --danger: #dc2626;
-  --danger-soft: #fee2e2;
-  --danger-fg: #b91c1c;     /* 5.30:1 on --danger-soft */
+  --danger-soft: #f9e7e5;
+  --danger-fg: #b3261e;     /* 5.48:1 on its soft */
   --info: #2563eb;
-  --info-soft: #dbeafe;
-  --info-fg: #1d4ed8;       /* 5.49:1 on --info-soft */
+  --info-soft: #e3eff9;     /* the reference's "All day" chip */
+  --info-fg: #2f5f8f;       /* 5.70:1 on its soft */
 
-  /* Destructive fills need their own ramp: --danger is tuned for text on the
-     page background, and is too light to carry white text as a solid button. */
-  --danger-solid: #dc2626;  /* 4.83:1 with white text */
-  --danger-solid-hover: #b91c1c;
+  --danger-solid: #c0322a;  /* 5.63:1 with white text */
+  --danger-solid-hover: #a52a23;
   --danger-solid-fg: #ffffff;
 
-  /* Tints - the reference's quick-access tiles and activity markers. Each
-     pair is a pale tile and the glyph drawn on it; glyph contrast measured
-     on its own tile: teal 5.62, blue 5.39, violet 6.55, green 4.73,
-     amber 4.97, rose 5.61, sky 5.18, slate 6.37. */
-  --tint-teal: #e5f4f1;    --tint-teal-fg: #0f6b62;
-  --tint-blue: #e8f2fd;    --tint-blue-fg: #1d5fbf;
-  --tint-violet: #efecfd;  --tint-violet-fg: #5b3bb8;
-  --tint-green: #e9f5e8;   --tint-green-fg: #2f7a32;
-  --tint-amber: #fcf3e6;   --tint-amber-fg: #9a5a0a;
-  --tint-rose: #fcebee;    --tint-rose-fg: #b4233f;
-  --tint-sky: #e6f3fb;     --tint-sky-fg: #1b6a9c;
-  --tint-slate: #eef0f3;   --tint-slate-fg: #4a5868;
+  /* Tints - icon tiles. Glyph on its own tile: teal 6.89, blue 5.48,
+     violet 6.54, green 4.62, amber 4.27 (a graphic, 3:1 applies), rose 4.59,
+     sky 5.10, slate 6.10. */
+  --tint-teal: #e1f2f0;    --tint-teal-fg: #0e5b52;
+  --tint-blue: #e9f1fa;    --tint-blue-fg: #2a5fb0;
+  --tint-violet: #efecfb;  --tint-violet-fg: #5b3bb8;
+  --tint-green: #e6f3ea;   --tint-green-fg: #2f7a3f;
+  --tint-amber: #f8f2e4;   --tint-amber-fg: #a0660f;
+  --tint-rose: #f7e9e8;    --tint-rose-fg: #c2372b;
+  --tint-sky: #e6f1f8;     --tint-sky-fg: #1b6a9c;
+  --tint-slate: #eceff2;   --tint-slate-fg: #4f5a65;
 
-  /* Overlay */
-  --backdrop: rgb(4 12 20 / 0.45);
+  /* Feature - the deep green Today surface. Dark in both themes by design.
+     Text 13.97:1, accent 9.14:1, muted 7.29:1 on the base; muted on a
+     highlighted slot 6.04:1. */
+  --feature: #10302c;
+  --feature-deep: #0b1e1d;
+  --feature-fg: #e9f1ef;
+  --feature-accent: #7fd3bf;
+  --feature-muted: #9fb3b0;
+
+  --backdrop: rgb(4 12 20 / 0.42);
 }
 
-/* --- 3b. Runtime tokens: DARK ----------------------------------------------
-   Deep navy with elevated cards and the same restrained teal, not neon.
-     - The header sits a step darker than the canvas, so chrome reads as chrome.
-     - Primary is a soft aqua; the light theme's deep teal would vanish here.
-     - --primary-fg is DARK: dark text on the aqua fill reads 8.20:1, white on
-       it only 2.02:1. */
+/* --- 3b. Runtime tokens: DARK ---------------------------------------------- */
 .dark {
   --canvas: #0a1217;
-  --surface: #101a21;
-  --surface-muted: #16222a;
-  --elevated: #15212a;      /* modals sit above surface, not level with it */
-  --header: #0d161c;
+  --surface: #111b22;
+  --surface-muted: #17232b;
+  --elevated: #16222b;
+  --header: #0a1217;
 
-  --fg: #e6edf2;            /* 14.90:1 on --surface, 15.97:1 on --canvas */
-  --fg-muted: #a5b3c0;      /* 8.23:1 on --surface, 7.57:1 on --surface-muted */
-  --fg-subtle: #8494a4;     /* 5.67:1 on --surface, 5.21:1 on --surface-muted, 4.55:1 on --primary-soft */
+  --fg: #e6edf2;            /* 15.97:1 on --canvas */
+  --fg-muted: #a5b3c0;      /* 8.15:1 on --surface, 7.56:1 on --elevated */
+  --fg-subtle: #8a99a8;     /* 5.98:1 on --surface, 5.49:1 on --surface-muted, 4.86:1 on --primary-soft */
 
-  --line: #1e2b33;
+  --line: #1f2c35;
   --line-strong: #2d3d47;
-  /* 3.56:1 on --surface, 3.82:1 on --canvas, 3.27:1 on --surface-muted. */
-  --control-border: #5d7383;
+  --control-border: #5d7383; /* 3.53:1 on --surface, 3.24:1 on --surface-muted */
 
-  --primary: #5cc8b8;       /* 8.73:1 as text on --surface */
-  --primary-hover: #7ed6c8; /* hover LIGHTENS here, unlike light mode */
+  --primary: #5cc8b8;       /* 8.65:1 on --surface, 9.36:1 on --canvas */
+  --primary-hover: #7ed6c8;
   --primary-fg: #062320;    /* 8.20:1 on --primary */
-  --primary-soft: #10302d;  /* --primary on it: 7.02:1 */
+  --primary-soft: #10302d;  /* --primary on it 7.02:1 */
   --accent: #22d3ee;
-  --ring: #5cc8b8;          /* 8.73:1 on --surface, 9.36:1 on --canvas */
+  --ring: #5cc8b8;
+
+  /* A near-black button would vanish on navy, so ink turns light. */
+  --ink: #e6edf2;           /* #0a1421 on it 15.65:1 */
+  --ink-hover: #ffffff;
+  --ink-fg: #0a1421;
 
   --success: #4ade80;
   --success-soft: #0f2e1e;
-  --success-fg: #86efac;    /* 10.46:1 on --success-soft */
+  --success-fg: #86e0ad;    /* 9.29:1 */
   --warning: #fbbf24;
   --warning-soft: #33260f;
-  --warning-fg: #f0c070;    /* 8.76:1 on --warning-soft */
+  --warning-fg: #f0c070;    /* 8.76:1 */
   --danger: #f87171;
-  --danger-soft: #331717;
-  --danger-fg: #fca5a5;     /* 8.67:1 on --danger-soft */
+  --danger-soft: #3a1a1a;
+  --danger-fg: #f59a8f;     /* 7.37:1 */
   --info: #60a5fa;
-  --info-soft: #12233d;
-  --info-fg: #93c5fd;       /* 8.73:1 on --info-soft */
+  --info-soft: #16283d;
+  --info-fg: #9cc2ea;       /* 8.06:1 */
 
   --danger-solid: #b91c1c;  /* 6.47:1 with white text */
   --danger-solid-hover: #dc2626;
   --danger-solid-fg: #ffffff;
 
-  /* Glyph on tile: teal 7.93, blue 7.36, violet 7.17, green 7.94, amber 8.76,
-     rose 7.53, sky 8.01, slate 7.01. */
+  /* teal 7.93, blue 7.36, violet 7.17, green 7.94, amber 8.76, rose 7.37,
+     sky 8.01, slate 7.01 */
   --tint-teal: #12302c;    --tint-teal-fg: #6fd3c3;
   --tint-blue: #142740;    --tint-blue-fg: #8ab8f5;
   --tint-violet: #221c3d;  --tint-violet-fg: #b3a1f5;
   --tint-green: #16301a;   --tint-green-fg: #8fd18f;
   --tint-amber: #33260f;   --tint-amber-fg: #f0c070;
-  --tint-rose: #3a1820;    --tint-rose-fg: #f39aac;
+  --tint-rose: #3a1a1a;    --tint-rose-fg: #f59a8f;
   --tint-sky: #11283a;     --tint-sky-fg: #86c4ec;
   --tint-slate: #1d2830;   --tint-slate-fg: #a5b3c0;
+
+  --feature: #0f2a27;
+  --feature-deep: #0a1a19;
+  --feature-fg: #e9f1ef;
+  --feature-accent: #7fd3bf;
+  --feature-muted: #9fb3b0;
 
   --backdrop: rgb(2 6 12 / 0.7);
 }
 
 /* --- 4. Expose runtime tokens as utilities ---------------------------------
-   `inline` is required here. Without it the generated utility would resolve
-   through a second layer of indirection pinned at :root, which breaks any
-   nested themed region. With `inline`, the utility emits `var(--surface)`
-   directly so the cascade resolves at the element. */
+   `inline` makes the utility emit `var(--surface)` directly, so the cascade
+   resolves at the element and nested themed regions work. */
 @theme inline {
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
@@ -232,6 +233,10 @@
   --color-primary-soft: var(--primary-soft);
   --color-accent: var(--accent);
   --color-ring: var(--ring);
+
+  --color-ink: var(--ink);
+  --color-ink-hover: var(--ink-hover);
+  --color-ink-fg: var(--ink-fg);
 
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
@@ -266,13 +271,18 @@
   --color-tint-slate: var(--tint-slate);
   --color-tint-slate-fg: var(--tint-slate-fg);
 
+  --color-feature: var(--feature);
+  --color-feature-deep: var(--feature-deep);
+  --color-feature-fg: var(--feature-fg);
+  --color-feature-accent: var(--feature-accent);
+  --color-feature-muted: var(--feature-muted);
+
   --color-backdrop: var(--backdrop);
 }
 
 /* --- 5. Base --------------------------------------------------------------- */
 @layer base {
-  /* color-scheme is load-bearing, not cosmetic: it is what makes native
-     date/time pickers, select dropdowns and scrollbars render correctly. */
+  /* color-scheme is load-bearing: it makes native pickers and scrollbars match. */
   html {
     color-scheme: light;
     background-color: var(--canvas);
@@ -288,26 +298,21 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Tailwind v4 defaults an un-suffixed `border` to currentColor, which turns
-     a forgotten border colour into a text-coloured box. */
+  /* Tailwind v4 defaults an un-suffixed `border` to currentColor. */
   *,
   ::before,
   ::after {
     border-color: var(--line);
   }
 
-  /* Baseline focus indicator for everything not built on the button/field
-     primitives - header navigation, launcher tiles, the theme toggle.
-     Specificity is (0,1,0), so a primitive's own
-     `focus-visible:outline-*` utility (0,2,0) still wins where one exists. */
+  /* Baseline focus indicator for everything not built on a primitive. */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
 
-  /* Motion is opt-out globally rather than per component. Near-zero rather
-     than `none` so transitionend and animationend still fire and no state
-     machine waiting on them stalls. */
+  /* Motion is opt-out globally. Near-zero rather than `none` so transitionend
+     and animationend still fire. */
   @media (prefers-reduced-motion: reduce) {
     *,
     ::before,
@@ -319,11 +324,9 @@
     }
   }
 
-  /* Edge (and legacy IE) inject their own reveal eye and clear cross inside a
-     password field. Next to PasswordInput's own toggle that renders as two
-     eyes, one of them unlabelled and outside our focus/ARIA handling.
-     Matched on a class rather than [type="password"] so the rule survives
-     PasswordInput toggling the input to type="text". */
+  /* Edge injects its own reveal eye inside a password field, beside
+     PasswordInput's own toggle. Matched on a class so the rule survives the
+     toggle switching the input to type="text". */
   .pw-field::-ms-reveal,
   .pw-field::-ms-clear {
     display: none;
@@ -331,9 +334,9 @@
 }
 
 /* --- 6. Shell gutter -------------------------------------------------------
-   One horizontal gutter for the authenticated shell, as a custom property so
-   a full-bleed element (the Home hero) can cancel exactly the padding it sits
-   in rather than guessing it per breakpoint. 36px at the reference's width. */
+   One horizontal gutter, as a custom property, so the header and every page
+   share an edge and a full-bleed element can cancel it exactly. 56px at the
+   reference's 1536px width. */
 @layer base {
   :root {
     --gutter: 1rem;
@@ -344,7 +347,10 @@
   @media (min-width: 64rem) {
     :root { --gutter: 2rem; }
   }
+  @media (min-width: 80rem) {
+    :root { --gutter: 2.5rem; }
+  }
   @media (min-width: 90rem) {
-    :root { --gutter: 2.25rem; }
+    :root { --gutter: 3.5rem; }
   }
 }

@@ -147,6 +147,16 @@ export function navigationSectionsFor(subject: NavigationSubject): NavigationSec
   return [sections[0], teamSection, ...sections.slice(1)];
 }
 
+/**
+ * The launcher's shortcuts: the six destinations this session opens most,
+ * shown before the full directory ("View all pages").
+ */
+export function featuredFor(subject: NavigationSubject): NavigationItem[] {
+  if (subject.role === "admin") return [to.employees, to.adminAttendance, to.adminLeave, to.payroll, to.departments, to.reports];
+  if (subject.isManager) return [to.teamOverview, to.teamLeave, to.myAttendance, to.myLeave, to.payslips, to.people];
+  return [to.myAttendance, to.myLeave, to.payslips, to.goals, to.people, to.calendar];
+}
+
 /** Every launcher destination, flattened in launcher order. */
 export function navigationFor(subject: NavigationSubject): NavigationItem[] {
   return navigationSectionsFor(subject).flatMap((section) => section.items);

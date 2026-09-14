@@ -1,25 +1,25 @@
-import { Grip, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, LayoutGrid, Search } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import {
+  featuredFor,
   filterSections,
   isDestinationActive,
   navigationSectionsFor,
+  type NavigationItem,
   type NavigationSection,
 } from "../../routes/navigation";
 import { cn } from "../../utils/cn";
 import Sheet from "../ui/Sheet";
-import { tintStyles } from "../ui/tint";
 
 const TILE = "[data-launcher-tile]";
 
 /**
  * Moves focus between tiles with the arrow keys, by what is visually next to
- * the current tile rather than by list index - the grid reflows from four
- * columns to three, and "down" has to mean the tile underneath at either.
- * Returns whether the key was handled.
+ * the current tile rather than by list index, so "down" means the tile
+ * underneath however the grid has wrapped. Returns whether the key was handled.
  */
 function moveFocus(container: HTMLElement, key: string, onTop: () => void): boolean {
   const tiles = [...container.querySelectorAll<HTMLElement>(TILE)];
@@ -58,18 +58,56 @@ function moveFocus(container: HTMLElement, key: string, onTop: () => void): bool
   return true;
 }
 
+function Tile({ item, pathname }: { item: NavigationItem; pathname: string }) {
+  const active = isDestinationActive(item, pathname);
+  return (
+    <Link
+      to={item.to}
+      data-launcher-tile=""
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex h-full flex-col items-center justify-center gap-2 rounded-xl px-1 py-3 text-center transition-colors",
+        "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+        active ? "bg-primary-soft/70" : "hover:bg-surface-muted",
+      )}
+    >
+      <span className="grid size-12 place-items-center rounded-[0.875rem] bg-primary-soft text-primary" aria-hidden="true">
+        <item.icon size={22} />
+      </span>
+      <span className={cn("text-[0.8125rem] leading-tight [overflow-wrap:anywhere]", active ? "font-semibold text-primary" : "font-medium text-fg")}>
+        {item.label}
+      </span>
+    </Link>
+  );
+}
+
 /**
- * The launcher's content: a filter and every destination the session may
- * open, grouped. Shared by the desktop popover and the phone sheet so the two
- * can never list different things.
+ * The launcher's content, shared by the desktop panel and the phone sheet.
+ *
+ * It opens on the reference's six shortcuts, divided by hairlines. Typing
+ * filters every destination the session may open; "View all pages" shows the
+ * complete grouped directory. Nothing is left out of the directory to make
+ * the shortcuts tidy - the shortcuts are only the first view of it.
  */
-function LauncherContent({ sections, pathname }: { sections: NavigationSection[]; pathname: string }) {
+function LauncherContent({
+  sections,
+  featured,
+  pathname,
+  inputRef,
+}: {
+  sections: NavigationSection[];
+  featured: NavigationItem[];
+  pathname: string;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
   const [query, setQuery] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [showAll, setShowAll] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const idBase = useId();
+  const term = query.trim();
   const shown = filterSections(sections, query);
   const count = shown.reduce((total, section) => total + section.items.length, 0);
+  const grouped = term.length > 0 || showAll;
 
   const onInputKey = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "ArrowDown") {
@@ -77,82 +115,102 @@ function LauncherContent({ sections, pathname }: { sections: NavigationSection[]
       gridRef.current?.querySelector<HTMLElement>(TILE)?.focus();
     }
   };
-
   const onGridKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!gridRef.current) return;
-    if (moveFocus(gridRef.current, event.key, () => inputRef.current?.focus())) event.preventDefault();
+    if (gridRef.current && moveFocus(gridRef.current, event.key, () => inputRef.current?.focus())) event.preventDefault();
   };
 
   return (
     <div>
       <label className="relative block">
-        <span className="sr-only">Find an app</span>
-        <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-fg-subtle" aria-hidden="true" />
+        <span className="sr-only">Search pages</span>
+        <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-fg-subtle" aria-hidden="true" />
         <input
           ref={inputRef}
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onInputKey}
-          placeholder="Find an app"
+          placeholder="Search pages…"
           autoComplete="off"
-          className="h-11 w-full rounded-xl border border-control-border bg-surface pl-10 pr-3 text-sm text-fg placeholder:text-fg-subtle focus:border-primary focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring"
+          className="h-11 w-full rounded-xl border border-transparent bg-surface-muted pl-10 pr-3 text-sm text-fg placeholder:text-fg-subtle focus:border-primary focus:bg-elevated focus:outline-none"
         />
       </label>
       <p className="sr-only" role="status" aria-live="polite">
-        {query.trim() ? `${count} ${count === 1 ? "app" : "apps"}` : ""}
+        {term ? `${count} ${count === 1 ? "page" : "pages"}` : ""}
       </p>
 
-      <div ref={gridRef} onKeyDown={onGridKey} className="mt-4 space-y-5">
-        {shown.length === 0 && (
-          <p className="py-8 text-center text-sm text-fg-muted">No app matches “{query.trim()}”.</p>
+      <div ref={gridRef} onKeyDown={onGridKey} className="mt-3">
+        {!grouped && (
+          <ul className="grid grid-cols-3">
+            {featured.map((item, index) => (
+              <li
+                key={item.to}
+                className={cn(
+                  "relative p-1",
+                  // Hairlines between tiles, inset from the ends, as in the reference.
+                  index % 3 !== 2 && "after:absolute after:bottom-4 after:right-0 after:top-4 after:w-px after:bg-line",
+                  index < 3 && "before:absolute before:bottom-0 before:left-3 before:right-3 before:h-px before:bg-line",
+                )}
+              >
+                <Tile item={item} pathname={pathname} />
+              </li>
+            ))}
+          </ul>
         )}
-        {shown.map((section) => (
-          <section key={section.id} aria-labelledby={`${idBase}-${section.id}`}>
-            <h3 id={`${idBase}-${section.id}`} className="px-1 text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-fg-subtle">
-              {section.label}
-            </h3>
-            <ul className="mt-2 grid grid-cols-3 gap-1 sm:grid-cols-4">
-              {section.items.map((item) => {
-                const active = isDestinationActive(item, pathname);
-                return (
-                  <li key={item.to}>
-                    <Link
-                      to={item.to}
-                      data-launcher-tile=""
-                      aria-current={active ? "page" : undefined}
-                      className={cn(
-                        "flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl px-1.5 py-3 text-center transition-colors",
-                        "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
-                        active ? "bg-primary-soft" : "hover:bg-surface-muted",
-                      )}
-                    >
-                      <span className={cn("grid size-11 place-items-center rounded-xl", tintStyles[item.tint])} aria-hidden="true">
-                        <item.icon size={20} />
-                      </span>
-                      <span className={cn("text-xs leading-tight [overflow-wrap:anywhere]", active ? "font-semibold text-primary" : "font-medium text-fg")}>
-                        {item.label}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
+
+        {grouped && (
+          <div className="max-h-[min(58vh,30rem)] space-y-4 overflow-y-auto pr-0.5">
+            {shown.length === 0 && (
+              <p className="py-8 text-center text-sm text-fg-muted">No page matches “{term}”.</p>
+            )}
+            {shown.map((section) => (
+              <section key={section.id} aria-labelledby={`${idBase}-${section.id}`}>
+                <h3 id={`${idBase}-${section.id}`} className="px-1 text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-fg-subtle">
+                  {section.label}
+                </h3>
+                <ul className="mt-1 grid grid-cols-3">
+                  {section.items.map((item) => (
+                    <li key={item.to} className="p-1">
+                      <Tile item={item} pathname={pathname} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        )}
       </div>
+
+      {!term && (
+        <div className="mt-2 flex justify-center border-t border-line pt-2">
+          <button
+            type="button"
+            onClick={() => setShowAll((value) => !value)}
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-[0.8125rem] font-medium text-fg-muted transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            {showAll ? (
+              <>
+                <ArrowLeft size={15} aria-hidden="true" />
+                Back to shortcuts
+              </>
+            ) : (
+              <>
+                View all pages
+                <ArrowRight size={15} aria-hidden="true" />
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
 /**
- * The App Launcher: the complete, permission-aware directory of modules.
- *
- * The header's four destinations are the daily ones; everything a session may
- * open lives here, grouped. A popover under the header from md up, a bottom
- * sheet on a phone. Built from the same navigation registry as the header, so
- * nothing appears that the route would refuse - and the route and the server
- * still check.
+ * The App Launcher: the complete, permission-aware directory of modules,
+ * opened from the header. A panel under the header from md up, a bottom sheet
+ * on a phone. Built from the navigation registry, so nothing appears that the
+ * route would refuse - and the route and the server still check.
  */
 export default function AppLauncher() {
   const { user } = useAuth();
@@ -161,17 +219,17 @@ export default function AppLauncher() {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const panelId = useId();
 
   // Following a destination closes the launcher.
   useEffect(() => setIsOpen(false), [pathname]);
 
-  // Popover only: focus in on open, Escape and outside pointer close it, and
-  // focus leaving the panel closes it too (a non-modal panel must not strand
-  // itself open behind the keyboard). The sheet gets all of this from Modal.
+  // Panel only: focus in on open; Escape, an outside pointer or focus leaving
+  // the panel closes it. The sheet gets all of this from Modal.
   useEffect(() => {
     if (!isOpen || !isWide) return;
-    panelRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+    inputRef.current?.focus();
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Node;
       if (!panelRef.current?.contains(target) && !triggerRef.current?.contains(target)) setIsOpen(false);
@@ -192,9 +250,12 @@ export default function AppLauncher() {
 
   if (!user) return null;
   const sections = navigationSectionsFor(user);
+  const featured = featuredFor(user);
 
   return (
-    <div className="relative">
+    // No positioning context here: the panel anchors to the header row, so it
+    // aligns with the header's right edge as in the reference.
+    <div>
       <button
         ref={triggerRef}
         type="button"
@@ -204,12 +265,12 @@ export default function AppLauncher() {
         aria-expanded={isOpen}
         aria-controls={isOpen && isWide ? panelId : undefined}
         className={cn(
-          "grid size-10 place-items-center rounded-xl text-fg transition-colors hover:bg-surface-muted",
+          "grid size-10 place-items-center rounded-2xl text-fg transition-colors md:size-11",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-          isOpen && "bg-surface-muted",
+          isOpen ? "bg-line" : "hover:bg-surface-muted",
         )}
       >
-        <Grip size={22} strokeWidth={2.4} aria-hidden="true" />
+        <LayoutGrid size={20} strokeWidth={2.2} aria-hidden="true" />
       </button>
 
       {isWide && isOpen && (
@@ -222,11 +283,9 @@ export default function AppLauncher() {
             const next = event.relatedTarget as Node | null;
             if (next && !panelRef.current?.contains(next) && !triggerRef.current?.contains(next)) setIsOpen(false);
           }}
-          className="absolute right-0 top-12 z-50 w-[min(36rem,calc(100vw-2rem))] rounded-2xl border border-line bg-elevated p-4 shadow-panel"
+          className="absolute right-(--gutter) top-[calc(100%-0.5rem)] z-50 w-[22rem] rounded-2xl border border-line bg-elevated p-3.5 shadow-panel"
         >
-          <div className="max-h-[min(70vh,40rem)] overflow-y-auto p-1">
-            <LauncherContent sections={sections} pathname={pathname} />
-          </div>
+          <LauncherContent sections={sections} featured={featured} pathname={pathname} inputRef={inputRef} />
         </div>
       )}
 
@@ -237,7 +296,7 @@ export default function AppLauncher() {
           title="Apps"
           description={user.role === "admin" ? "Every area of HR Nexus you can open." : "Everything you can open."}
         >
-          <LauncherContent sections={sections} pathname={pathname} />
+          <LauncherContent sections={sections} featured={featured} pathname={pathname} inputRef={inputRef} />
         </Sheet>
       )}
     </div>

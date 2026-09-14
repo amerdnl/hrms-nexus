@@ -131,7 +131,7 @@ export default function NotificationBell() {
         {count > 0 && (
           <span
             aria-hidden="true"
-            className="absolute right-2 top-2 size-2.5 rounded-full bg-[#dc2626] ring-2 ring-header"
+            className="absolute right-2 top-2 size-2.5 rounded-full bg-[#e5301d] ring-2 ring-canvas"
           />
         )}
       </button>

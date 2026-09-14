@@ -1,47 +1,45 @@
 import { Link } from "react-router-dom";
-import { cn } from "../../utils/cn";
 
 /**
- * The mountain mark from the approved reference: a pale summit facet over two
- * darker flanks. Drawn rather than shipped as an image so it stays crisp at
- * any size and can take the dark theme's lighter colourway.
+ * The HR Nexus network mark - five people joined through one centre - drawn
+ * as an inline SVG rather than the PNG the sign-in screen uses, so it stays
+ * crisp at header size and takes its colour from the theme: deep teal on the
+ * light canvas, soft aqua on navy.
  */
 export function BrandGlyph({ className }: { className?: string }) {
+  const nodes = [
+    [16, 5.2],
+    [26.9, 13.1],
+    [22.7, 25.9],
+    [9.3, 25.9],
+    [5.1, 13.1],
+  ];
   return (
-    <svg viewBox="0 0 40 30" className={className} aria-hidden="true" focusable="false">
-      <path d="M20 1 29.5 15 20 22 10.5 15Z" className="fill-[#5fa894] dark:fill-[#86d4c2]" />
-      <path d="M10.5 15 20 22V29H1Z" className="fill-[#0e4a42] dark:fill-[#3aa593]" />
-      <path d="M29.5 15 39 29H20V22Z" className="fill-[#1b6457] dark:fill-[#2c8b7b]" />
+    <svg viewBox="0 0 32 32" className={className} aria-hidden="true" focusable="false">
+      <g className="fill-[#0e4a44] stroke-[#0e4a44] dark:fill-[#7fd3bf] dark:stroke-[#7fd3bf]">
+        {nodes.map(([x, y]) => (
+          <line key={`l${x}`} x1="16" y1="16.4" x2={x} y2={y} strokeWidth="2.6" strokeLinecap="round" />
+        ))}
+        <circle cx="16" cy="16.4" r="4.1" className="fill-canvas" strokeWidth="2.6" />
+        {nodes.map(([x, y]) => (
+          <circle key={`c${x}`} cx={x} cy={y} r="3.3" stroke="none" />
+        ))}
+      </g>
     </svg>
   );
 }
 
-/**
- * The header identity: mark, wordmark and, where there is room, the tagline.
- * One link home, named once - the mark is decorative and the tagline is not
- * part of the name.
- */
+/** The header identity: mark and letterspaced wordmark, one link home. */
 export default function BrandMark({ homePath }: { homePath: string }) {
   return (
     <Link
       to={homePath}
       aria-label="HR Nexus home"
-      className="flex shrink-0 items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+      className="flex shrink-0 items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring lg:gap-4"
     >
-      <BrandGlyph className="h-7 w-9 shrink-0 lg:h-[1.875rem] lg:w-10" />
-      <span className="min-w-0">
-        <span className="block text-lg font-bold leading-tight tracking-tight text-fg md:max-lg:sr-only lg:text-[1.375rem]">
-          HR Nexus
-        </span>
-        <span
-          aria-hidden="true"
-          className={cn(
-            "hidden whitespace-nowrap text-[0.6875rem] leading-4 text-fg-subtle",
-            "min-[90rem]:block",
-          )}
-        >
-          People · Culture · A Brighter Tomorrow
-        </span>
+      <BrandGlyph className="size-8 shrink-0" />
+      <span className="whitespace-nowrap text-[0.9375rem] font-semibold tracking-[0.28em] text-fg lg:text-[1.0625rem]">
+        HR NEXUS
       </span>
     </Link>
   );

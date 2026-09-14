@@ -42,6 +42,13 @@ interface DropdownMenuProps {
   label: string;
   align?: "start" | "end";
   className?: string;
+  /**
+   * Drops the trigger's own colour and hover classes, for a trigger that sits
+   * on a surface with its own palette (the dark split button, a link-styled
+   * period picker). cn() appends rather than merges, so overriding colours
+   * through className alone would leave two competing utilities.
+   */
+  unstyled?: boolean;
 }
 
 /** Consecutive items that share a `group`, in order. Items without one form their own runs. */
@@ -87,6 +94,7 @@ export default function DropdownMenu({
   label,
   align = "end",
   className,
+  unstyled = false,
 }: DropdownMenuProps) {
   const id = useId();
   const [isOpen, setIsOpen] = useState(false);
@@ -234,8 +242,8 @@ export default function DropdownMenu({
           setIsOpen((current) => !current);
         }}
         className={cn(
-          "inline-flex items-center justify-center rounded-lg text-fg-muted transition-colors",
-          "hover:bg-surface-muted hover:text-fg",
+          "inline-flex items-center justify-center rounded-lg transition-colors",
+          !unstyled && "text-fg-muted hover:bg-surface-muted hover:text-fg",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
           className,
         )}
