@@ -201,7 +201,7 @@ export default function InsightsCard({ today, workingDays, className }: { today:
               <div key={stat.label} className={cn("min-w-0", index === 0 ? "pr-3" : "px-3 sm:px-5")}>
                 <dt className="sr-only">{stat.label}</dt>
                 <dd className="text-xl font-semibold tabular-nums text-fg">{state === "loading" ? "—" : stat.value}</dd>
-                <dd aria-hidden="true" className="mt-0.5 truncate text-[0.8125rem] text-fg-muted">{stat.label}</dd>
+                <dd aria-hidden="true" className="mt-0.5 text-[0.8125rem] leading-4 text-fg-muted min-[90rem]:truncate">{stat.label}</dd>
                 <dd className="mt-1 text-[0.8125rem]" title={period === "this" ? "Compared with the same days last month" : "Compared with the month before"}>
                   {state === "ready" ? stat.delta : <span className="text-fg-subtle">&nbsp;</span>}
                   <span className="sr-only">{period === "this" ? ", compared with the same days last month" : ", compared with the month before"}</span>

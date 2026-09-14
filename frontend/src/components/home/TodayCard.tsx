@@ -66,8 +66,10 @@ export default function TodayCard({ state, calendar, className, aside }: {
     return () => window.clearInterval(timer);
   }, []);
 
+  // @container: the slot row adapts to the card's width, which differs between
+  // HR's Home (beside Tasks) and a phone.
   const shell = cn(
-    "relative overflow-hidden rounded-card p-5 text-feature-fg shadow-raised sm:p-6 lg:px-[1.625rem] lg:pb-5 lg:pt-5",
+    "@container relative overflow-hidden rounded-card p-5 text-feature-fg shadow-raised sm:p-6 lg:px-[1.625rem] lg:pb-5 lg:pt-5",
     "bg-linear-to-br from-feature to-feature-deep dark:ring-1 dark:ring-white/5",
     className,
   );
@@ -138,10 +140,13 @@ export default function TodayCard({ state, calendar, className, aside }: {
           <ChevronRight size={12} className="-ml-1 text-feature-accent/60" />
         </div>
 
+        {/* Wider than 36rem, the slots share the row as flexible tiles (7 to
+            11.25rem) beside the inline link, so three events never slide under
+            it. Narrower, the row scrolls sideways and the link moves below. */}
         <div className="flex items-end gap-4">
-          <div className="-mx-1 min-w-0 flex-1 overflow-x-auto px-1 pb-1 pt-4 [scrollbar-width:none]">
-            <ol className="flex gap-3 sm:gap-4">
-              <li className="relative w-[7.25rem] shrink-0 rounded-xl border border-feature-accent/45 bg-white/[0.06] px-4 py-3.5">
+          <div className="-mx-1 min-w-0 flex-1 overflow-x-auto px-1 pb-1 pt-4 [scrollbar-width:none] @min-[36rem]:overflow-visible">
+            <ol className="flex gap-3">
+              <li className="relative w-[6.75rem] shrink-0 rounded-xl border border-feature-accent/45 bg-white/[0.06] px-4 py-3.5">
                 <span aria-hidden="true" className="absolute -top-[11px] left-4 size-1.5 rounded-full bg-feature-accent" />
                 <p className="text-[0.9375rem] font-medium">Now</p>
                 <p className="mt-1 text-[0.8125rem] text-feature-muted">
@@ -150,15 +155,15 @@ export default function TodayCard({ state, calendar, className, aside }: {
                 <span aria-hidden="true" className="mt-3 block size-2 rounded-full bg-feature-accent" />
               </li>
               {slots.map((slot, index) => (
-                <li key={slot.key} className="relative shrink-0">
+                <li key={slot.key} className="relative w-40 shrink-0 @min-[36rem]:w-auto @min-[36rem]:min-w-[7rem] @min-[36rem]:max-w-[11.25rem] @min-[36rem]:flex-1 @min-[36rem]:shrink">
                   <span aria-hidden="true" className="absolute -top-[10px] left-4 size-1 rounded-full bg-feature-accent/70" />
                   <Link
                     to={`/calendar?date=${slot.date}`}
-                    className="block w-[10rem] rounded-xl border border-white/[0.07] bg-white/[0.035] px-4 py-3.5 transition-colors hover:bg-white/[0.07] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-feature-accent sm:w-[11.25rem]"
+                    className="block h-full rounded-xl border border-white/[0.07] bg-white/[0.035] px-4 py-3.5 transition-colors hover:bg-white/[0.07] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-feature-accent"
                   >
                     <slot.icon size={17} className="text-[#8fd6e6]" aria-hidden="true" />
-                    <p className="mt-2 truncate text-[0.9375rem] font-medium" title={slot.title}>{slot.title}</p>
-                    <p className="mt-1 truncate text-[0.8125rem] text-feature-muted">
+                    <p className="mt-2 truncate text-sm font-medium" title={slot.title}>{slot.title}</p>
+                    <p className="mt-1 truncate text-[0.8125rem] text-feature-muted" title={slot.when}>
                       {index >= todaySlots.length && <span className="sr-only">Coming up, </span>}
                       {slot.when}
                     </p>
@@ -172,7 +177,7 @@ export default function TodayCard({ state, calendar, className, aside }: {
           </div>
           <Link
             to={calendarLink}
-            className="mb-1 hidden min-h-8 shrink-0 items-center gap-2 rounded-md text-[0.8125rem] font-medium text-feature-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-feature-accent min-[80rem]:inline-flex"
+            className="mb-1 hidden min-h-8 shrink-0 items-center gap-2 rounded-md text-[0.8125rem] font-medium text-feature-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-feature-accent @min-[36rem]:inline-flex"
           >
             View calendar
             <ArrowRight size={14} aria-hidden="true" />
@@ -182,7 +187,7 @@ export default function TodayCard({ state, calendar, className, aside }: {
 
       <Link
         to={calendarLink}
-        className="relative mt-3 inline-flex min-h-8 items-center gap-2 rounded-md text-[0.8125rem] font-medium text-feature-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-feature-accent min-[80rem]:hidden"
+        className="relative mt-3 inline-flex min-h-8 items-center gap-2 rounded-md text-[0.8125rem] font-medium text-feature-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-feature-accent @min-[36rem]:hidden"
       >
         View calendar
         <ArrowRight size={14} aria-hidden="true" />

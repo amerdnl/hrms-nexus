@@ -22,7 +22,7 @@ export default function BrandCard({ className }: { className?: string }) {
           together.
         </p>
         <p className="mt-9 text-[0.6875rem] font-medium tracking-[0.2em] text-white/85">HR NEXUS</p>
-        <p className="mt-2.5 text-[0.625rem] tracking-[0.2em] text-white/75">PEOPLE · PROCESS · POSSIBILITY</p>
+        <p className="mt-2.5 whitespace-nowrap text-[0.625rem] tracking-[0.12em] text-white/75 min-[90rem]:tracking-[0.2em]">PEOPLE · PROCESS · POSSIBILITY</p>
       </figcaption>
     </figure>
   );
