@@ -236,7 +236,11 @@ guard.
 | `/api/export` | admin | ten V3 datasets: reporting lines, company holidays, company events, announcements, lifecycle plans, lifecycle tasks (no notes), recognition (no words for private thanks), goals (no description for private goals), review cycles, review participation (status and submission times only; no summaries, ratings or response). Notifications and the timeline are not exported |
 
 Every list endpoint is bounded (page size ≤ 100) and sorted by a stable key. Every id
-is parsed as a positive safe integer before SQL. Every write is a single transaction.
+is parsed as a positive safe integer before SQL. Every write is a single transaction, and
+its response is sent only after that transaction commits: a client told a change is done
+can always read it, and a failed COMMIT can never follow a success response. The shared
+transaction helpers record the handler's reply and send it after COMMIT, and a static test
+(`transaction-replies.test.ts`) keeps handlers from answering from inside the transaction.
 
 ## 8. Frontend module map
 
