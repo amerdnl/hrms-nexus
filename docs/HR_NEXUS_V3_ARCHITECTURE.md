@@ -179,6 +179,7 @@ Producers and their notifications:
 | Leave submitted | the employee's manager (if any), else every admin |
 | Leave approved/rejected/cancelled by someone else | the employee |
 | Payroll period approved | every employee with a record in it ("payslip published") |
+| Payroll period marked paid | every employee with a record in it ("pay has been paid", no amount) |
 | Announcement published | its audience |
 | Lifecycle plan started (one notification per role with tasks) | the employee, their current manager, HR (never the starter) |
 | Recognition given | the receiver |
@@ -189,13 +190,16 @@ Producers and their notifications:
 **As built in M3**, the producers are leave submitted (manager, else every admin), leave
 decided (employee), leave cancelled by someone else (employee), payroll approved (each
 payslip holder), reporting line changed (employee, and `report_added` to the new
-manager) and announcement published (its audience). Later milestones add theirs.
+manager) and announcement published (its audience). Later milestones add theirs; M7
+adds payroll paid (each payslip holder, deduplicated per period).
 
 **Action Center is computed, not stored.** `GET /api/action-center` derives, from the
 same tables the destination pages read, exactly the work the current session may act on:
 pending leave in scope (manager: team; admin: company), lifecycle tasks assigned to me
 (resolved by role: the plan's employee, their current manager, HR), reviews awaiting my input, goals overdue that I
-own, payroll periods awaiting the next transition (admin), and offboarding plans whose last day has come with every
+own, payroll periods awaiting the next transition (admin), recent days with missing check-outs
+(admin: one item per day over the last week, counting only records of working employees,
+so the protected historical orphan rows never appear), and offboarding plans whose last day has come with every
 task finished (admin: complete them). HR's leave items are only the requests no manager can decide (none recorded, the manager
 has left, or has no usable account); a manager's are their current direct reports'. It also
 lists "waiting" (your own requests someone else must decide), "upcoming" (the next 14
@@ -273,7 +277,13 @@ numbers from `vite build`.
 
 ## 11. Intentionally unsupported in V3
 
-- Automated EPF/SOCSO/EIS/PCB (decided under master §21 in M7 — see the plan).
+- Automated EPF/SOCSO/EIS/PCB. Decided under master §21 in M7: without authoritative,
+  versioned rules, rounding rules and test vectors, statutory amounts stay manual payroll
+  lines (see the plan's decisions log).
+- Excluding company holidays from leave counts. Payroll's unpaid-leave deduction counts the
+  working week alone, so leave does too; changing both would change pay (M7 decision).
+- Employee self-service attendance corrections. HR corrects records through the audited
+  attendance edit; the Action Center surfaces missing check-outs instead (M7 decision).
 - Indirect (transitive) manager scope for decisions. The org chart is browsable; the
   scope that decides leave and reads team data is direct reports only.
 - Multi-company tenancy, document storage, external identity providers, self sign-up,

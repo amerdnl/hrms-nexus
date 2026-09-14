@@ -192,6 +192,30 @@ plus route-splitting build assertions and axe/keyboard browser checks.
 - **13 Sep 2026 — `/api/company/calendar-config` ships in M3,** because the calendar needs
   it. It exposes the timezone, working week, company today and holidays, and nothing else
   from settings. M7 builds the leave preview and cancellation fixes on it.
+- **14 Sep 2026 — Company holidays are counted inside a leave range, as in V2.** Payroll's
+  unpaid-leave deduction recounts days from the leave dates using the working week alone.
+  Excluding holidays from leave would either leave balances and pay disagreeing or change
+  pay amounts, which master §27 and §44 make a stop condition. So leave keeps V2's
+  working-week count, the preview matches it exactly and names any holiday in the range,
+  and a demo announcement that said a holiday "does not use your leave" was corrected.
+  Excluding holidays is possible later only as a payroll-semantics change with its own
+  decision.
+- **14 Sep 2026 — No employee self-service attendance correction.** Master §19 asks for a
+  correction workflow "where genuinely useful". V2's verified check-in exists to make
+  attendance hard to assert after the fact, and HR already corrects records through an
+  audited edit. A request queue would add a second path around verification for little
+  gain. Instead HR's Action Center lists recent days with missing check-outs, linking to
+  Attendance.
+- **14 Sep 2026 — Malaysian statutory automation is intentionally excluded (master §21).**
+  Automating EPF, SOCSO, EIS and PCB would need authoritative rule sources, effective-dated
+  and versioned rules, rounding rules, test vectors, a legal disclaimer decision and a safe
+  rule-update process. None is available to this project with confidence, so statutory
+  amounts stay manual payroll lines entered and reviewed by HR. Incorrect automation is
+  worse than explicit manual handling.
+- **14 Sep 2026 — Payroll V3 changes no money.** It adds when each step happened on the
+  period, a "paid" notification to each eligible payslip holder (title only, no amount),
+  and HR's next-step items. Integer-sen values, the state machine, snapshots and
+  approved/paid immutability are untouched.
 
 ## M0 — Architecture & foundation (11 September 2026)
 
@@ -640,3 +664,45 @@ Recorded:
   it is scoped to the form.
 
 M6 status: **complete.**
+
+## M7 — Attendance, leave & payroll V3 (14 September 2026)
+
+No migration: M7 builds on 0010–0016 and V2's tables.
+
+Delivered:
+
+- **Leave preview from the company's own week.** The request form reads
+  `/api/company/calendar-config` and counts working days exactly as the server does at
+  submission, naming the working week (for example Mon–Fri) and any company holiday in the
+  range, and saying that a holiday inside a range is still counted. A range with no working
+  days says so. This resolves V2's first known limitation (master §20.1).
+- **Cancellation by the company's today.** "Cancel" appears only for leave starting after
+  the company's date in its timezone, the rule the server applies, not the browser's clock
+  or UTC date (master §20.2).
+- **Attendance follow-ups for HR.** The Action Center lists each of the last seven days
+  with missing check-outs, linking to Attendance. Only working employees' records count, so
+  the five protected orphan rows never appear. Managers and employees do not get these
+  items, and nothing carries coordinates.
+- **Payroll state and the paid notification.** The period header shows when it was
+  calculated, reviewed, approved and paid. Marking a period paid tells each eligible
+  payslip holder once ("Your pay for August 2026 has been paid", no amount, linking to
+  their payslips). No money, state machine, snapshot or immutability rule changed.
+- **Decisions** (see the log): holidays stay counted in leave, as in V2; no employee
+  self-service attendance correction; statutory automation intentionally excluded under
+  master §21.
+- **Demo**: the Malaysia Day announcement no longer claims a holiday does not use leave.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Backend typecheck (source and tests) | pass |
+| M7 attendance, leave and payroll suite | **7/7**: an employee reads the working week, holidays and today but no coordinates or other settings, and full settings stay HR-only; a week with a holiday is charged 5 working days and a weekend-only range is refused as `no_working_days`; leave starting on the company's today cannot be cancelled and leave starting tomorrow can; HR's missing check-out item counts only working employees and never reaches a manager or employee; team attendance carries no coordinates, accuracy or distance; the paid notification reaches only eligible payslip holders, once, with no amount; the five orphans remain |
+| Backend full laboratory suite | **535 pass, 0 fail, 0 skipped** (+7), first run clean |
+| Frontend typecheck, Oxlint (0 warnings), production build | pass |
+| Initial JS | 351.18 kB (gzip 113.72 kB), 144 chunks: +0.14 kB over M6 |
+| M7 browser smoke on the V3 demo stack | **19/19**, no page errors: a 15–18 September preview of 4 working days naming Malaysia Day; a weekend range at 0; the server charging the same 4 days; Cancel shown for future leave and not for past leave; the corrected announcement; HR's missing check-out items opening Attendance without coordinates; approved stamps, Mark paid and the paid stamp; the employee's single paid notification with no amount and the payslip shown as paid; no HR items for a manager; 390 dark with no overflow |
+| V2 navigation gate on the V3 bundle | **51/51** |
+| Source fingerprint (14 September) | identical to the post-0016 record except audit entry 26, the administrator sign-in at 00:56:38 UTC already recorded in M6; no entry since |
+
+M7 status: **complete.**
