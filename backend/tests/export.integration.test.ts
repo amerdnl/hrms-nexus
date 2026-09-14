@@ -219,14 +219,19 @@ test("Company Data Export: authorization, exposure, exactness and audit", {
     await t.test("no coordinate, accuracy or distance is in any export", async () => {
       for (const dataset of datasets) {
         const csv = await (await call(`/export/datasets/${dataset.key}/csv`)).text();
-        for (const value of [
-          "3.139001", "101.686002", "3.139003", "101.686004", "12.5", "20.0",
-          "latitude", "longitude", "accuracy", "distance",
-        ]) {
+        // Coordinates and the column words are unique enough to find anywhere.
+        for (const value of ["3.139001", "101.686002", "3.139003", "101.686004", "latitude", "longitude", "accuracy", "distance"]) {
           assert.equal(
             csv.toLowerCase().includes(value.toLowerCase()), false,
             `${dataset.key} must not contain "${value}"`,
           );
+        }
+        // The accuracy (12.5) and distance (20.0) are short numbers that also
+        // occur inside ordinary values - a timestamp with 20.0 in its seconds
+        // failed this once - so they are checked as whole cells.
+        const cells = (await csvOf(dataset.key)).flat();
+        for (const value of ["12.5", "12.50", "20.0", "20.00"]) {
+          assert.equal(cells.includes(value), false, `${dataset.key} must not contain a "${value}" cell`);
         }
       }
       // The radius is a rule, not a place, and is deliberately kept.
