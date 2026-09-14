@@ -37,7 +37,7 @@ typecheck, Oxlint and production build pass; the entry chunk is 569.69 kB (161.7
 | M7 | Attendance, leave & payroll V3 | complete |
 | M8 | Analytics, reports, export & settings | complete |
 | M9 | Mobile, performance, security & accessibility hardening | complete |
-| M10 | Complete demo, final QA & release | — |
+| M10 | Complete demo, final QA & release | complete; release awaits the owner's confirmation (see M10) |
 
 Each milestone ends with: backend tests (full laboratory run, new total reported),
 backend typecheck, frontend typecheck, Oxlint, production build, migration tests when a
@@ -846,3 +846,75 @@ outside the normal workflow is a master §44 stop condition. It is carried to th
 report for the owner to confirm.
 
 M9 status: **complete.**
+
+## M10 — Complete demo, final QA & release (14 September 2026)
+
+No migration.
+
+Delivered:
+
+- **Demo company settings**: the guarded seed gives the demo company Asia/Kuala_Lumpur,
+  Monday to Friday, 09:00 to 18:00 and an office location with a 150 m radius, only when
+  settings were never configured, so verified attendance can be demonstrated.
+- **A defect found by the final laboratory run, fixed.** The lifecycle, goal and review
+  handlers answered before their transaction committed, so a client could be told a
+  change was done before it could read it, and a failed COMMIT would have followed a
+  success response. It surfaced once as a goal-completion notification missing when read
+  back while the laboratory server was also restoring the release backup. The suite
+  passed alone twice. Sixteen handlers now record their reply and the helper sends it
+  after COMMIT, and `transaction-replies.test.ts` guards the shape. The calendar handlers
+  already committed first.
+- **Documentation** (master §41): the README describes V3 by role;
+  `HR_NEXUS_V3_RELEASE.md` gives every gate, command and checksum and the human-only tag;
+  `HR_NEXUS_V3_DEMO.md` describes the demo company; the architecture states the
+  reply-after-commit rule.
+
+Final gates:
+
+| Gate | Result |
+| --- | --- |
+| Backend full laboratory suite | **564 pass, 0 fail, 0 skipped**, no teardown failure. The run before the fix: 560/562 (the defect above) |
+| Backend type-check (source and tests), `npm test` guard | pass; transaction-replies 2/2 |
+| Frontend typecheck, Oxlint (0 warnings), production build, `check:bundle` | pass; initial JS 347.25 kB (gzip 113.00 kB), 152 chunks |
+| Visual gate (master §38) | **408 rendered pages** (29 admin, 18 manager, 18 employee and 2 anonymous routes at 1280, 390 and 375 in light and dark, and System dark and light at 390) plus the account menu, the More sheet and two dialogs at 375 and four permission redirects: no overflow, duplicate heading, bottom-navigation overlap, stuck loading, error state or page error. 411 screenshots; a sample across roles, widths and themes reviewed by eye with no defect |
+| Workflow gate (master §39), each on a freshly rebuilt demo | M1 **49/49**, M2 **39/39**, M3 **59/59**, M4 **41/41**, M5 **28/28**, M6 **40/40**, M7 **19/19**, M8 **30/30**, attendance verification **15/15** |
+| Accessibility (M9) | 200 axe scans with no WCAG 2.2 AA violation; keyboard 12/12 |
+| Security matrix (master §37) | 18/18 inside the full suite |
+
+The workflow gate maps to master §39 as follows: organisation data and reporting lines
+(M1); a coworker's social profile, protected data refused by direct API and the org chart
+(M2); announcement audience, notification deep links, Action Center resolution and who's
+out (M3); onboarding and offboarding with history kept and safe deactivation (M4);
+recognition visibility (M5); goals and self then manager reviews (M6); leave by working
+week and company date and payroll guarantees (M7); analytics from real data and export
+exclusions (M8); verified attendance (the attendance check: HR-only codes, missing code,
+missing location, a forged code, a distant and an imprecise location all refused with no
+record written; a verified check-in; a duplicate refused; no coordinates for the manager;
+coordinates only on HR's record, as designed).
+
+The attendance check first ran at 13/15 because of two mistakes in the check itself: it
+read the verification fields at the top level instead of under `verification`, and it
+expected HR's record to omit coordinates, which the architecture gives HR by design.
+
+Source integrity (master §40), read-only:
+
+| Item | State |
+| --- | --- |
+| Ledger | 0001–0016, V3 checksums as in the release procedure |
+| Base tables | 34 (V2's 18 and V3's 16); every V3 table empty |
+| Employees / accounts / attendance | 1 / 2 / 5 |
+| Historical orphans | `1:1,3:1,4:2,5:1,6:1`, row digest unchanged |
+| Accounts flagged for a password change | 0 |
+| September 2026 payroll period | **`calculated`** since 01:38:51 UTC on 14 September, by source user 1 through the source application (audit entries 31–32); no payroll records. Not caused or reverted by this work |
+| Audit events | 33; entries 24–33 are the owner's own sign-ins, an export and the recalculation |
+| Release backup | `.local-backups/v3-release-20260914/hr_nexus_v3_release.dump`, 191,857 bytes, SHA-256 `a90ed5bfff94d60a6784058504c713e50057c07aaad73c342a7fdcfd4f7a6dc7`; restored into an isolated laboratory database and matched source in every digest and the ledger; source unchanged across the dump |
+| Final fingerprint | identical to the reading taken with the release backup |
+| Isolation | application database and backend on `hr-nexus_default` only; laboratory and demo API on `hr-nexus-v2-migration-lab` |
+| Docker volume | `hr-nexus_postgres_data`, created 7 August 2026, never removed |
+| Repository | clean except the protected untracked `HR_NEXUS_V2_MASTER.md` and `docs/schema.dbml`; `database/` unchanged since `v2.0.0-rc1`; V3 adds migrations 0010–0016 |
+
+M10 status: **complete.** Every engineering gate passes. The release report is **NOT READY**
+on one item only: the protected baseline expected the September 2026 payroll period to
+remain `draft`, and it was recalculated through the source application. The owner needs to
+confirm that was intended. No code or data change is needed if it was. The `v3.0.0` tag has
+not been created.
