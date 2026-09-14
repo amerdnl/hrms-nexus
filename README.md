@@ -4,32 +4,52 @@ HR Nexus is a full-stack Human Resource Management System developed as a group p
 
 ## Features
 
+HR Nexus V3 is organised around what each person can do. Access is decided by the server
+on every request from current data, so the interface only ever reflects it.
+
+### Everyone signed in
+
+- Action Center: the work waiting for you, derived from the records themselves
+- Notifications with an unread count, links to the page concerned and a full history
+- Global search (Ctrl+K or ⌘K) over people, departments and pages you may open
+- Company directory, social profiles with an About section, and an org chart
+- Company calendar with holidays, events and who is out
+- Announcements for the company or one department, with read tracking
+- Recognition between colleagues, public or private
+- Light, dark and system themes, and layouts that work from 375px phones up
+
 ### Employee
 
-- Secure login and role-based access
-- Employee dashboard
-- Attendance check-in and check-out
-- Work-hours calculation
-- Attendance history and status filtering
-- Leave application and leave history
-- Upcoming leave overview
-- Profile and contact information management
-- Profile photo upload and removal
-- Password change
-- Light and dark mode
+- Dashboard with today, leave, goals, recognition and announcements
+- Verified attendance: check-in and check-out with the office QR code and location
+- Leave requests previewed in working days from the company's working week, balances,
+  and cancellation until the leave starts (by the company's date)
+- Payslips, with a notification when payroll is approved and when it is paid
+- Goals with progress history, self-reviews and a response to the manager's review
+- Onboarding and offboarding tasks
+- Profile, profile photo and password change
 
-### Admin
+### Manager
 
-- Admin dashboard with workforce and attendance statistics
-- Attendance status breakdown
-- Manual attendance creation and correction
-- Attendance filtering by employee, department, status, and date
-- Leave request management
-- Leave details, approval, and rejection
-- Employee management
-- Department management
-- Employee and department filtering
-- Responsive tables and pagination
+Anyone with direct reports, decided from the current reporting line:
+
+- My team: who is in today, leave waiting for a decision, who is away, and team insights
+- Team leave decisions, team attendance, team goals and manager reviews
+- A report's leave reasons and goals, never their pay or personal details
+
+### Administrator (HR)
+
+- Employees, departments and reporting lines
+- Attendance records and audited corrections, with missing check-outs in the Action Center
+- Leave management, policies and entitlements
+- Payroll from calculation through review and approval to paid; statutory amounts are
+  entered as manual lines (EPF, SOCSO, EIS and PCB are not calculated automatically)
+- Onboarding and offboarding templates and plans
+- Performance review cycles and goal oversight
+- Announcements, company holidays, company events and company settings
+- Reports and analytics: workforce, attendance, leave, payroll, onboarding, performance
+  and recognition
+- Data export (CSV and Excel), employee import and the audit log
 
 ## Technology Stack
 
@@ -238,53 +258,52 @@ The `-v` option may remove the PostgreSQL volume and therefore delete your local
 
 ## Project Modules
 
-- Authentication and authorization
-- Employee profile management
-- Employee management
-- Department management
-- Attendance management
-- Leave management
-- Employee dashboard
-- Admin dashboard
+- Authentication, sessions and forced password change
+- Roles and permissions: employee, manager scope and HR
+- People: directory, social profiles, org chart and reporting lines
+- Workplace: Action Center, notifications, search, calendar and announcements
+- Attendance with QR and location verification
+- Leave with balances and working-day counting
+- Payroll with an immutable approved and paid state
+- Onboarding and offboarding
+- Recognition and the employee timeline
+- Goals and performance reviews
+- Reports, analytics, data export and import
+- Company settings, holidays and the audit log
 
 ## User Roles
 
+HR Nexus has two account roles, **employee** and **admin**. **Manager** is not a stored
+role: an employee is a manager while someone currently reports to them, and loses that
+scope on the next request when the last report moves. The full permission model and the
+profile visibility matrix are in
+[docs/HR_NEXUS_V3_ARCHITECTURE.md](docs/HR_NEXUS_V3_ARCHITECTURE.md) (sections 2 to 4).
+
 ### Employee
 
-Employees can:
+Employees use the self-service pages above and see colleagues only through their social
+profile: name, photo, job title, department, manager, About and skills, and a phone number
+only when its owner shares it. Pay, personal details, leave reasons, private goals,
+review content and private recognition belong to their owner, and to their manager or HR
+only where the design says so.
 
-- View their employee dashboard
-- Check in and check out
-- View attendance history
-- View calculated work hours
-- Filter attendance records
-- Apply for leave
-- View leave request history and status
-- View upcoming approved leave
-- Update supported contact information
-- Upload and remove a profile photo
-- Change their password
-- Switch between light and dark mode
+Employment and personal information such as employee number, job title, department,
+employment status, date of birth, and employment date are read-only for employees and are
+managed by HR administrators.
 
-Employment and personal information such as employee number, job title, department, employment status, date of birth, and employment date are read-only for employees and are managed by HR administrators.
+### Manager
+
+Managers keep their own self-service pages and gain the team layer for their current
+direct reports: attendance, leave (including reasons, because they decide it), goals and
+reviews. They never see a report's pay, personal details or private recognition, and they
+have no access to anyone outside their team.
 
 ### Admin
 
-Administrators can:
-
-- View HR dashboard statistics
-- View attendance status breakdowns
-- Filter attendance records
-- Create manual attendance records
-- Correct attendance records
-- Review leave request details
-- Approve or reject leave requests
-- Manage employee records
-- Create and edit employees
-- Deactivate and reactivate employees
-- Manage departments
-- View active employee counts by department
-- Use employee, department, status, job-title, and date filters where supported
+Administrators manage the company: people, structure, attendance, leave, payroll,
+onboarding and offboarding, performance, announcements, calendar, settings, reports,
+export, import and the audit log. Sensitive actions are recorded in the append-only audit
+log, which never holds passwords, tokens, QR secrets, coordinates or private words.
 
 ## User Interface
 
@@ -378,27 +397,39 @@ git pull origin main
 
 ## Validation
 
-Frontend validation commands:
+Frontend:
 
 ```bash
 cd frontend
 npx tsc -b
 npm run lint
 npm run build
+npm run check:bundle   # every page lazy, vendor chunks present, first-visit JS within budget
 ```
 
-These commands check:
+Backend:
 
-- TypeScript compilation
-- Lint issues
-- Production build compatibility
+```bash
+cd backend
+npm run type-check
+npm test               # unit tests; database suites skip unless their lab flags are set
+```
+
+The database suites (migrations, authorisation, the security matrix and every workflow)
+run only against the isolated migration laboratory, never the application database. The
+full command and the release gates are in
+[docs/HR_NEXUS_V3_RELEASE.md](docs/HR_NEXUS_V3_RELEASE.md).
 
 ## Known Development Notes
 
-- Attendance statistics currently use a single selected date rather than a date range.
-- Some frontend pages perform client-side joins and filtering using full API result sets. For a larger production deployment, server-side pagination and aggregate endpoints would be preferable.
-- Attendance history associated with permanently deleted employees requires further backend/database design review because historical attendance records may remain without a corresponding employee record.
-- Filter and tab state is currently not stored in the URL, so it resets after a page reload.
+- Five historical attendance rows belong to employee records that were permanently deleted
+  before V2. They are protected history and are deliberately never reconciled or deleted.
+- Malaysian statutory payroll (EPF, SOCSO, EIS and PCB) is intentionally not automated;
+  see the V3 plan's decisions log for why.
+- Sessions are JWTs with an eight-hour expiry and no revocation list, but every request
+  re-reads the account, its role, its employee link and its manager scope, so a
+  deactivated account or a changed relationship loses access immediately.
+- Some list filters are not yet stored in the URL, so they reset after a page reload.
 
 ## License
 
