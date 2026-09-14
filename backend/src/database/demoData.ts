@@ -195,7 +195,7 @@ export const demoAnnouncements: Array<{
   {
     key: "malaysia-day", title: "Office closed on Malaysia Day", priority: "important", status: "published",
     publishedOn: "2026-09-08", expiresOn: "2026-09-17",
-    body: "The office is closed on Wednesday 16 September for Malaysia Day.\n\nIt is a company holiday, so it does not use your leave. If you are on call that day, your manager will confirm arrangements with you.",
+    body: "The office is closed on Wednesday 16 September for Malaysia Day.\n\nIf you are on call that day, your manager will confirm arrangements with you.",
   },
   {
     key: "new-joiners", title: "Welcome to our newest colleagues", priority: "normal", status: "published",
