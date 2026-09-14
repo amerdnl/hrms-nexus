@@ -26,6 +26,7 @@ export const notificationKinds = [
   "leave_rejected",
   "leave_cancelled",
   "payslip_published",
+  "payroll_paid",
   "announcement_published",
   "manager_changed",
   "report_added",

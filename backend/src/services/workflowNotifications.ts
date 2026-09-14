@@ -121,6 +121,27 @@ export async function payslipsPublished(
   }, db);
 }
 
+/** Marking a period paid tells each person with a payslip in it, once. */
+export async function payrollPaid(
+  db: Db,
+  period: { id: number | string; period_year: number; period_month: number },
+  actorUserId: number | null,
+): Promise<void> {
+  const holders = await db.query<{ employee_id: string | number }>(
+    "SELECT DISTINCT employee_id FROM public.payroll_records WHERE period_id = $1",
+    [period.id],
+  );
+  await notify(await accountsOfEmployees(holders.rows.map((row) => Number(row.employee_id)), db), {
+    kind: "payroll_paid",
+    title: `Your pay for ${formatMonth(Number(period.period_year), Number(period.period_month))} has been paid`,
+    link: "/employee/payroll",
+    entityType: "payroll_period",
+    entityId: period.id,
+    dedupeKey: `payroll:${period.id}:paid`,
+    actorUserId,
+  }, db);
+}
+
 export async function reportingLineChanged(
   db: Db,
   change: { employeeId: number; employeeName: string; managerId: number | null; managerName: string | null },

@@ -33,7 +33,8 @@ export interface ActionItem {
   id: string;
   kind:
     | "leave_decision" | "payroll_step" | "announcement" | "leave_waiting" | "leave_upcoming"
-    | "team_out" | "holiday" | "event" | "lifecycle_task" | "offboarding_ready" | "review" | "goal_overdue";
+    | "team_out" | "holiday" | "event" | "lifecycle_task" | "offboarding_ready" | "review" | "goal_overdue"
+    | "attendance_exception";
   title: string;
   detail: string | null;
   /** The company date it concerns, when it has one. */
@@ -183,6 +184,35 @@ async function performanceActions(user: AuthenticatedUser, db: Db): Promise<Acti
   return [...reviews, ...goals];
 }
 
+/**
+ * HR's attendance follow-ups: check-ins in the last week with no check-out,
+ * one item per day. Only records that belong to an employee are counted, so
+ * the protected historical orphan rows can never appear. Corrections stay
+ * with HR through the audited attendance edit.
+ */
+async function attendanceExceptions(user: AuthenticatedUser, today: string, db: Db): Promise<ActionItem[]> {
+  if (user.role !== "admin") return [];
+  const result = await db.query<{ attendance_date: string; missing: number }>(
+    `SELECT a.attendance_date::text AS attendance_date, count(*)::int AS missing
+     FROM public.attendance a
+     JOIN public.employees e ON e.id = a.employee_id
+     WHERE a.check_in_time IS NOT NULL AND a.check_out_time IS NULL
+       AND a.attendance_date BETWEEN ($1::date - 7) AND ($1::date - 1)
+       AND e.employment_status IN ('active', 'probation')
+     GROUP BY a.attendance_date
+     ORDER BY a.attendance_date DESC`,
+    [today],
+  );
+  return result.rows.map((row) => ({
+    id: `attendance-missing-checkout:${row.attendance_date}`,
+    kind: "attendance_exception",
+    title: `${plural(row.missing, "check-out")} missing on ${formatDateRange(row.attendance_date, row.attendance_date)}`,
+    detail: "Correct them from Attendance",
+    date: row.attendance_date,
+    link: "/admin/attendance",
+  }));
+}
+
 async function ownPendingLeave(user: AuthenticatedUser, db: Db): Promise<ActionItem[]> {
   if (user.employeeId === null) return [];
   const result = await db.query<PendingLeaveRow & { manager_name: string | null }>(
@@ -296,7 +326,7 @@ export async function actionCenterFor(user: AuthenticatedUser, db: Db = pool) {
 
   const requiresAction = [
     ...announcements, ...uniqueDecisions, ...await lifecycleActions(user, db), ...await performanceActions(user, db),
-    ...await payrollSteps(user, db),
+    ...await payrollSteps(user, db), ...await attendanceExceptions(user, today, db),
   ];
   const recent = await listFor(user.id, { unreadOnly: false, beforeId: null, limit: 5 }, db);
 
