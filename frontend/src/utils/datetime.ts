@@ -92,13 +92,13 @@ export function formatDateTime(
 
   if (Number.isNaN(parsed.getTime())) return fallback;
 
-  return new Intl.DateTimeFormat("en-MY", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
+  const time = new Intl.DateTimeFormat("en-MY", {
     hour: "2-digit",
     minute: "2-digit",
   }).format(parsed);
+
+  // The date part in the same "14 Sep 2026" form as formatDate, never "Sept".
+  return `${parsed.getDate()} ${shortMonth(parsed)} ${parsed.getFullYear()}, ${time}`;
 }
 
 /**
