@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getApiErrorMessage, resolveProfileImageUrl } from "../../api/axios";
 import { getTeamOverview } from "../../api/teamApi";
+import TeamInsights from "../../components/analytics/TeamInsights";
 import LeaveDecisionModal from "../../components/leave/LeaveDecisionModal";
 import Alert from "../../components/ui/Alert";
 import Avatar from "../../components/ui/Avatar";
@@ -210,6 +211,8 @@ export default function TeamOverviewPage() {
           </SectionCard>
         </div>
       </div>
+
+      <TeamInsights />
 
       <LeaveDecisionModal
         leave={reviewing}

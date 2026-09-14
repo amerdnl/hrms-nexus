@@ -7,6 +7,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { getCompanyAnalytics } from "../../api/analyticsApi";
 import { getApiErrorMessage } from "../../api/axios";
 import { getDepartments } from "../../api/departmentApi";
 import { getPayrollPeriods } from "../../api/payrollApi";
@@ -19,6 +20,7 @@ import {
   readBlobErrorMessage,
   type ReportFilters,
 } from "../../api/reportsApi";
+import { LifecycleAnalytics, PerformanceAnalytics, RecognitionAnalytics } from "../../components/analytics/CompanyPeopleAnalytics";
 import Alert from "../../components/ui/Alert";
 import Avatar from "../../components/ui/Avatar";
 import BarList from "../../components/ui/BarList";
@@ -52,8 +54,11 @@ import {
   type PayrollReport,
   type WorkforceReport,
 } from "../../types/reports";
+import type { CompanyAnalytics } from "../../types/analytics";
 
-type TabId = "workforce" | "attendance" | "leave" | "payroll";
+type TabId = "workforce" | "attendance" | "leave" | "payroll" | "lifecycle" | "performance" | "recognition";
+
+const analyticsTabs: readonly TabId[] = ["lifecycle", "performance", "recognition"];
 
 /** Mirrors the payroll page, so a period reads the same wherever it appears. */
 const payrollStatusTone: Record<string, "neutral" | "info" | "warning" | "success" | "primary"> = {
@@ -66,6 +71,9 @@ const tabs = [
   { id: "attendance", label: "Attendance" },
   { id: "leave", label: "Leave" },
   { id: "payroll", label: "Payroll" },
+  { id: "lifecycle", label: "Onboarding" },
+  { id: "performance", label: "Performance" },
+  { id: "recognition", label: "Recognition" },
 ];
 
 interface Department {
@@ -90,6 +98,7 @@ export default function AdminReportsPage() {
   const [attendance, setAttendance] = useState<AttendanceReport | null>(null);
   const [leave, setLeave] = useState<LeaveReport | null>(null);
   const [payroll, setPayroll] = useState<PayrollReport | null>(null);
+  const [analytics, setAnalytics] = useState<CompanyAnalytics | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -138,6 +147,7 @@ export default function AdminReportsPage() {
       if (active === "payroll") {
         setPayroll(periodId ? await getPayrollReport(periodId, applied) : null);
       }
+      if (analyticsTabs.includes(active)) setAnalytics(await getCompanyAnalytics());
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Unable to load this report."));
       // Clear what the failed tab was showing. Leaving the previous run's rows
@@ -147,6 +157,7 @@ export default function AdminReportsPage() {
       if (active === "attendance") setAttendance(null);
       if (active === "leave") setLeave(null);
       if (active === "payroll") setPayroll(null);
+      if (analyticsTabs.includes(active)) setAnalytics(null);
     } finally {
       setLoading(false);
     }
@@ -256,7 +267,7 @@ export default function AdminReportsPage() {
     <section className="mx-auto max-w-7xl space-y-6">
       <PageHeader
         title="Reports"
-        description="Company-wide workforce, attendance, leave and payroll reporting."
+        description="Company-wide workforce, attendance, leave, payroll, onboarding, performance and recognition reporting."
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
@@ -793,6 +804,18 @@ export default function AdminReportsPage() {
               </>
             )}
           </>
+        )}
+        {/* -------------------------------------- onboarding, performance, recognition */}
+        {analyticsTabs.includes(active) && (
+          !analytics ? (
+            loading ? <SectionCard><SkeletonText lines={6} /></SectionCard> : null
+          ) : active === "lifecycle" ? (
+            <LifecycleAnalytics data={analytics} />
+          ) : active === "performance" ? (
+            <PerformanceAnalytics data={analytics} />
+          ) : (
+            <RecognitionAnalytics data={analytics} />
+          )
         )}
       </div>
 
