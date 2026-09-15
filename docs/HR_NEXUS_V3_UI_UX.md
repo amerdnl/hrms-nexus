@@ -450,7 +450,7 @@ Verification of the refinement pass, on the rebuilt bundle and a freshly rebuilt
 | Admin Home | 45 / 45 |
 | Employee and manager Home | 46 / 46 |
 | Exact comparison | every region within 3 px of the reference |
-| Visual gate and accessibility gate | **not yet re-run to completion** (see below) |
+| Visual gate and accessibility gate | not completed on 14 September; completed on 15 September, see below |
 
 Both gates were started three times after the refinements. Each run stopped on a browser timeout
 (page navigation or screenshot) at a different page, never on a check. The macOS power log shows
@@ -463,3 +463,23 @@ spacing, layout and presentation of existing components.
 
 **To finish:** with the Mac on power and the lid open, run `m10-visual.mjs` and `m9-a11y.mjs`
 against the served bundle.
+
+### Final gates after the refinements (15 September 2026)
+
+Run on the Mac on power and awake, against commit `76e6df9` (bundle `index-DR5D0rQW.js`), on a
+freshly rebuilt demo. The two gates that had not completed now ran to the end on the refined code:
+
+| Gate | Result |
+| --- | --- |
+| Visual gate (`m10-visual.mjs`) | **2 / 2**: 676 rendered pages across 1280, 1024, 834, 390 and 375 in light, dark and System, plus the account menu, Apps sheet, dialogs and permission redirects. No overflow, duplicate headings, bottom-bar overlap, stuck loading or error states; no page errors |
+| Accessibility gate (`m9-a11y.mjs`) | **17 / 17**: no WCAG 2.2 AA violations across 236 axe scans; every keyboard check passes (launcher, Skip to content, search palette, notifications, dialog focus trap and return) |
+| Typecheck, Oxlint, production build | pass, 0 lint findings |
+| `check:bundle` | initial JS 352.97 kB (gzip 115.09 kB), within 380 / 125 kB |
+| Admin Home | 45 / 45 |
+| Employee and manager Home | 46 / 46 |
+| Exact comparison | every region within 3 px; brand card 300 × 328, bottom-aligned with Today and Tasks |
+| Right-column alignment | 0 px between the right-hand card and the Today row for HR, employee and manager at 1536 and 1280 |
+
+Backend, database, API client, types, route guards and authentication context are unchanged since
+the functional release baseline `e15bfdc`. This pass changed presentation only: no endpoint,
+permission check, data query or business rule.
