@@ -1,4 +1,5 @@
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, ClipboardCheck } from "lucide-react";
+import HomeEmptyState from "./HomeEmptyState";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getMyWork, updateTask } from "../../api/lifecycleApi";
@@ -15,8 +16,8 @@ function TaskRow({ task, today, busy, onToggle, showDue }: {
   const overdue = !checked && task.dueOn < today;
   return (
     <li>
-      <label className="flex min-h-8 cursor-pointer items-center gap-3.5">
-        <span className="relative grid shrink-0 place-items-center">
+      <label className="flex min-h-8 cursor-pointer items-start gap-3.5 py-0.5">
+        <span className="relative mt-px grid shrink-0 place-items-center">
           <input
             type="checkbox"
             checked={checked}
@@ -26,12 +27,14 @@ function TaskRow({ task, today, busy, onToggle, showDue }: {
           />
           <Check size={13} strokeWidth={3} className="pointer-events-none absolute text-primary-fg opacity-0 peer-checked:opacity-100" aria-hidden="true" />
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm" title={`${task.title} - ${task.employeeName}'s ${task.kind}`}>
-          <span className={checked ? "text-fg-muted" : "text-fg"}>{task.title}</span>
-          <span className="text-fg-subtle"> · {givenName(task.employeeName)}</span>
-          {overdue && <span className="text-danger-fg"> · overdue</span>}
+        <span className="min-w-0 flex-1" title={`${task.title} - ${task.employeeName}'s ${task.kind}`}>
+          <span className={cn("line-clamp-2 text-sm leading-5", checked ? "text-fg-muted" : "text-fg")}>{task.title}</span>
+          <span className="mt-0.5 block text-xs leading-4 text-fg-subtle">
+            {givenName(task.employeeName)}
+            {showDue && ` · ${formatShortDay(task.dueOn)}`}
+            {overdue && <span className="text-danger-fg"> · overdue</span>}
+          </span>
         </span>
-        {showDue && <span className="shrink-0 text-[0.8125rem] text-fg-subtle">{formatShortDay(task.dueOn)}</span>}
       </label>
     </li>
   );
@@ -108,20 +111,21 @@ export default function TasksCard({ className }: { className?: string }) {
 
       <p className="sr-only" role="status" aria-live="polite">{message}</p>
 
-      <div className="mt-3.5 flex-1">
+      <div className="mt-3 flex flex-1 flex-col">
         {failed && <p className="text-sm text-fg-muted">Your tasks could not be loaded.</p>}
         {!failed && !work && (
           <div aria-busy="true" className="space-y-4">
             {[0, 1, 2].map((key) => <div key={key} aria-hidden="true" className="h-5 animate-pulse rounded bg-surface-muted motion-reduce:animate-none" />)}
           </div>
         )}
-        {work && forToday.length === 0 && (
-          <p className="text-sm text-fg-muted">
-            Nothing due today{soon.length === 0 ? ". No onboarding or offboarding tasks are assigned to you." : "."}
-          </p>
+        {work && forToday.length === 0 && soon.length === 0 && (
+          <HomeEmptyState icon={ClipboardCheck} tint="green" title="Nothing due today" description="No onboarding or offboarding tasks are assigned to you in the next two weeks." />
+        )}
+        {work && forToday.length === 0 && soon.length > 0 && (
+          <p className="text-sm text-fg-muted">Nothing due today.</p>
         )}
         {work && shown.length > 0 && (
-          <ul aria-label="Due today" className="space-y-0.5">
+          <ul aria-label="Due today" className="space-y-0">
             {shown.map((task) => (
               <TaskRow key={task.id} task={task} today={today} busy={busyId === task.id} onToggle={(item) => void toggle(item)} showDue={false} />
             ))}
@@ -129,8 +133,8 @@ export default function TasksCard({ className }: { className?: string }) {
         )}
         {work && soon.length > 0 && (
           <>
-            <p className="mb-1 mt-3 text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-fg-subtle">Due soon</p>
-            <ul aria-label="Due soon" className="space-y-0.5">
+            <p className="mb-0.5 mt-2.5 text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-fg-subtle">Due soon</p>
+            <ul aria-label="Due soon" className="space-y-0">
               {soon.map((task) => (
                 <TaskRow key={task.id} task={task} today={today} busy={busyId === task.id} onToggle={(item) => void toggle(item)} showDue />
               ))}

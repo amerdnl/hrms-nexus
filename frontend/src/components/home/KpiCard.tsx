@@ -60,7 +60,7 @@ export default function KpiCard({
           <p className="mt-1 whitespace-nowrap text-[1.5rem] font-semibold leading-8 tracking-tight text-fg tabular-nums @min-[14rem]:text-[1.75rem]">
             {isLoading ? <span className="text-fg-subtle">&mdash;</span> : value}
           </p>
-          {detail && !isLoading && <div className="mt-1.5 text-[0.8125rem] leading-5 text-fg-muted @min-[9.5rem]:truncate">{detail}</div>}
+          {detail && !isLoading && <div className="mt-1.5 line-clamp-2 text-[0.8125rem] leading-5 text-fg-muted">{detail}</div>}
         </div>
         {aside && !isLoading && (
           <div className="pointer-events-none absolute -bottom-1 right-0 hidden @min-[15rem]:block">{aside}</div>

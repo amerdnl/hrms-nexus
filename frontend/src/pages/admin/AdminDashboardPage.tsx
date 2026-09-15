@@ -39,6 +39,7 @@ import { useCompanyCalendar } from "../../components/home/useCompanyCalendar";
 import { useAuth } from "../../context/useAuth";
 import type { AdminDashboardData } from "../../types/dashboard";
 import type { AuditEvent } from "../../types/audit";
+import { formatDate, formatDateRange } from "../../utils/datetime";
 
 /** Audit actions that are not company activity: signing in, exports, reading. */
 const QUIET_ACTIONS = new Set(["LOGIN", "LOGIN_FAILED", "LOGOUT", "PASSWORD_CHANGED", "DATA_EXPORTED", "REVIEW_VIEWED"]);
@@ -61,11 +62,23 @@ const ENTITY_ICONS: Record<string, LucideIcon> = {
   import: Upload,
 };
 
-function toActivity(event: AuditEvent): ActivityEntry {
+/**
+ * An audit summary as a sentence to read: "employee #9006" becomes the person's
+ * name when HR's employee list has it, and ISO dates read as "17-21 Aug 2026".
+ * Presentation only - the audit log itself is unchanged.
+ */
+function readableSummary(summary: string, names: Map<number, string>): string {
+  return summary
+    .replace(/employee #(\d+)/g, (match, id: string) => names.get(Number(id)) ?? match)
+    .replace(/(\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})/g, (_, from: string, to: string) => formatDateRange(from, to))
+    .replace(/\b(\d{4}-\d{2}-\d{2})\b/g, (_, day: string) => formatDate(day));
+}
+
+function toActivity(event: AuditEvent, names: Map<number, string>): ActivityEntry {
   return {
     key: event.id,
     icon: ENTITY_ICONS[event.entity_type] ?? Activity,
-    text: event.summary,
+    text: readableSummary(event.summary, names),
     at: event.occurred_at,
     tone: event.outcome === "failure" || /DELETED|DEACTIVATED|REJECTED|CANCELLED/.test(event.action) ? "alert" : "neutral",
   };
@@ -84,7 +97,8 @@ export default function AdminDashboardPage() {
   const [dashboard, setDashboard] = useState<AdminDashboardData | null>(null);
   const [dashboardFailed, setDashboardFailed] = useState(false);
   const [joiners, setJoiners] = useState<number[] | null>(null);
-  const [activity, setActivity] = useState<{ state: "loading" | "ready" | "failed"; entries: ActivityEntry[] }>({ state: "loading", entries: [] });
+  const [activity, setActivity] = useState<{ state: "loading" | "ready" | "failed"; events: AuditEvent[] }>({ state: "loading", events: [] });
+  const [names, setNames] = useState<Map<number, string>>(new Map());
   const { state: calendarState, calendar } = useCompanyCalendar(14);
 
   useEffect(() => {
@@ -92,8 +106,8 @@ export default function AdminDashboardPage() {
     // The newest 100 (the API's page limit): sign-ins vastly outnumber company
     // changes, and they are filtered out here rather than by the server.
     getAuditLog({ pageSize: 100 })
-      .then((page) => setActivity({ state: "ready", entries: page.events.filter((event) => !QUIET_ACTIONS.has(event.action)).slice(0, 4).map(toActivity) }))
-      .catch(() => setActivity({ state: "failed", entries: [] }));
+      .then((page) => setActivity({ state: "ready", events: page.events.filter((event) => !QUIET_ACTIONS.has(event.action)).slice(0, 3) }))
+      .catch(() => setActivity({ state: "failed", events: [] }));
   }, []);
 
   // Joiners per month for the last six months, from each record's employment
@@ -109,6 +123,7 @@ export default function AdminDashboardPage() {
           return date.toISOString().slice(0, 7);
         });
         setJoiners(months.map((month) => page.employees.filter((employee) => employee.employmentDate?.startsWith(month)).length));
+        setNames(new Map(page.employees.map((employee) => [employee.id, employee.fullName])));
       })
       .catch(() => setJoiners(null));
   }, [today]);
@@ -216,7 +231,7 @@ export default function AdminDashboardPage() {
 
       <div className="mt-4 grid gap-4 [&>*]:min-w-0 md:grid-cols-2 min-[80rem]:mt-3 min-[80rem]:grid-cols-[469fr_450fr_481fr] min-[80rem]:gap-3">
         <WhosOutCard state={calendarState} calendar={calendar} />
-        <ActivityCard state={activity.state} entries={activity.entries} viewAllTo="/admin/audit" emptyText="No company activity recorded yet." />
+        <ActivityCard state={activity.state} entries={activity.events.map((event) => toActivity(event, names))} viewAllTo="/admin/audit" emptyText="No company activity recorded yet." />
         {today ? (
           <InsightsCard today={today} workingDays={calendar?.config.workingDays ?? [1, 2, 3, 4, 5]} className="md:col-span-2 min-[80rem]:col-span-1" />
         ) : (

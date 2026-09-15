@@ -6,6 +6,7 @@ import { getRecognition } from "../../api/recognitionApi";
 import type { RecognitionItem } from "../../types/recognition";
 import { cn } from "../../utils/cn";
 import Avatar from "../ui/Avatar";
+import HomeEmptyState from "./HomeEmptyState";
 import { compactAgo } from "./homeTime";
 
 /**
@@ -36,7 +37,7 @@ export default function RecognitionCard({ className }: { className?: string }) {
         </Link>
       </div>
 
-      <div className="mt-3 flex-1">
+      <div className="mt-3 flex flex-1 flex-col">
         {failed && <p className="text-sm text-fg-muted">Recognition could not be loaded.</p>}
         {!failed && !items && (
           <div aria-busy="true" className="space-y-4">
@@ -44,12 +45,12 @@ export default function RecognitionCard({ className }: { className?: string }) {
           </div>
         )}
         {items && items.length === 0 && (
-          <div className="flex items-start gap-3 py-1">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-tint-amber text-tint-amber-fg" aria-hidden="true">
-              <Award size={16} />
-            </span>
-            <p className="text-sm text-fg-muted">When a colleague thanks you, it appears here.</p>
-          </div>
+          <HomeEmptyState
+            icon={Award}
+            tint="amber"
+            title="No recognition yet"
+            description="When a colleague thanks you, it appears here - and you can thank someone any time."
+          />
         )}
         {items && items.length > 0 && (
           <ul className="divide-y divide-line">
@@ -58,19 +59,22 @@ export default function RecognitionCard({ className }: { className?: string }) {
                 <Avatar name={item.giver.fullName} src={resolveProfileImageUrl(item.giver.profileImage)} size="md" />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 truncate text-sm font-medium text-fg">{item.giver.fullName}</span>
+                    <span className="min-w-0 text-sm font-medium text-fg">{item.giver.fullName}</span>
                     <time dateTime={item.createdAt} className="shrink-0 text-[0.8125rem] text-fg-subtle">{compactAgo(item.createdAt)}</time>
                   </p>
                   <p className="text-[0.8125rem] text-primary">{item.categoryLabel}</p>
-                  <p className="mt-1 line-clamp-2 text-[0.8125rem] text-fg-muted">{item.message}</p>
+                  <p className={cn("mt-1 text-[0.8125rem] leading-5 text-fg-muted", items.length > 1 ? "line-clamp-2" : "line-clamp-4")}>{item.message}</p>
                 </div>
               </li>
             ))}
           </ul>
         )}
       </div>
-      {items && total > items.length && (
-        <p className="mt-3 text-[0.8125rem] text-fg-subtle">{total} received in all</p>
+
+      {items && items.length > 0 && (
+        <p className="mt-4 border-t border-line pt-3 text-[0.8125rem] text-fg-subtle">
+          {total} received{total > items.length ? ` · showing the latest ${items.length}` : ""}
+        </p>
       )}
     </section>
   );

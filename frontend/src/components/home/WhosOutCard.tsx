@@ -1,4 +1,5 @@
 import { ArrowRight, CircleCheck } from "lucide-react";
+import HomeEmptyState from "./HomeEmptyState";
 import { Link } from "react-router-dom";
 import { resolveProfileImageUrl } from "../../api/axios";
 import type { Absence, CalendarData } from "../../types/workplace";
@@ -16,19 +17,19 @@ const LEAVE_LABELS: Record<string, string> = {
 
 function AbsenceRow({ absence, chip }: { absence: Absence; chip: string }) {
   return (
-    <li className="flex items-center gap-3.5 py-1.5">
+    <li className="flex items-start gap-3.5 py-1.5">
       <Avatar name={absence.name} src={resolveProfileImageUrl(absence.profileImage)} size="md" className="size-9" />
       <div className="min-w-0 flex-1">
         <Link to={`/people/${absence.employeeId}`} className="block truncate rounded text-sm font-medium text-fg hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
           {absence.name}
         </Link>
-        <p className="truncate text-[0.8125rem] text-fg-muted">
+        <p className="line-clamp-2 text-[0.8125rem] leading-5 text-fg-muted">
           {absence.leaveType ? LEAVE_LABELS[absence.leaveType] ?? "Leave" : absence.departmentName ?? "Away"}
           {absence.status === "pending" && " · awaiting approval"}
         </p>
       </div>
       <span className={cn(
-        "shrink-0 whitespace-nowrap rounded-full px-3 py-0.5 text-[0.8125rem]",
+        "mt-0.5 shrink-0 whitespace-nowrap rounded-full px-3 py-0.5 text-[0.8125rem]",
         absence.status === "approved" ? "bg-info-soft text-info-fg" : "bg-warning-soft text-warning-fg",
       )}>
         {chip}
@@ -67,7 +68,7 @@ export default function WhosOutCard({ state, calendar, className, limit = 3 }: {
         </Link>
       </div>
 
-      <div className="mt-2 flex-1">
+      <div className="mt-2 flex flex-1 flex-col">
         {state === "failed" && <p className="text-sm text-fg-muted">Absences could not be loaded.</p>}
         {state === "loading" && (
           <div aria-busy="true" className="space-y-4 pt-2">
@@ -79,7 +80,10 @@ export default function WhosOutCard({ state, calendar, className, limit = 3 }: {
             ))}
           </div>
         )}
-        {state === "ready" && out.length === 0 && (
+        {state === "ready" && out.length === 0 && next.length === 0 && (
+          <HomeEmptyState icon={CircleCheck} tint="green" title="Everyone is in today" description="No approved or pending leave in the next two weeks." />
+        )}
+        {state === "ready" && out.length === 0 && next.length > 0 && (
           <p className="flex items-center gap-2.5 py-2.5 text-sm text-fg-muted">
             <CircleCheck size={18} className="text-success-fg" aria-hidden="true" />
             Everyone is in today.

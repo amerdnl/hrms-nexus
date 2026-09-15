@@ -69,7 +69,7 @@ export default function TodayCard({ state, calendar, className, aside }: {
   // @container: the slot row adapts to the card's width, which differs between
   // HR's Home (beside Tasks) and a phone.
   const shell = cn(
-    "@container relative overflow-hidden rounded-card p-5 text-feature-fg shadow-raised sm:p-6 lg:px-[1.625rem] lg:pb-5 lg:pt-5",
+    "@container relative flex flex-col overflow-hidden rounded-card p-5 text-feature-fg shadow-raised sm:p-6 lg:px-[1.625rem] lg:pb-5 lg:pt-5",
     "bg-linear-to-br from-feature to-feature-deep dark:ring-1 dark:ring-white/5",
     className,
   );
@@ -131,7 +131,7 @@ export default function TodayCard({ state, calendar, className, aside }: {
         )}
       </div>
 
-      <div className="relative mt-5">
+      <div className="relative mt-auto pt-5">
         {/* The timeline: a hairline across the card with a node above each
             slot, ending in an arrow. The nodes live inside the slot row's own
             top padding, so the row's horizontal scroll cannot clip them. */}

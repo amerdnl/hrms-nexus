@@ -15,7 +15,7 @@ import SplitAction from "../../components/home/SplitAction";
 import TeamCard from "../../components/home/TeamCard";
 import TodayCard from "../../components/home/TodayCard";
 import UpdatesCard from "../../components/home/UpdatesCard";
-import { formatClock, givenName } from "../../components/home/homeTime";
+import { formatClock, formatShortDay, givenName } from "../../components/home/homeTime";
 import { useCompanyCalendar } from "../../components/home/useCompanyCalendar";
 import Alert from "../../components/ui/Alert";
 import { useAuth } from "../../context/useAuth";
@@ -76,6 +76,8 @@ export default function EmployeeDashboardPage() {
   const payslipUnavailable = dashboard?.unavailable.includes("payslip") ?? false;
   const payslip = dashboard?.latestPayslip ?? null;
   const actionCount = actions?.requiresAction.length ?? 0;
+  const importantCount = actions?.requiresAction.filter((item) => item.important).length ?? 0;
+  const earliestDated = actions?.requiresAction.filter((item) => item.date).sort((a, b) => a.date!.localeCompare(b.date!))[0];
   const loading = !dashboard && !dashboardError;
 
   const attendanceAside = dashboard ? (
@@ -104,13 +106,13 @@ export default function EmployeeDashboardPage() {
     </div>
   ) : undefined;
 
-  // Below 80rem the tall leave card spans two rows beside the next two cards,
-  // and the last card takes the full width, so no card ends in an empty gap.
+  // Below 80rem the leave card joins the bottom grid, making four cards - an
+  // even two-by-two, so no card spans past its content or ends in a gap.
   const bottomCards = [
-    ...(isWide ? [] : [<LeaveCard key="leave" dashboard={dashboard} className="md:row-span-2" />]),
+    ...(isWide ? [] : [<LeaveCard key="leave" dashboard={dashboard} />]),
     ...(user?.isManager
-      ? [<TeamCard key="team" />, <GoalsCard key="goals" />, <UpdatesCard key="updates" className={isWide ? undefined : "md:col-span-2"} />]
-      : [<GoalsCard key="goals" />, <UpdatesCard key="updates" />, <RecognitionCard key="recognition" className={isWide ? undefined : "md:col-span-2"} />]),
+      ? [<TeamCard key="team" />, <GoalsCard key="goals" />, <UpdatesCard key="updates" />]
+      : [<GoalsCard key="goals" />, <UpdatesCard key="updates" />, <RecognitionCard key="recognition" />]),
   ];
 
   const name = dashboard?.employee.fullName ?? user?.employee?.fullName ?? null;
@@ -181,7 +183,7 @@ export default function EmployeeDashboardPage() {
               label="Needs you"
               isLoading={!actions && !actionsFailed}
               value={actionsFailed ? "—" : actionCount}
-              detail={actionsFailed ? "Could not be loaded" : actionCount === 0 ? "All caught up" : actions?.requiresAction[0]?.title}
+              detail={actionsFailed ? "Could not be loaded" : actionCount === 0 ? "All caught up" : importantCount > 0 ? `${importantCount} important` : earliestDated ? `Earliest ${formatShortDay(earliestDated.date!)}` : "In your Action Center"}
               to="/actions"
             />
             <KpiCard

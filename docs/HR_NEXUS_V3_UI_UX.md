@@ -483,3 +483,74 @@ freshly rebuilt demo. The two gates that had not completed now ran to the end on
 Backend, database, API client, types, route guards and authentication context are unchanged since
 the functional release baseline `e15bfdc`. This pass changed presentation only: no endpoint,
 permission check, data query or business rule.
+
+## Home refinement after human review (15 September 2026)
+
+Both Homes passed the first human review as *PASS WITH IMPROVEMENTS*. This pass refines density,
+balance, truncation and sparse states on Admin and Employee (including managers) together. It adds
+no data and changes no behaviour, permission, API call or business rule. Every new line of text is
+computed from data the page already loads.
+
+Shared, both roles:
+
+| Area | Before | Now |
+| --- | --- | --- |
+| Empty states | a grey sentence stranded at the top of a card | one `HomeEmptyState`: tinted tile, short title, one sentence of real context and, where useful, a link to an existing page, centred in the card |
+| Truncation | For you, Tasks, Recent activity, Company updates and Who's out cut titles mid-word at 1280–1536 | titles wrap to two lines, with the name, date or importance on a quiet meta line beneath |
+| Bottom-row cards | lists ended high, leaving a gap above the card edge | Goals, Company updates and Recognition end with a quiet footer of real counts from the same response: "2 active · 1 past due", "2 unread · 3 in all", "1 received" |
+| Today card | spare height gathered under the timeline when the neighbouring card was taller | header at the top, timeline anchored to the bottom, so extra height reads as breathing room under the date |
+| KPI supporting text | cut to one line ("Read: Office closed o…") | up to two lines, and shorter real facts |
+
+Admin:
+
+| Area | Change |
+| --- | --- |
+| Recent activity | audit summaries read as sentences: "employee #9006" shows the person's name from HR's employee list, and ISO dates read "17–21 Aug 2026". The newest three business entries, each allowed two lines, instead of four truncated ones. The audit log is unchanged |
+| Insights | the sparse month reads as coverage, not as a broken chart: the axis shows the month's first and last day and, between them, "7 of 11 working days recorded · 11 to come"; bars are a touch shorter; the comparison period is in each delta's accessible name |
+| Tasks for today | the due date moves onto the meta line, so titles use the full width |
+
+Employee and manager:
+
+| Area | Change |
+| --- | --- |
+| For you with nothing to do | "You're all caught up", and the next real item on the account's calendar from the Action Center, e.g. "Next on the calendar: Malaysia Day · Wed 16 Sep" |
+| For you with items | at most three, two-line titles; "n more" links on to the Action Center |
+| Needs you KPI | "1 important" or the earliest due date, instead of a truncated first title |
+| Latest payslip KPI | supporting text no longer truncates |
+| Your goals, Company updates, Recognition | intentional empty states ("Set a goal" links to the existing goals page); footers with real counts when populated |
+| Below 1280 | the leave card joins the bottom grid as an even two-by-two (four cards), replacing the two-row span that left a gap at 834 |
+
+Preserved and re-verified:
+
+| Item | State |
+| --- | --- |
+| Brand card | Admin's card stays 300 × 328, bottom-aligned with the Today/Tasks row |
+| Your leave | Employee's card still ends flush with the Today/For you row |
+| Mountain | the widened fade stays, and the "Better People Brighter Tomorrow" copy stays removed |
+
+Sparse and empty states were reviewed by intercepting responses in the test browser only; the
+product and demo data were not changed. Both Homes were inspected side by side at 1536 in light and
+dark, at 1280, 1024, 834, 390 and 375, and in System light and dark.
+
+Reference comparison after the refinement, Admin at 1536 × 1024:
+- the header, greeting, KPI row and brand card are unchanged;
+- the Today/Tasks row and the brand card's top sit within 6 px;
+- the bottom row is 14 px taller than drawn (246 vs 232), because Recent activity entries now wrap
+  rather than truncate.
+
+Verification of the Home refinement, on the rebuilt bundle (`index-D0L2yUwh.js`) and a freshly
+rebuilt demo. The Mac was on power with sleep blocked:
+
+| Check | Result |
+| --- | --- |
+| Typecheck, Oxlint, production build | pass, 0 lint findings |
+| `check:bundle` | initial JS 352.98 kB (gzip 115.08 kB), within 380 / 125 kB |
+| Admin Home | 45 / 45 |
+| Employee and manager Home | 46 / 46 |
+| Recognition smoke (Home recognition card) | 28 / 28 |
+| Visual gate (`m10-visual.mjs`) | 2 / 2: 676 rendered pages at 1280, 1024, 834, 390 and 375 in light, dark and System, plus overlays; no overflow, duplicate headings, bottom-bar overlap, stuck loading, error states or page errors |
+| Accessibility gate (`m9-a11y.mjs`) | 17 / 17: no WCAG 2.2 AA violations across 236 axe scans; every keyboard check passes |
+
+The first visual run was interrupted when the Claude session ended (it had reached 375 px with no
+failures). Only the visual and accessibility gates were re-run, and both passed. Backend, database,
+API client, types, route guards and authentication context are unchanged.

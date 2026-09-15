@@ -5,7 +5,7 @@ import { getLeaveReport } from "../../api/reportsApi";
 import type { AttendanceRecord } from "../../types/attendance";
 import { cn } from "../../utils/cn";
 import DropdownMenu from "../ui/DropdownMenu";
-import { isoWeekday } from "./homeTime";
+import { formatDayRange, isoWeekday } from "./homeTime";
 
 type Period = "this" | "last";
 
@@ -128,6 +128,12 @@ export default function InsightsCard({ today, workingDays, className }: { today:
   }, [period, today]);
 
   const bars = windows.month.filter((day) => workingDays.includes(isoWeekday(day)));
+  // Coverage, from the records themselves: working days so far, how many of
+  // them have any attendance recorded, and how many are still to come.
+  const elapsed = bars.filter((day) => period === "last" || day <= today);
+  const recorded = elapsed.filter((day) => (data?.byDay.get(day)?.counted ?? 0) > 0).length;
+  const toCome = bars.length - elapsed.length;
+  const coverage = `${recorded} of ${elapsed.length} working days recorded${toCome > 0 ? ` · ${toCome} to come` : ""}`;
   const periodLabel = period === "this" ? "This month" : "Last month";
   const average = data?.shown.rate;
 
@@ -156,13 +162,14 @@ export default function InsightsCard({ today, workingDays, className }: { today:
       {state !== "failed" && (
         <div className="@container">
           <div className="@min-[36rem]:grid @min-[36rem]:grid-cols-[minmax(0,1fr)_minmax(0,27rem)] @min-[36rem]:items-end @min-[36rem]:gap-10">
+          <div>
           <div
             role="img"
             aria-label={state === "ready"
               ? `Attendance rate by working day, ${periodLabel.toLowerCase()}${average != null ? `, ${Math.round(average * 100)}% overall` : ", nothing recorded yet"}`
               : "Loading attendance by day"}
             aria-busy={state === "loading" || undefined}
-            className="mt-4 flex h-[5.5rem] items-end justify-between gap-[3px] min-[80rem]:h-16"
+            className="mt-4 flex h-[5.5rem] items-end justify-between gap-[3px] min-[80rem]:h-14"
           >
             {bars.map((day) => {
               const entry = data?.byDay.get(day);
@@ -181,6 +188,14 @@ export default function InsightsCard({ today, workingDays, className }: { today:
                 />
               );
             })}
+          </div>
+          {bars.length > 0 && (
+            <p className="mt-1.5 flex items-baseline justify-between gap-2 text-[0.6875rem] text-fg-subtle">
+              <span aria-hidden="true" className="shrink-0">{formatDayRange(bars[0], bars[0])}</span>
+              <span className="min-w-0 text-center">{state === "ready" ? coverage : ""}</span>
+              <span aria-hidden="true" className="shrink-0">{formatDayRange(bars[bars.length - 1], bars[bars.length - 1])}</span>
+            </p>
+          )}
           </div>
 
           <dl className="mt-4 grid grid-cols-3 divide-x divide-line @min-[36rem]:mt-0">
@@ -213,9 +228,7 @@ export default function InsightsCard({ today, workingDays, className }: { today:
             ))}
           </dl>
           </div>
-          <p className="mt-3 text-xs text-fg-subtle min-[80rem]:sr-only">
-            Compared with {period === "this" ? "the same days last month" : "the month before"}.
-          </p>
+          <p className="sr-only">Changes are compared with {period === "this" ? "the same days last month" : "the month before"}.</p>
         </div>
       )}
     </section>
