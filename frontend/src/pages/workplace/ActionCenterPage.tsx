@@ -32,25 +32,24 @@ export default function ActionCenterPage() {
 
   useEffect(load, [load]);
 
+  // What the page is for, said once. The count lives on "Needs you", where
+  // the items are, so the header reads the same on every visit.
+  const purpose = "Everything from across HR that needs you, what is coming up, and what is waiting on someone else.";
+
+  // Centred at a reading width: these are short rows, and stretching them to
+  // the frame's full width left the page lopsided with a blank right half.
   if (error) {
     return (
-      <section className="max-w-4xl space-y-6">
-        <PageHeader title="Action Center" description="Work waiting for you." />
+      <section className="mx-auto w-full max-w-5xl space-y-6">
+        <PageHeader title="Action Center" description={purpose} area="workflows" />
         <SectionCard><ErrorState title="The Action Center could not be loaded" description={error} onRetry={load} /></SectionCard>
       </section>
     );
   }
 
   return (
-    <section className="max-w-4xl space-y-6">
-      <PageHeader
-        title="Action Center"
-        description={data
-          ? data.counts.requiresAction === 0
-            ? "Nothing needs you right now."
-            : `${data.counts.requiresAction} ${data.counts.requiresAction === 1 ? "thing needs" : "things need"} you.`
-          : "Work waiting for you."}
-      />
+    <section className="mx-auto w-full max-w-5xl space-y-6">
+      <PageHeader title="Action Center" description={purpose} area="workflows" />
 
       {!data ? (
         <>
@@ -59,7 +58,16 @@ export default function ActionCenterPage() {
         </>
       ) : (
         <>
-          <SectionCard title="Needs you" icon={Inbox} description="Decisions and reading only you can do.">
+          <SectionCard
+            title="Needs you"
+            icon={Inbox}
+            description="Decisions and reading only you can do."
+            actions={
+              <span className="text-sm text-fg-subtle">
+                {data.counts.requiresAction === 0 ? "All clear" : `${data.counts.requiresAction} to do`}
+              </span>
+            }
+          >
             <ActionList
               items={data.requiresAction}
               today={data.today}

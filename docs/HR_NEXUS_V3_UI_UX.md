@@ -554,3 +554,209 @@ rebuilt demo. The Mac was on power with sleep blocked:
 The first visual run was interrupted when the Claude session ended (it had reached 375 px with no
 failures). Only the visual and accessibility gates were re-run, and both passed. Backend, database,
 API client, types, route guards and authentication context are unchanged.
+
+## Walkthrough refinement (15 September 2026)
+
+A focused pass from the owner's walkthrough of V3. Commit `8810508` (the verified Home refinement)
+is the **protected Home baseline**: this pass does not redesign Home. The only Home change is where
+the Admin "Total employees" KPI links — `/people` instead of the retired `/admin/employees`. The
+historical Home results above are not re-stated as new; what was re-run is listed at the end of this
+section.
+
+**No mock or demo data was created in this pass.** No source record was written, no seed was run
+against the source, the historical orphan attendance was left alone, and the September 2026 payroll
+stays `calculated`. Browser checks ran only against the isolated V3 verification database on the
+lab server, rebuilt between gates by the existing `seedDemo` script, as in every earlier pass. The
+presentation dataset is still to come.
+
+### People is the one directory
+
+Employees (HR's records table) and People (the colleague directory) were the same people shown
+twice, and both appeared in the header area and the App Launcher. People is now the canonical
+directory for every account; HR's management lives inside it.
+
+| | Before | Now |
+| --- | --- | --- |
+| Destinations | People, Employees, Departments, Org chart | **People, Departments, Org chart** (HR); People, Org chart (everyone else) |
+| `/admin/employees` | a separate list page | redirects to `/people?view=list` for HR; everyone else is still sent to their own Home by the existing admin route guard |
+| HR record, add, edit | `/admin/employees/:id`, `/new`, `/:id/edit` | unchanged routes and pages |
+| Trail on an HR record | Home › Employees › Details | Home › People › Profile › HR record (Edit and Add employee likewise) |
+| Launcher shortcut (HR) | Employees | People |
+| Global search (HR) | "Employees — HR records" | "Add employee" (the existing `/admin/employees/new`); "People" now also matches "employees" and "staff". Person results for HR still link to the HR record, as the backend test requires |
+| Area tabs | — | People pages show **People · Departments · Org chart** under the title (`AreaNav`, built from `areaNavigationFor` in `routes/navigation.ts`, the same registry as the header and launcher) |
+
+The retired `EmployeeListPage` was deleted; each of its capabilities moved into People.
+
+### Grid and List
+
+- **Toggle.** Grid and List sit above the results as a pressed-state toggle. The chosen layout is
+  saved in the address (`view=`) and remembered per browser. Search, filters and page are also
+  in the address, so both layouts show the same results, and switching layouts keeps them.
+- **Grid.** Grid cards show the photo or initials, name, title and department. A status appears
+  only when it is not Active, and a colleague's card also shows up to three skills. The whole card
+  opens the shared profile. For HR, a ⋯ menu sits beside the card link, not inside it.
+- **List.** The list is a denser table: employee, title, department and manager. HR also sees the
+  employee number, status and a row menu. The name is the keyboard link, and a click anywhere else
+  on the row opens the same profile. Below `md` the rows become cards. HR's six columns fit the
+  834 px column without sideways scrolling.
+- **Data for colleagues.** Nothing new is exposed. The colleague view uses `GET /people` (current
+  employees, social layer only). Manager names come from `GET /org/chart`, which every account
+  could already open. There is no status column, because the profile already hides status from
+  colleagues.
+- **Data for HR.** HR's view uses the existing `GET /employees`, with its search (name, number,
+  email) and its department, employment-status and job-title filters. Its default is every status,
+  so former employees can be found and reactivated.
+- **No API changes.** No endpoint, response shape or permission changed.
+
+### One shared profile, with HR's actions on it
+
+People → person and Org chart → person both open `/people/:id`. The server returns the relation
+(self, manager, coworker, admin), and the page adds only the layer that relation allows. For HR
+(`relation === "admin"`), the identity card shows **Edit employee**, **Open HR record** and
+**Deactivate**. For a former employee, **Reactivate** replaces Deactivate. The People row menu offers
+the same actions.
+
+- **Confirmation.** Deactivate and reactivate share one confirmed flow (`useEmploymentAction`). It
+  calls the existing `DELETE /employees/:id`, a status change that keeps history and disables
+  sign-in, and `PATCH /employees/:id/reactivate`. There is no permanent deletion.
+- **Afterwards.** The profile re-reads itself, showing the new status and a notice.
+- **Server authority.** Hiding the buttons is not the permission. The walkthrough confirmed that
+  `DELETE` and `PATCH` return 403 for an employee and for a manager.
+- **Colleagues and managers.** Colleagues see only the social profile. Managers keep "Reports to
+  you" and the Team view. Manager remains derived from reporting lines; nothing about it is stored.
+
+### Org chart: a real hierarchy
+
+The outline list became a top-down chart drawn from the manager recorded on each employee. No
+dependency was added.
+
+- **Layout.** Leadership sits at the top, with each manager's reports beneath on connector lines. A
+  manager whose reports lead no one themselves gets them as a short column with a spine, not a wide
+  row, which keeps a real company from sprawling.
+- **Nodes.** Each node shows the photo, name, title and department. The whole node opens the shared
+  profile.
+- **Expanding.** Each manager has an expander ("6", named "6 direct reports of …"); Expand all and
+  Collapse all remain. On first load the chart opens levels while it stays within 40 people, then
+  centres on the top of the chart.
+- **Scrolling.** The canvas scrolls sideways inside itself, so the page never widens, and says
+  "Scroll sideways to see the whole chart" when it is wider than its frame.
+- **Find someone.** It matches name, role or department. Picking a match, or pressing Enter, opens
+  every branch above that person, scrolls them to the centre on both axes, focuses their node,
+  highlights it and announces "Showing …". `?focus=` from a profile's "Show in org chart" does the
+  same.
+- **Incomplete data, truthfully.** People whose recorded lines connect them to no one, including
+  anyone caught in a reporting loop, are listed in "Not connected to the chart" rather than attached
+  to a guessed manager. With no lines at all, the chart says "No reporting lines are recorded yet".
+  More than one head is counted as separate branches, never joined under an invented root.
+- **Assistive technology.** It is still nested lists with named expanders and one link per person.
+
+### Workflows, and the Action Center
+
+Workflows stays top level. Its purpose is **work that needs to happen or is moving through an HR
+process**, beside Home (overview), People (people and structure) and Insights, Team or Growth. Every
+Workflows page now carries the same area tabs, so a first-time user sees the whole area at once:
+**Action Center · My tasks** for everyone, plus **Onboarding · Offboarding · Performance** for HR.
+Nothing was added to the area; these are the existing pages.
+
+The Action Center was a 56 rem column pinned to the left of an 89 rem frame, leaving a large blank
+right side. It and My tasks now sit **centred at 64 rem** (`mx-auto max-w-5xl`), in the same
+arrangement: Needs you full width, Coming up and Waiting on others side by side from `lg`, and
+Recent notifications. Cards are not stretched to the viewport, and on tablets and phones they stack
+as before. The header now states the page's purpose once; the count moved beside "Needs you" ("7 to
+do", or "All clear").
+
+### Action Center vs My tasks: keep both
+
+The implementation was inspected first.
+
+- **Action Center** is computed on each request (`GET /action-center`) across modules. It covers
+  leave to decide, payroll steps, announcements to read, lifecycle tasks, offboarding readiness,
+  reviews, overdue goals and attendance exceptions (thirteen item kinds in all). It adds what is
+  coming up (leave, holidays, events, who is out) and what is waiting on someone else, plus recent
+  notifications. It is read-only: each item links to the page where the work is done.
+- **My tasks** is the account's explicit onboarding and offboarding **task records** (`GET
+  /lifecycle/my-work`). They are acted on in place (mark done; HR can also skip), with the
+  account's own plans and a manager's team plans, including progress.
+
+They overlap in one place by design: an open lifecycle task is also listed in the Action Center, as
+a pointer. Merging them would either make the Action Center a task editor for one module or drop
+the plan progress, which is the only place a joiner or their manager follows it. Both stay. The
+distinction is now stated where it matters: My tasks reads "the onboarding and offboarding
+checklist tasks assigned to you, to tick off here. The Action Center lists them too, among
+everything else that needs you". The two pages share the Workflows tabs and one width.
+
+### Navigation after the pass
+
+`routes/navigation.ts` remains the single capability-aware source.
+
+- **Areas.** `areaNavigationFor` defines the People and Workflows areas once. The launcher's HR
+  groups and the in-page tabs both use it.
+- **HR launcher.** It lists 19 destinations, one fewer, with no Employees tile. The Employee and
+  Manager launchers are unchanged.
+- **Header and mobile bar.** The header and the mobile bar keep Home, People, Insights/Team/Growth
+  and Workflows. People stays lit on HR records.
+- **Internal links.** Add employee, the HR record's back link, and the Admin KPI link now point to
+  People or the shared profile.
+
+### Verification of the walkthrough refinement
+
+All checks ran on the final bundle (`index-DU3t2qhj.js`). The isolated demo was rebuilt before the
+browser gates, before the walkthrough probe and before each milestone smoke. The Mac was on power,
+with sleep blocked.
+
+| Check | Result |
+| --- | --- |
+| Frontend typecheck, Oxlint, production build | pass, 0 lint findings |
+| `check:bundle` | initial JS 352.95 kB (gzip 115.12 kB), within 380 / 125 kB |
+| Backend typecheck | pass |
+| Backend workplace and search integration tests (lab) | 18 / 18 |
+| Navigation gate (`navgate-v3.mjs`) | 64 / 64, including the old Employees address redirecting to the People list and the HR record trail |
+| Shell gate (`u2-shell.mjs`) | 132 / 132 |
+| Admin Home (`u3-home.mjs`) | 45 / 45 |
+| Employee and manager Home (`u4-home.mjs`) | 46 / 46 |
+| Home against the reference (`u9-compare.mjs`) | unchanged from the baseline: the brand card top within 6 px, the bottom row +14 px |
+| Walkthrough probe (`w1-walk.mjs`) | 77 / 77 |
+| Visual gate (`m10-visual.mjs`) | 2 / 2: 676 rendered pages and overlays |
+| Accessibility gate (`m9-a11y.mjs`) | 17 / 17: no WCAG 2.2 AA violations across 252 axe scans |
+| Milestone workflow smokes | m1 51/51, m2 40/40, m3 59/59, m4 41/41, m5 28/28, m6 40/40, m7 19/19, m8 30/30, attendance 15/15 |
+
+The walkthrough probe (`w1-walk.mjs`) walks each role through the new flows:
+- **HR:** the redirect, list columns, area tabs, the row menu, Grid and List with search carried
+  across, a row click to the shared profile, deactivating and reactivating from the profile, the
+  trails, Find someone, the centred Action Center, the launcher and global search.
+- **Employee:** no HR controls, list columns without status, a redirect away from
+  `/admin/employees`, and 403 from the API for deactivation and reactivation.
+- **Manager:** Reports to you and the Team view, without HR controls, and 403 from the API.
+- **Layouts:** page overflow at 1024, 834, 390 and 375 in light and dark.
+
+Gate expectations the pass legitimately changed. None was loosened:
+- **HR launcher.** It lists 19 destinations, with People as the first shortcut, in `u2-shell` and
+  `u3-home`.
+- **The navigation gate's admin areas.** People replaces the retired `/admin/employees`, and the
+  HR record trail reads People › Profile › HR record. A redirect check was added.
+- **Shell overflow and trail.** `u2-shell` checks them on `/people?view=list`, where it used
+  `/admin/employees`.
+- **Org expander.** Its accessible name reads "direct reports of …" in `m2`.
+- **Accessibility gate.** `m9-a11y` gained the employee People grid, the People list, the org chart
+  and My tasks, which is why it now runs 252 scans instead of 236.
+
+Source integrity. A read-only fingerprint was compared with the U10 record:
+- **Unchanged:** departments, payroll periods and records, the historical orphan attendance, and
+  September 2026, still `calculated`.
+- **Changed:**
+  - audit events 47–69 were added: sign-ins, sign-outs and one data export, from 14 September
+    evening to 15 September 11:58;
+  - the leave-entitlement sequence advanced from 68 to 220, the existing insert-if-absent recorded
+    earlier;
+  - the single source employee row was updated at 11:58:34, nine seconds after a source sign-in.
+
+All of that comes from use of the source application. This pass's checks ran only against the
+bundle on :5190 and the demo API on :5018, whose database is `hr_nexus_v3_demo` on the lab server.
+
+Still for human judgement:
+- the density of the org chart's cards at 1280, and whether the column layout for leaf reports
+  reads well;
+- centred directory cards against a left-aligned list;
+- the 64 rem Action Center width on very wide screens;
+- a real company far larger than the 25-person demo. The chart opens only 40 people at first, and
+  Expand all on thousands of people has not been measured.

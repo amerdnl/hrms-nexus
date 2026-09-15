@@ -114,7 +114,7 @@ export default function EmployeeFormPage() {
         manager_id: managerId ? Number(managerId) : null,
       });
 
-      navigate("/admin/employees");
+      navigate("/people?view=list");
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Unable to create employee."));
     } finally {
@@ -127,8 +127,8 @@ export default function EmployeeFormPage() {
       <PageHeader
         title="Add employee"
         description="Create an employee record and user account."
-        backTo="/admin/employees"
-        backLabel="Back to employees"
+        backTo="/people"
+        backLabel="Back to People"
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
@@ -341,7 +341,7 @@ export default function EmployeeFormPage() {
         </SectionCard>
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <LinkButton to="/admin/employees" variant="secondary">
+          <LinkButton to="/people" variant="secondary">
             Cancel
           </LinkButton>
 

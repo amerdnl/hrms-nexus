@@ -2,7 +2,9 @@ import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useBreadcrumbs } from "../../hooks/useBreadcrumbs";
+import type { NavigationArea } from "../../routes/navigation";
 import { cn } from "../../utils/cn";
+import AreaNav from "../layout/AreaNav";
 import Breadcrumbs from "./Breadcrumbs";
 
 interface PageHeaderProps {
@@ -19,6 +21,8 @@ interface PageHeaderProps {
   backTo?: string;
   backLabel?: string;
   actions?: ReactNode;
+  /** Shows the area's own pages as tabs under the title - see AreaNav. */
+  area?: NavigationArea;
   className?: string;
 }
 
@@ -35,6 +39,7 @@ export default function PageHeader({
   backTo,
   backLabel = "Back",
   actions,
+  area,
   className,
 }: PageHeaderProps) {
   const crumbs = useBreadcrumbs();
@@ -67,6 +72,8 @@ export default function PageHeader({
           </div>
         )}
       </div>
+
+      {area && <AreaNav area={area} />}
     </header>
   );
 }

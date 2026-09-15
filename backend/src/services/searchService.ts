@@ -36,7 +36,7 @@ interface Destination {
 const destinations: Destination[] = [
   { label: "Action Center", description: "Work waiting for you", path: "/actions", keywords: "tasks todo pending approvals inbox", requires: "any" },
   { label: "Notifications", description: "Everything you were told about", path: "/notifications", keywords: "alerts inbox updates", requires: "any" },
-  { label: "People", description: "Company directory", path: "/people", keywords: "directory colleagues coworkers staff find", requires: "any" },
+  { label: "People", description: "Company directory", path: "/people", keywords: "directory colleagues coworkers staff employees find", requires: "any" },
   { label: "Org chart", description: "How the company is organised", path: "/org", keywords: "organisation organization structure hierarchy reporting", requires: "any" },
   { label: "Calendar", description: "Holidays, events and who's out", path: "/calendar", keywords: "who's out whos out holidays events availability absence", requires: "any" },
   { label: "Announcements", description: "News from HR", path: "/announcements", keywords: "news notices updates", requires: "any" },
@@ -58,7 +58,9 @@ const destinations: Destination[] = [
   { label: "Team attendance", description: "Your team's attendance", path: "/team/attendance", keywords: "team attendance late absent", requires: "manager" },
 
   { label: "Company dashboard", description: "Workforce at a glance", path: "/admin/dashboard", keywords: "home overview admin", requires: "admin" },
-  { label: "Employees", description: "HR records", path: "/admin/employees", keywords: "employees staff records hr add hire", requires: "admin" },
+  // No separate "Employees" page: HR manages people from the People directory,
+  // which the "People" entry above already finds by "employees" and "staff".
+  { label: "Add employee", description: "Create an employee record", path: "/admin/employees/new", keywords: "employees staff records hr add hire new", requires: "admin" },
   { label: "Departments", description: "Company departments", path: "/admin/departments", keywords: "departments teams units", requires: "admin" },
   { label: "Attendance records", description: "Company attendance", path: "/admin/attendance", keywords: "attendance corrections check in", requires: "admin" },
   { label: "Leave requests", description: "Company leave and policies", path: "/admin/leave", keywords: "leave approve policies entitlements balances", requires: "admin" },

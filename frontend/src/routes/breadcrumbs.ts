@@ -23,7 +23,6 @@ interface Pattern {
 }
 
 const ADMIN: Record<string, string> = {
-  employees: "Employees",
   departments: "Departments",
   attendance: "Attendance",
   leave: "Leave",
@@ -67,13 +66,6 @@ const patterns: Pattern[] = [
     crumbs: [{ label: "Announcements", to: "/announcements" }, { label: "New" }] },
   { segments: ["admin", "announcements", ":", "edit"],
     crumbs: [{ label: "Announcements", to: "/announcements" }, { label: "Edit" }] },
-  // Employees
-  { segments: ["admin", "employees", "new"],
-    crumbs: [{ label: "Employees", to: "/admin/employees" }, { label: "Add" }] },
-  { segments: ["admin", "employees", ":", "edit"],
-    crumbs: [{ label: "Employees", to: "/admin/employees" }, { label: "Edit" }] },
-  { segments: ["admin", "employees", ":"],
-    crumbs: [{ label: "Employees", to: "/admin/employees" }, { label: "Details" }] },
   // Departments
   { segments: ["admin", "departments", "new"],
     crumbs: [{ label: "Departments", to: "/admin/departments" }, { label: "Add" }] },
@@ -123,6 +115,19 @@ export function breadcrumbsFor(pathname: string, homePath: string): Crumb[] {
   if (scope === "team") {
     const leaf = rest[0] ? TEAM[rest[0]] : undefined;
     return leaf ? trail({ label: "My team", to: "/team" }, { label: leaf }) : trail({ label: "My team" });
+  }
+
+  // An HR record hangs off the shared profile it belongs to, so the trail
+  // reads People > Profile > HR record, and never names the separate
+  // Employees directory that People replaced.
+  if (scope === "admin" && rest[0] === "employees") {
+    const people: Crumb = { label: "People", to: "/people" };
+    if (rest.length === 2 && rest[1] === "new") return trail(people, { label: "Add employee" });
+    const [, id, leaf] = rest;
+    if (id && /^\d+$/.test(id) && (rest.length === 2 || (rest.length === 3 && leaf === "edit"))) {
+      return trail(people, { label: "Profile", to: `/people/${id}` }, { label: leaf === "edit" ? "Edit" : "HR record" });
+    }
+    return [];
   }
 
   if (scope !== "admin" && scope !== "employee") return [];

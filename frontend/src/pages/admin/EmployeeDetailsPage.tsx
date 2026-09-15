@@ -127,8 +127,8 @@ export default function EmployeeDetailsPage() {
         <PageHeader
           title="Employee details"
           description="View employee information."
-          backTo="/admin/employees"
-          backLabel="Back to employees"
+          backTo={`/people/${id}`}
+          backLabel="Back to profile"
         />
         <SectionCard>
           <div className="flex items-center gap-4">
@@ -151,8 +151,8 @@ export default function EmployeeDetailsPage() {
       <section className="max-w-4xl space-y-6">
         <PageHeader
           title="Employee details"
-          backTo="/admin/employees"
-          backLabel="Back to employees"
+          backTo={`/people/${id}`}
+          backLabel="Back to profile"
         />
         <SectionCard>
           <ErrorState
@@ -171,8 +171,8 @@ export default function EmployeeDetailsPage() {
       <PageHeader
         title="Employee details"
         description="View employee information."
-        backTo="/admin/employees"
-        backLabel="Back to employees"
+        backTo={`/people/${id}`}
+        backLabel="Back to profile"
         actions={
           <>
             {["active", "probation"].includes(employee.employmentStatus) && (

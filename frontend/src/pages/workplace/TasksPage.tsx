@@ -55,12 +55,13 @@ export default function TasksPage() {
   const planLink = (id: number) => (user?.role === "admin" ? `/admin/lifecycle/plans/${id}` : `/lifecycle/plans/${id}`);
 
   return (
-    <section className="max-w-4xl space-y-6">
+    // The same centred width as the Action Center: the two are neighbours in
+    // Workflows, and switching between them should not move the page.
+    <section className="mx-auto w-full max-w-5xl space-y-6">
       <PageHeader
         title="My tasks"
-        description={work
-          ? work.assigned.length === 0 ? "Nothing on your list." : `${work.assigned.length} onboarding or offboarding task${work.assigned.length === 1 ? "" : "s"} for you.`
-          : "Onboarding and offboarding work for you."}
+        description="The onboarding and offboarding checklist tasks assigned to you, to tick off here. The Action Center lists them too, among everything else that needs you."
+        area="workflows"
       />
 
       {notice && <Alert tone="success" onDismiss={() => setNotice("")}>{notice}</Alert>}

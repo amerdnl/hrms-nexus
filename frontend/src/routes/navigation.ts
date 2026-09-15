@@ -81,9 +81,11 @@ export type NavigationSubject = Pick<CurrentUser, "role" | "isManager">;
  * destination is guarded again by its route and by the server.
  */
 const to = {
-  employees: { label: "Employees", to: "/admin/employees", icon: Users, tint: "teal", keywords: "staff records hire" },
+  // One directory for everyone. HR's employee management lives inside it
+  // (list view, status filters, row actions), so there is no second
+  // "Employees" destination competing with it; /admin/employees redirects here.
+  people: { label: "People", to: "/people", icon: Contact, tint: "teal", keywords: "directory colleagues coworkers employees staff records" },
   departments: { label: "Departments", to: "/admin/departments", icon: Building2, tint: "sky", keywords: "teams units" },
-  people: { label: "People", to: "/people", icon: Contact, tint: "teal", keywords: "directory colleagues coworkers" },
   org: { label: "Org chart", to: "/org", icon: Network, tint: "slate", shortLabel: "Org", keywords: "reporting lines structure manager" },
   adminAttendance: { label: "Attendance", to: "/admin/attendance", icon: Clock3, tint: "blue", keywords: "check in time clock" },
   adminLeave: { label: "Leave", to: "/admin/leave", icon: CalendarDays, tint: "violet", keywords: "time off holiday requests" },
@@ -120,11 +122,33 @@ const teamSection: NavigationSection = {
   items: [to.teamOverview, to.teamLeave, to.teamAttendance, to.teamGoals, to.teamReviews],
 };
 
-function adminSections(): NavigationSection[] {
+export type NavigationArea = "people" | "workflows";
+
+/**
+ * The pages inside a header destination, shown as tabs under their page titles
+ * (AreaNav) and as the matching App Launcher group for HR.
+ *
+ * People is the directory, then how the company is structured. Workflows is
+ * work that needs to happen: the Action Center, the account's own task
+ * records and, for HR, the processes those items come from.
+ */
+export function areaNavigationFor(subject: NavigationSubject, area: NavigationArea): NavigationSection {
+  const admin = subject.role === "admin";
+  if (area === "people") {
+    return { id: "people", label: "People", items: admin ? [to.people, to.departments, to.org] : [to.people, to.org] };
+  }
+  return {
+    id: "workflows",
+    label: "Workflows",
+    items: admin ? [to.actions, to.tasks, to.onboarding, to.offboarding, to.performance] : [to.actions, to.tasks],
+  };
+}
+
+function adminSections(subject: NavigationSubject): NavigationSection[] {
   return [
-    { id: "people", label: "People", items: [to.employees, to.departments, to.people, to.org] },
+    areaNavigationFor(subject, "people"),
     { id: "time", label: "Time & leave", items: [to.adminAttendance, to.adminLeave, to.calendar] },
-    { id: "workflows", label: "Workflows", items: [to.actions, to.tasks, to.onboarding, to.offboarding, to.performance] },
+    areaNavigationFor(subject, "workflows"),
     { id: "pay", label: "Pay & insights", items: [to.payroll, to.reports] },
     { id: "workplace", label: "Workplace", items: [to.recognition, to.announcements] },
     { id: "administration", label: "Administration", items: [to.importData, to.exportData, to.audit, to.settings] },
@@ -140,7 +164,7 @@ function employeeSections(): NavigationSection[] {
 
 /** The App Launcher's groups: every destination this session may open. */
 export function navigationSectionsFor(subject: NavigationSubject): NavigationSection[] {
-  const sections = subject.role === "admin" ? adminSections() : employeeSections();
+  const sections = subject.role === "admin" ? adminSections(subject) : employeeSections();
   if (!subject.isManager) return sections;
   // The team layer sits right after the account's own area: after Me for an
   // employee, and after People for HR.
@@ -152,7 +176,7 @@ export function navigationSectionsFor(subject: NavigationSubject): NavigationSec
  * shown before the full directory ("View all pages").
  */
 export function featuredFor(subject: NavigationSubject): NavigationItem[] {
-  if (subject.role === "admin") return [to.employees, to.adminAttendance, to.adminLeave, to.payroll, to.departments, to.reports];
+  if (subject.role === "admin") return [to.people, to.adminAttendance, to.adminLeave, to.payroll, to.departments, to.reports];
   if (subject.isManager) return [to.teamOverview, to.teamLeave, to.myAttendance, to.myLeave, to.payslips, to.people];
   return [to.myAttendance, to.myLeave, to.payslips, to.goals, to.people, to.calendar];
 }

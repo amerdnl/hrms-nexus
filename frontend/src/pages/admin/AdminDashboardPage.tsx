@@ -168,7 +168,7 @@ export default function AdminDashboardPage() {
               label="Total employees"
               value={dashboard?.totalEmployees ?? "—"}
               isLoading={!dashboard && !dashboardFailed}
-              to="/admin/employees"
+              to="/people"
               detail={
                 joinedThisMonth && joinedThisMonth > 0 ? (
                   <span className="inline-flex items-center gap-1 text-success-fg">

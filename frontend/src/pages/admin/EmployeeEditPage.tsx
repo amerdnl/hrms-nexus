@@ -149,8 +149,8 @@ export default function EmployeeEditPage() {
       <PageHeader
         title="Edit employee"
         description="Update employee information."
-        backTo={id ? `/admin/employees/${id}` : "/admin/employees"}
-        backLabel={id ? "Back to employee" : "Back to employees"}
+        backTo={id ? `/admin/employees/${id}` : "/people"}
+        backLabel={id ? "Back to employee" : "Back to People"}
       />
     );
 

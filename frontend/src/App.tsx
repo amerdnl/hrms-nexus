@@ -23,7 +23,6 @@ const ForcedPasswordChangePage = lazy(() => import("./pages/auth/ForcedPasswordC
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
-const EmployeeListPage = lazy(() => import("./pages/admin/EmployeeListPage"));
 const EmployeeFormPage = lazy(() => import("./pages/admin/EmployeeFormPage"));
 const EmployeeDetailsPage = lazy(() => import("./pages/admin/EmployeeDetailsPage"));
 const EmployeeEditPage = lazy(() => import("./pages/admin/EmployeeEditPage"));
@@ -121,7 +120,10 @@ export default function App() {
         <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           <Route element={<AppLayout />}>
             <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-            <Route path="/admin/employees" element={<EmployeeListPage />} />
+            {/* Employees and People were one directory shown twice. People is
+                the directory now, with HR's list, filters and actions in it;
+                the old address still works for bookmarks and opens its list. */}
+            <Route path="/admin/employees" element={<Navigate to="/people?view=list" replace />} />
             <Route path="/admin/employees/new" element={<EmployeeFormPage />} />
             <Route path="/admin/employees/:id/edit" element={<EmployeeEditPage />} />
             <Route path="/admin/employees/:id" element={<EmployeeDetailsPage />} />

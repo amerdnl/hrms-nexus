@@ -8,6 +8,8 @@ import {
   Pencil,
   Phone,
   Sparkles,
+  UserCheck,
+  UserMinus,
   UserRoundSearch,
   UsersRound,
   Wallet,
@@ -21,8 +23,11 @@ import PersonList from "../../components/people/PersonList";
 import ProfileRecognitionCard from "../../components/recognition/ProfileRecognitionCard";
 import ProfileGoalsCard from "../../components/performance/ProfileGoalsCard";
 import Timeline from "../../components/people/Timeline";
+import { isEmployed, useEmploymentAction } from "../../components/people/useEmploymentAction";
+import Alert from "../../components/ui/Alert";
 import Avatar from "../../components/ui/Avatar";
 import Breadcrumbs from "../../components/ui/Breadcrumbs";
+import Button from "../../components/ui/Button";
 import EmptyState from "../../components/ui/EmptyState";
 import ErrorState from "../../components/ui/ErrorState";
 import LinkButton from "../../components/ui/LinkButton";
@@ -75,6 +80,13 @@ export default function PersonProfilePage() {
   const [team, setTeam] = useState<TeamMemberDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<{ status: number | null; message: string } | null>(null);
+
+  // HR's deactivate and reactivate. Afterwards the profile is read again
+  // quietly, so the new status shows without the page dropping to a skeleton.
+  const employment = useEmploymentAction(() => {
+    getPerson(personId).then(setProfile).catch(() => undefined);
+    getPersonTimeline(personId).then((timeline) => setEvents(timeline.events)).catch(() => undefined);
+  });
 
   useEffect(() => {
     let active = true;
@@ -216,16 +228,45 @@ export default function PersonProfilePage() {
               )}
             </ul>
           </div>
-          <div className="flex flex-wrap justify-center gap-2 sm:flex-col sm:items-end">
+          <div className="flex flex-wrap justify-center gap-2 sm:flex-col sm:items-stretch">
             {relation === "self" && <LinkButton to="/employee/profile#about" icon={Pencil} variant="secondary">Edit my profile</LinkButton>}
-            {relation === "admin" && <LinkButton to={`/admin/employees/${person.id}`} icon={IdCard} variant="secondary">Open HR record</LinkButton>}
+            {/* HR manages the record from the same profile everyone opens. The
+                server authorises each of these again; showing them is not the
+                permission. */}
+            {relation === "admin" && (
+              <>
+                <LinkButton to={`/admin/employees/${person.id}/edit`} icon={Pencil} variant="secondary">Edit employee</LinkButton>
+                <LinkButton to={`/admin/employees/${person.id}`} icon={IdCard} variant="secondary">Open HR record</LinkButton>
+                {person.employmentStatus && (isEmployed(person.employmentStatus) ? (
+                  <Button
+                    variant="danger-ghost"
+                    icon={UserMinus}
+                    onClick={() => employment.request({ id: person.id, fullName: person.fullName, employmentStatus: person.employmentStatus ?? "" })}
+                  >
+                    Deactivate
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    icon={UserCheck}
+                    onClick={() => employment.request({ id: person.id, fullName: person.fullName, employmentStatus: person.employmentStatus ?? "" })}
+                  >
+                    Reactivate
+                  </Button>
+                ))}
+              </>
+            )}
             {/* A former employee is not on the chart, so HR is not offered a dead link. */}
-            {(!person.employmentStatus || ["active", "probation"].includes(person.employmentStatus)) && (
+            {(!person.employmentStatus || isEmployed(person.employmentStatus)) && (
               <LinkButton to={`/org?focus=${person.id}`} icon={Network} variant="link">Show in org chart</LinkButton>
             )}
           </div>
         </div>
       </SectionCard>
+
+      {employment.error && <Alert tone="danger" onDismiss={employment.clearError}>{employment.error}</Alert>}
+      {employment.notice && <Alert tone="success" onDismiss={employment.clearNotice}>{employment.notice}</Alert>}
+      {employment.dialog}
 
       <div className="grid items-start gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">

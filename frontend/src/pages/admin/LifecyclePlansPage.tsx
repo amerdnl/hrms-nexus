@@ -50,6 +50,7 @@ export default function LifecyclePlansPage({ kind }: { kind: LifecycleKind }) {
         description={kind === "onboarding"
           ? "New joiners' checklists, shared between them, their manager and HR."
           : "Leavers' checklists. Completing one deactivates the employee and keeps their history."}
+        area="workflows"
         actions={
           <div className="flex flex-wrap gap-2">
             <LinkButton to={`/admin/lifecycle/templates?kind=${kind}`} variant="secondary" icon={ListChecks}>Checklists</LinkButton>

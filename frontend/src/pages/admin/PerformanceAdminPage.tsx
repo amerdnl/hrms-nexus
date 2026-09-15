@@ -35,6 +35,7 @@ export default function PerformanceAdminPage() {
       <PageHeader
         title="Performance"
         description="Review cycles. Each review runs self first, then the manager, rated 1 to 5."
+        area="workflows"
         actions={<Button icon={Plus} onClick={() => setIsCreating(true)}>New cycle</Button>}
       />
       <SectionCard padded={false}>

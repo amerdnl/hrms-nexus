@@ -83,6 +83,7 @@ export default function DepartmentListPage() {
       <PageHeader
         title="Department management"
         description="View and manage departments."
+        area="people"
         actions={
           <LinkButton to="/admin/departments/new" icon={Plus}>
             Add department
