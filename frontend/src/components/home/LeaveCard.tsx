@@ -25,7 +25,7 @@ export default function LeaveCard({ dashboard, className }: { dashboard: Employe
         {dashboard?.leaveYear && <p className="text-[0.8125rem] text-fg-subtle">{dashboard.leaveYear}</p>}
       </div>
 
-      <div className="mt-4 flex-1">
+      <div className="mt-3 flex-1">
         {!dashboard && (
           <div aria-busy="true" className="space-y-4">
             {[0, 1, 2].map((key) => <div key={key} aria-hidden="true" className="h-8 animate-pulse rounded bg-surface-muted motion-reduce:animate-none" />)}
@@ -52,7 +52,7 @@ export default function LeaveCard({ dashboard, className }: { dashboard: Employe
           </div>
         )}
         {dashboard && !unavailable && others.length > 0 && (
-          <ul className="mt-5 space-y-3 border-t border-line pt-4">
+          <ul className="mt-4 space-y-2.5 border-t border-line pt-3.5">
             {others.map((balance) => (
               <li key={balance.leaveType} className="flex items-baseline justify-between gap-3 text-sm">
                 <span className="text-fg">{leaveTypeMeta(balance.leaveType).label}</span>
@@ -68,10 +68,11 @@ export default function LeaveCard({ dashboard, className }: { dashboard: Employe
           </ul>
         )}
         {/* When nothing is booked, the latest request answers "where is my
-            leave at?" - real, and it keeps the column from ending in a gap. */}
+            leave at?" - real data, as one quiet line so the card ends flush
+            with the Today row beside it, as HR's brand card does. */}
         {dashboard && !dashboard.upcomingLeave && (
-          <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-surface-muted px-3.5 py-3 text-[0.8125rem] text-fg-muted">
-            <CalendarDays size={16} className="mt-0.5 shrink-0 text-fg-subtle" aria-hidden="true" />
+          <p className="mt-3.5 flex items-start gap-2 border-t border-line pt-3 text-[0.8125rem] text-fg-subtle">
+            <CalendarDays size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span>
               {dashboard.recentLeaves[0]
                 ? <>Latest request: {leaveTypeMeta(dashboard.recentLeaves[0].leaveType).label.toLowerCase()} leave, {formatDayRange(dashboard.recentLeaves[0].startDate.slice(0, 10), dashboard.recentLeaves[0].endDate.slice(0, 10))} · {leaveStatusMeta(dashboard.recentLeaves[0].status).label.toLowerCase()}</>
@@ -80,7 +81,7 @@ export default function LeaveCard({ dashboard, className }: { dashboard: Employe
           </p>
         )}
         {dashboard?.upcomingLeave && (
-          <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-info-soft px-3.5 py-3 text-[0.8125rem] text-info-fg">
+          <p className="mt-3.5 flex items-start gap-2 rounded-xl bg-info-soft px-3 py-2.5 text-[0.8125rem] text-info-fg">
             <CalendarCheck2 size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span>
               Next: {leaveTypeMeta(dashboard.upcomingLeave.leaveType).label.toLowerCase()} leave, {formatDayRange(dashboard.upcomingLeave.startDate.slice(0, 10), dashboard.upcomingLeave.endDate.slice(0, 10))} · {formatLeaveDuration(dashboard.upcomingLeave)}
@@ -89,7 +90,7 @@ export default function LeaveCard({ dashboard, className }: { dashboard: Employe
         )}
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-3 flex justify-end">
         <Link to="/employee/leave" className="inline-flex min-h-8 items-center gap-2 rounded-md text-[0.8125rem] font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
           Request leave
           <ArrowRight size={14} aria-hidden="true" />

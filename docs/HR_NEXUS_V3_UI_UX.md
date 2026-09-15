@@ -58,7 +58,7 @@ Sampled from the image, not estimated:
 | Header right | search icon, rounded launcher button, bell with a red dot, avatar with name, role and chevron |
 | Greeting | letterspaced time of day; 48 px semibold "Welcome back, {name}."; two muted lines |
 | Primary action | a near-black split button (`#15262d`) |
-| Mountain | misty range beside the greeting, fading into the canvas; small vertical "Better People Brighter Tomorrow" |
+| Mountain | misty range beside the greeting, fading into the canvas (the reference's small vertical "Better People Brighter Tomorrow" copy was later removed at the owner's direction) |
 | Content | 56 px gutters at 1536; card gaps 16–17 px |
 | KPI row | four cards (304 / 256 / 241 / 255 px), 124 px tall; tinted icon tiles (teal, blue, amber, rose); label over figure over fact; arrows on two; a sparkline on the first |
 | Right column | an architectural brand card, 295 px wide, bottom-aligned with the Today row |
@@ -435,6 +435,8 @@ permissions or behaviour.
 | Your leave, nothing booked | the column ended in empty space | the latest request and its status (real data), or "No leave booked yet." |
 | StatCards on operational pages | in five-across rows labels wrapped ("Awaiting your / decision"), so figures sat at different heights | tile stacked above the text below 14rem, so every figure in a row aligns; same card language as Home's KPIs |
 | Footer | too much space above it at 1536 | 24 px, as in the reference |
+| Mountain copy | the vertical "Better People Brighter Tomorrow" words were still drawn beside the ridge from 1280 px, on both Homes | removed as the owner required; the mountain carries no copy. The widened edge feather and the wide-layout haze stay |
+| Employee Home right column | at 1536 and 1280 "Your leave" ran 27–48 px below the Today/For you row, leaving a gap under Today, where HR's brand card ends flush | the latest-request note became one quiet line and the card's internal spacing tightened, so it ends with the row beside it. HR's brand card was verified unchanged: 300 × 328 at 1536, bottom-aligned with Today and Tasks, as in the reference |
 
 The reference comparison still holds within 3 px for every region at 1536 × 1024.
 

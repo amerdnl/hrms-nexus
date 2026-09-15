@@ -11,10 +11,11 @@ import { cn } from "../../utils/cn";
  * mask over a pale blue-grey, so the range reads as a quiet silhouette on navy
  * instead of a light photograph pasted onto a dark page.
  */
-export default function HomeMountain({ className, showWords = false }: { className?: string; showWords?: boolean }) {
-  // The words and the haze belong to the wide composition, where the mountain
-  // sits mid-page with canvas to its right. Beside the page edge the haze would
-  // spill past the frame, so the other placements go without both.
+export default function HomeMountain({ className, wide = false }: { className?: string; wide?: boolean }) {
+  // The haze belongs to the wide composition, where the mountain sits mid-page
+  // with canvas to its right. Beside the page edge it would spill past the
+  // frame, so the other placements go without it. No copy is drawn over the
+  // image: the vertical tagline was removed from the approved dashboard.
   const mask = {
     maskImage: `url(${mountainUrl})`,
     WebkitMaskImage: `url(${mountainUrl})`,
@@ -41,23 +42,14 @@ export default function HomeMountain({ className, showWords = false }: { classNa
         {/* A soft haze over the ridge's right edge, so it dissolves into the
             canvas. Centred in its box and fully transparent before the box's
             edges (closest-side), so no edge of the box can ever show. */}
-        {showWords && <div
+        {wide && <div
           className="absolute left-[74%] top-[18%] h-[82%] w-[52%] dark:hidden"
           style={{ background: "radial-gradient(closest-side, rgb(150 164 168 / 0.26), rgb(170 182 186 / 0.12) 55%, rgb(241 244 246 / 0))" }}
         />}
-        {showWords && <div
+        {wide && <div
           className="absolute left-[74%] top-[18%] hidden h-[82%] w-[52%] dark:block"
           style={{ background: "radial-gradient(closest-side, rgb(140 170 180 / 0.08), rgb(140 170 180 / 0))" }}
         />}
-        {showWords && (
-          <div className="absolute left-[76.4%] top-[45%] text-[0.875rem] font-light leading-[1.2rem] text-white/95 dark:text-[#cfe0e3]/80">
-            <p>Better</p>
-            <p>People</p>
-            <p>Brighter</p>
-            <p>Tomorrow</p>
-            <span className="mt-4 block h-px w-[1.375rem] bg-white/80 dark:bg-[#cfe0e3]/60" />
-          </div>
-        )}
       </div>
     </div>
   );

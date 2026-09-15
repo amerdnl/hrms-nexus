@@ -121,7 +121,7 @@ export default function AdminDashboardPage() {
       {/* The mountain: beside the greeting as the reference places it from
           80rem; to the right of it from md; a quiet band above it on a phone,
           where it would otherwise sit behind the text. */}
-      <HomeMountain showWords className="absolute -top-10 left-[29.1%] hidden w-[46.9%] min-[80rem]:block" />
+      <HomeMountain wide className="absolute -top-10 left-[29.1%] hidden w-[46.9%] min-[80rem]:block" />
       <HomeMountain className="absolute -top-4 right-0 hidden w-[46%] md:block min-[80rem]:hidden" />
       <HomeMountain className="-mt-2 mb-1 w-full max-w-md opacity-90 md:hidden" />
 
