@@ -13,6 +13,7 @@ import pool from "../config/db.js";
 import { VISIBLE_STATUSES } from "../auth/policy.js";
 import { getBalancesForEmployees } from "./leaveBalanceService.js";
 import type { LeaveType } from "../utils/leaveCalculation.js";
+import { isCorrectedVerification } from "../utils/attendanceVerification.js";
 
 type Db = Pick<PoolClient, "query"> | Pool;
 
@@ -36,6 +37,8 @@ export interface TeamMember {
     lateMinutes: number | null;
     verificationStatus: string | null;
     isManual: boolean;
+    /** Began as a verified scan and HR has since corrected it. No reason or audit detail. */
+    correctedByHr: boolean;
     /** Approved leave covering the day, which usually has no attendance row. */
     onLeave: { leaveType: LeaveType } | null;
   };
@@ -56,6 +59,7 @@ interface MemberRow {
   check_in_time: string | null;
   check_out_time: string | null;
   late_minutes: number | null;
+  verification_method: string | null;
   verification_status: string | null;
   is_manual: boolean | null;
   leave_type: LeaveType | null;
@@ -77,7 +81,7 @@ export async function teamOnDate(
             (SELECT count(*)::int FROM public.employees r
               WHERE r.manager_id = e.id AND r.employment_status = ANY($3::text[])) AS direct_reports,
             a.status, a.check_in_time, a.check_out_time, a.late_minutes,
-            a.verification_status, a.is_manual,
+            a.verification_method, a.verification_status, a.is_manual,
             (SELECT lr.leave_type FROM public.leave_requests lr
               WHERE lr.employee_id = e.id AND lr.status = 'approved'
                 AND $2::date BETWEEN lr.start_date AND lr.end_date
@@ -110,6 +114,7 @@ export async function teamOnDate(
       lateMinutes: row.late_minutes === null ? null : Number(row.late_minutes),
       verificationStatus: row.verification_status,
       isManual: row.is_manual === true,
+      correctedByHr: isCorrectedVerification(row.verification_method, row.verification_status),
       onLeave: row.leave_type ? { leaveType: row.leave_type } : null,
     },
   }));

@@ -1,12 +1,18 @@
 import pool from "../config/db.js";
-import { statusForMethod, type VerificationMethod } from "../utils/attendanceVerification.js";
+import { diffChanges } from "../utils/auditRedaction.js";
+import {
+  isCorrectedVerification,
+  statusForMethod,
+  type VerificationMethod,
+} from "../utils/attendanceVerification.js";
+import { recordRequiredAudit, type AuditActor } from "./auditService.js";
 import type {
+  AttendanceCorrectionInput,
   AttendanceDatabaseRow,
   AttendanceFilters,
   AttendanceRecord,
   AttendanceStatistics,
   ManualAttendanceInput,
-  UpdateAttendanceInput,
 } from "../types/attendance.js";
 
 function normalizeDatabaseDate(value: string | Date): string {
@@ -50,6 +56,7 @@ export function mapAttendanceRow(row: AttendanceDatabaseRow): AttendanceRecord {
       verificationMethod: row.verification_method ?? null,
       verificationStatus: row.verification_status ?? null,
       lateMinutes: toNumber(row.late_minutes),
+      correctedByHr: isCorrectedVerification(row.verification_method, row.verification_status),
     },
   };
 }
@@ -144,55 +151,111 @@ export async function createManualAttendance(
   return mapAttendanceRow(row);
 }
 
-export async function updateAttendanceRecord(
+export type CorrectionOutcome =
+  | { ok: true; record: AttendanceRecord }
+  | { ok: false; reason: "not_found" | "no_changes" };
+
+/** The values a correction exists to change. */
+const correctableFields = ["check_in_time", "check_out_time", "status"] as const;
+
+/** What the audit entry compares: the values, and what the correction does to the record around them. */
+const correctionEvidenceFields = [
+  ...correctableFields, "admin_note", "verification_status", "is_manual",
+] as const;
+
+/**
+ * HR's correction of one attendance record, with its evidence, in one
+ * transaction.
+ *
+ * The row is locked and read first, so the audit entry can say what each
+ * changed value was before and what it became. The entry is written with
+ * `recordRequiredAudit` inside the same transaction: if it cannot be written,
+ * the transaction rolls back and the correction does not exist.
+ *
+ * A correction that would change none of the three values is refused and
+ * leaves nothing behind. Values are compared as the database stores them, so
+ * "08:30" sent for a stored 08:30:00 is not a change.
+ *
+ * The reason becomes the record's note. A verified scan keeps QR_LOCATION as
+ * its origin, but its status moves from "verified" to "manual": the values on
+ * it are no longer what the scan recorded.
+ */
+export async function correctAttendanceRecord(
   attendanceId: number,
-  input: UpdateAttendanceInput,
-): Promise<AttendanceRecord | null> {
-  const fields: string[] = [];
-  const values: Array<string | null | number> = [];
+  input: AttendanceCorrectionInput,
+  actor: AuditActor,
+): Promise<CorrectionOutcome> {
+  const client = await pool.connect();
 
-  if (input.checkInTime !== undefined) {
-    values.push(input.checkInTime);
-    fields.push(`check_in_time = $${values.length}`);
+  try {
+    await client.query("BEGIN");
+
+    const locked = await client.query<AttendanceDatabaseRow>(
+      "SELECT * FROM attendance WHERE id = $1 FOR UPDATE",
+      [attendanceId],
+    );
+    const before = locked.rows[0];
+    if (!before) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "not_found" };
+    }
+
+    const values: Array<string | number | null> = [];
+    const assignments: string[] = [];
+    const assign = (column: string, value: string | null) => {
+      values.push(value);
+      assignments.push(`${column} = $${values.length}`);
+    };
+
+    if (input.checkInTime !== undefined) assign("check_in_time", input.checkInTime);
+    if (input.checkOutTime !== undefined) assign("check_out_time", input.checkOutTime);
+    if (input.status !== undefined) assign("status", input.status);
+    assign("admin_note", input.reason);
+    assignments.push(
+      "is_manual = TRUE",
+      "verification_status = CASE WHEN verification_status = 'verified' THEN 'manual' ELSE verification_status END",
+      "updated_at = CURRENT_TIMESTAMP",
+    );
+    values.push(attendanceId);
+
+    const updated = await client.query<AttendanceDatabaseRow>(
+      `UPDATE attendance SET ${assignments.join(", ")} WHERE id = $${values.length} RETURNING *`,
+      values,
+    );
+    const after = updated.rows[0]!;
+
+    const beforeFields = before as unknown as Record<string, unknown>;
+    const afterFields = after as unknown as Record<string, unknown>;
+
+    if (!diffChanges(beforeFields, afterFields, correctableFields)) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "no_changes" };
+    }
+
+    await recordRequiredAudit(
+      {
+        actor,
+        action: "ATTENDANCE_CORRECTED",
+        entityType: "attendance",
+        entityId: attendanceId,
+        summary: `Corrected attendance #${attendanceId} for employee #${after.employee_id} on ${normalizeDatabaseDate(after.attendance_date)}. Reason: ${input.reason}`,
+        changes: diffChanges(beforeFields, afterFields, correctionEvidenceFields),
+      },
+      client,
+    );
+
+    await client.query("COMMIT");
+    return { ok: true, record: mapAttendanceRow(after) };
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // The connection is already unusable; the error below still reports the failure.
+    }
+    throw error;
+  } finally {
+    client.release();
   }
-
-  if (input.checkOutTime !== undefined) {
-    values.push(input.checkOutTime);
-    fields.push(`check_out_time = $${values.length}`);
-  }
-
-  if (input.status !== undefined) {
-    values.push(input.status);
-    fields.push(`status = $${values.length}`);
-  }
-
-  if (input.adminNote !== undefined) {
-    values.push(input.adminNote);
-    fields.push(`admin_note = $${values.length}`);
-  }
-
-  if (fields.length === 0) {
-    return null;
-  }
-
-  fields.push("is_manual = TRUE");
-  fields.push("updated_at = CURRENT_TIMESTAMP");
-
-  values.push(attendanceId);
-
-  const result = await pool.query<AttendanceDatabaseRow>(
-    `
-      UPDATE attendance
-      SET ${fields.join(", ")}
-      WHERE id = $${values.length}
-      RETURNING *
-    `,
-    values,
-  );
-
-  const row = result.rows[0];
-
-  return row ? mapAttendanceRow(row) : null;
 }
 
 export async function getAllAttendance(

@@ -18,6 +18,11 @@ export interface AttendanceVerification {
   verificationMethod: VerificationMethod | null;
   verificationStatus: VerificationStatus | null;
   lateMinutes: number | null;
+  /**
+   * Began as a verified QR and location scan, and HR has since corrected it.
+   * Such a record is shown as "Corrected by HR", never as verified.
+   */
+  correctedByHr: boolean;
 }
 
 /** The only three location values the client ever sends, and only on demand. */
@@ -75,11 +80,16 @@ export interface ManualAttendanceInput {
   verificationMethod?: VerificationMethod;
 }
 
+/**
+ * HR's correction. Only the values that change are sent, and the reason is
+ * required: the server refuses a correction without one, stores it as the
+ * record's note and keeps it in the audit log.
+ */
 export interface UpdateAttendanceInput {
   checkInTime?: string | null;
   checkOutTime?: string | null;
   status?: AttendanceStatus;
-  adminNote?: string | null;
+  reason: string;
 }
 
 export interface AttendanceFilters {

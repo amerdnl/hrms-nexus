@@ -24,6 +24,8 @@ export interface TeamMember {
     lateMinutes: number | null;
     verificationStatus: "verified" | "manual" | "exception" | null;
     isManual: boolean;
+    /** Began as a verified scan and HR has since corrected it. */
+    correctedByHr: boolean;
     onLeave: { leaveType: LeaveType } | null;
   };
 }

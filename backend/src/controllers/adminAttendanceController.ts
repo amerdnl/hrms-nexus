@@ -1,16 +1,16 @@
 import type { Request, Response } from "express";
 import { actorFromUser, recordAudit } from "../services/auditService.js";
 import {
+  correctAttendanceRecord,
   createManualAttendance as createManualAttendanceRecord,
   getAllAttendance,
   getAttendanceStatistics,
-  updateAttendanceRecord,
 } from "../services/attendanceService.js";
 import type {
+  AttendanceCorrectionInput,
   AttendanceFilters,
   AttendanceStatus,
   ManualAttendanceInput,
-  UpdateAttendanceInput,
 } from "../types/attendance.js";
 import { currentAttendanceDate } from "../services/verifiedAttendanceService.js";
 import {
@@ -24,6 +24,14 @@ const validStatuses: AttendanceStatus[] = [
   "absent",
   "on_leave",
 ];
+
+/**
+ * A correction reason's bounds. The upper bound matches the longest string the
+ * audit log keeps whole, so the reason on the record and the reason in the log
+ * are always the same text.
+ */
+export const CORRECTION_REASON_MIN_LENGTH = 5;
+export const CORRECTION_REASON_MAX_LENGTH = 300;
 
 function isValidStatus(value: unknown): value is AttendanceStatus {
   return (
@@ -188,6 +196,14 @@ export async function createManualAttendance(
   }
 }
 
+/**
+ * PATCH /api/attendance/:id - HR corrects an existing record.
+ *
+ * The reason is required and checked here, whatever the form allows; at least
+ * one of check-in, check-out or status must be sent. The service then applies
+ * the correction and writes its before/after audit entry in one transaction,
+ * so a correction without its evidence cannot exist.
+ */
 export async function updateAttendance(
   request: Request,
   response: Response,
@@ -202,8 +218,36 @@ export async function updateAttendance(
     return;
   }
 
-  const { checkInTime, checkOutTime, status, adminNote } =
-    request.body as UpdateAttendanceInput;
+  const body = (request.body ?? {}) as Record<string, unknown>;
+  const { checkInTime, checkOutTime, status } = body;
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+
+  if (reason.length < CORRECTION_REASON_MIN_LENGTH) {
+    response.status(400).json({
+      success: false,
+      code: "reason_required",
+      message: `Give a reason for this correction, at least ${CORRECTION_REASON_MIN_LENGTH} characters.`,
+    });
+    return;
+  }
+
+  if (reason.length > CORRECTION_REASON_MAX_LENGTH) {
+    response.status(400).json({
+      success: false,
+      code: "reason_too_long",
+      message: `Keep the reason to ${CORRECTION_REASON_MAX_LENGTH} characters or fewer.`,
+    });
+    return;
+  }
+
+  if (checkInTime === undefined && checkOutTime === undefined && status === undefined) {
+    response.status(400).json({
+      success: false,
+      code: "nothing_to_correct",
+      message: "Change the check-in time, check-out time or status to correct this record.",
+    });
+    return;
+  }
 
   if (status !== undefined && !isValidStatus(status)) {
     response.status(400).json({
@@ -237,7 +281,11 @@ export async function updateAttendance(
     return;
   }
 
-  if (checkInTime && checkOutTime && checkOutTime < checkInTime) {
+  if (
+    typeof checkInTime === "string" &&
+    typeof checkOutTime === "string" &&
+    checkOutTime < checkInTime
+  ) {
     response.status(400).json({
       success: false,
       message: "Check-out time cannot be earlier than check-in time",
@@ -245,39 +293,39 @@ export async function updateAttendance(
     return;
   }
 
-  try {
-    const attendance = await updateAttendanceRecord(attendanceId, {
-      checkInTime,
-      checkOutTime,
-      status,
-      adminNote,
-    });
+  const correction: AttendanceCorrectionInput = { reason };
+  if (checkInTime !== undefined) correction.checkInTime = checkInTime as string | null;
+  if (checkOutTime !== undefined) correction.checkOutTime = checkOutTime as string | null;
+  if (status !== undefined) correction.status = status as AttendanceStatus;
 
-    if (!attendance) {
-      response.status(404).json({
+  try {
+    const outcome = await correctAttendanceRecord(
+      attendanceId,
+      correction,
+      actorFromUser(request.user, request.user?.email),
+    );
+
+    if (!outcome.ok) {
+      if (outcome.reason === "not_found") {
+        response.status(404).json({
+          success: false,
+          message: "Attendance record not found",
+        });
+        return;
+      }
+
+      response.status(400).json({
         success: false,
-        message: "Attendance record not found or no changes provided",
+        code: "nothing_to_correct",
+        message: "These values already match the record, so there is nothing to correct.",
       });
       return;
     }
 
-    await recordAudit({
-      actor: actorFromUser(request.user, request.user?.email),
-      action: "ATTENDANCE_CORRECTED",
-      entityType: "attendance",
-      entityId: attendanceId,
-      summary: `Corrected attendance record #${attendanceId}`,
-      changes: {
-        check_in_time: checkInTime ?? null,
-        check_out_time: checkOutTime ?? null,
-        status: status ?? null,
-      },
-    });
-
     response.status(200).json({
       success: true,
-      message: "Attendance updated successfully",
-      data: attendance,
+      message: "Attendance corrected",
+      data: outcome.record,
     });
   } catch (error) {
     if (isPostgresError(error) && error.code === "23514") {
@@ -288,11 +336,13 @@ export async function updateAttendance(
       return;
     }
 
-    console.error("Update attendance error:", error);
+    // Includes a failed audit write: the transaction rolled back, so the
+    // record is exactly as it was.
+    console.error("Correct attendance error:", error);
 
     response.status(500).json({
       success: false,
-      message: "Unable to update attendance",
+      message: "Unable to correct attendance. The record was not changed.",
     });
   }
 }

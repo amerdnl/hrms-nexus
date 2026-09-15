@@ -22,6 +22,9 @@ const summaryHeaders = ["Team member", "Days recorded", "Present", "Late", "Abse
 
 function verificationLabel(member: TeamMember): string {
   if (!member.day.verificationStatus) return "—";
+  // Before "manual": a corrected scan is no longer verified, but HR did not
+  // enter it either. The reason and the audit trail stay with HR.
+  if (member.day.correctedByHr) return "Corrected by HR";
   if (member.day.verificationStatus === "verified") return "QR and location";
   if (member.day.verificationStatus === "manual") return "Entered by HR";
   return "Exception";

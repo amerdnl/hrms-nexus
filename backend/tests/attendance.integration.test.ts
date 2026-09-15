@@ -520,7 +520,7 @@ test("Attendance verification: migration 0005 and the authenticated QR workflow"
       const checkOut = original.check_in_time <= "18:30:00" ? "18:30:00" : "23:59:59";
       const edited = await read(await call("PATCH", `/${original.id}`, {
         checkOutTime: checkOut,
-        adminNote: "Forgot to clock out",
+        reason: "Forgot to clock out",
       }));
       assert.equal(edited.status, 200, JSON.stringify(edited.body));
 
@@ -531,7 +531,235 @@ test("Attendance verification: migration 0005 and the authenticated QR workflow"
       assert.equal(after.check_in_time, original.check_in_time);
       assert.equal(Number(after.check_in_distance_meters), 0);
       assert.equal(after.id, original.id);
+      // Its values are no longer what the scan recorded, so it stops claiming
+      // to be verified, and the reason is on the record.
+      assert.equal(after.verification_status, "manual");
+      assert.equal(after.is_manual, true);
+      assert.equal(after.admin_note, "Forgot to clock out");
+      assert.equal(edited.body.data.verification.correctedByHr, true);
       await clearAttendance();
+    });
+
+    // --------------------------------------------- correction integrity
+
+    const apiRoot = base.slice(0, -"/attendance".length);
+    const asManager = (path: string) =>
+      fetch(`${apiRoot}${path}`, { headers: { Authorization: `Bearer ${otherEmployeeToken}` } });
+
+    const correctionEvents = async (attendanceId: number | string) =>
+      (await db.query(
+        `SELECT actor_user_id, actor_role, entity_type, entity_id, summary, changes, outcome
+         FROM public.audit_events
+         WHERE action = 'ATTENDANCE_CORRECTED' AND entity_id = $1 ORDER BY id`,
+        [String(attendanceId)],
+      )).rows;
+
+    const snapshot = async (attendanceId: number | string) =>
+      (await db.query(
+        `SELECT check_in_time, check_out_time, status, admin_note, is_manual,
+                verification_method, verification_status
+         FROM attendance WHERE id = $1`,
+        [attendanceId],
+      )).rows[0];
+
+    /** A fresh verified check-in for the lab employee, and a check-out HR may set on it. */
+    async function verifiedRecord() {
+      await clearAttendance();
+      assert.equal((await call("POST", "/check-in", { token: await freshCode(), position: atOffice }, employeeToken)).status, 201);
+      const row = (await db.query("SELECT * FROM attendance WHERE employee_id=9200")).rows[0];
+      return { row, checkOut: row.check_in_time <= "18:30:00" ? "18:30:00" : "23:59:59" };
+    }
+
+    await t.test("a correction needs a meaningful reason, checked by the server", async () => {
+      const { row, checkOut } = await verifiedRecord();
+      const before = await snapshot(row.id);
+
+      const attempts: Array<[string, Record<string, unknown>]> = [
+        ["no reason", {}],
+        ["an empty reason", { reason: "" }],
+        ["a whitespace-only reason", { reason: "  \n\t   " }],
+        ["a reason too short to mean anything", { reason: "ok" }],
+        ["a reason over 300 characters", { reason: "x".repeat(301) }],
+        ["a reason that is not text", { reason: 12345 }],
+      ];
+      for (const [label, extra] of attempts) {
+        const refused = await read(await call("PATCH", `/${row.id}`, { checkOutTime: checkOut, ...extra }));
+        assert.equal(refused.status, 400, `${label}: ${JSON.stringify(refused.body)}`);
+      }
+
+      const whitespace = await read(await call("PATCH", `/${row.id}`, { checkOutTime: checkOut, reason: "      " }));
+      assert.equal(whitespace.body.code, "reason_required");
+
+      // Nothing was changed, and nothing was logged as if it had been.
+      assert.deepEqual(await snapshot(row.id), before);
+      assert.equal((await correctionEvents(row.id)).length, 0);
+      await clearAttendance();
+    });
+
+    await t.test("a correction records who, what and why, with each changed value before and after", async () => {
+      const { row, checkOut } = await verifiedRecord();
+      const reason = "Left at the end of the shift; confirmed with their manager";
+
+      const corrected = await read(await call("PATCH", `/${row.id}`, {
+        // The unchanged status is sent as well, and must not be reported as a change.
+        checkOutTime: checkOut, status: row.status, reason,
+      }));
+      assert.equal(corrected.status, 200, JSON.stringify(corrected.body));
+
+      const events = await correctionEvents(row.id);
+      assert.equal(events.length, 1);
+      const [event] = events;
+      assert.equal(event.actor_user_id, 9200);
+      assert.equal(event.actor_role, "admin");
+      assert.equal(event.entity_type, "attendance");
+      assert.equal(event.outcome, "success");
+      assert.match(event.summary, /employee #9200/);
+      assert.ok(event.summary.includes(row.attendance_date.toISOString().slice(0, 10)), event.summary);
+      assert.ok(event.summary.includes(reason), event.summary);
+      assert.deepEqual(event.changes, {
+        check_out_time: { before: null, after: checkOut },
+        admin_note: { before: null, after: reason },
+        verification_status: { before: "verified", after: "manual" },
+        is_manual: { before: false, after: true },
+      });
+
+      // A second correction reports only what it changed, starting from the corrected values.
+      const nextStatus = row.status === "late" ? "present" : "late";
+      const again = await read(await call("PATCH", `/${row.id}`, {
+        status: nextStatus, reason: "Arrived after the grace period",
+      }));
+      assert.equal(again.status, 200, JSON.stringify(again.body));
+      const both = await correctionEvents(row.id);
+      assert.equal(both.length, 2);
+      assert.deepEqual(both[1].changes, {
+        status: { before: row.status, after: nextStatus },
+        admin_note: { before: reason, after: "Arrived after the grace period" },
+      });
+      await clearAttendance();
+    });
+
+    await t.test("a correction that changes nothing is refused and leaves no audit entry", async () => {
+      const { row } = await verifiedRecord();
+      const before = await snapshot(row.id);
+
+      const same = await read(await call("PATCH", `/${row.id}`, {
+        checkInTime: row.check_in_time, status: row.status, reason: "Re-saving the values it already has",
+      }));
+      assert.equal(same.status, 400, JSON.stringify(same.body));
+      assert.equal(same.body.code, "nothing_to_correct");
+
+      const reasonOnly = await read(await call("PATCH", `/${row.id}`, { reason: "A reason and no values at all" }));
+      assert.equal(reasonOnly.status, 400);
+      assert.equal(reasonOnly.body.code, "nothing_to_correct");
+
+      assert.deepEqual(await snapshot(row.id), before);
+      assert.equal((await correctionEvents(row.id)).length, 0);
+
+      const missing = await read(await call("PATCH", "/999999999", { checkOutTime: "18:30", reason: "No such record exists" }));
+      assert.equal(missing.status, 404);
+      await clearAttendance();
+    });
+
+    await t.test("employees and managers cannot correct attendance", async () => {
+      const { row, checkOut } = await verifiedRecord();
+      const before = await snapshot(row.id);
+      // The second lab employee now manages the first, so the refusal below is
+      // about HR's role, not about scope.
+      await db.query("UPDATE public.employees SET manager_id = 9201 WHERE id = 9200");
+      try {
+        assert.equal((await asManager("/team/attendance")).status, 200, "the lab manager must really be a manager");
+
+        const body = { checkOutTime: checkOut, reason: "Trying to correct without HR rights" };
+        assert.equal((await call("PATCH", `/${row.id}`, body, null)).status, 401);
+        assert.equal((await call("PATCH", `/${row.id}`, body, employeeToken)).status, 403);
+        assert.equal((await call("PATCH", `/${row.id}`, body, otherEmployeeToken)).status, 403);
+        assert.equal((await call("POST", "/manual", {
+          employeeId: 9200, attendanceDate: "2026-01-05", status: "present",
+        }, otherEmployeeToken)).status, 403);
+
+        assert.deepEqual(await snapshot(row.id), before);
+        assert.equal((await correctionEvents(row.id)).length, 0);
+      } finally {
+        await db.query("UPDATE public.employees SET manager_id = NULL WHERE id = 9200");
+        await clearAttendance();
+      }
+    });
+
+    await t.test("if the correction cannot be audited, the correction does not persist", async () => {
+      const { row, checkOut } = await verifiedRecord();
+      const before = await snapshot(row.id);
+      const body = { checkOutTime: checkOut, reason: "This correction cannot be audited yet" };
+
+      // Lab clone only: make the audit insert for corrections fail, as an
+      // unavailable audit table would. The append-only trigger is not touched.
+      await db.query(
+        `CREATE FUNCTION lab_refuse_correction_audit() RETURNS trigger LANGUAGE plpgsql AS $lab$
+         BEGIN
+           IF NEW.action = 'ATTENDANCE_CORRECTED' THEN
+             RAISE EXCEPTION 'lab: the audit log is unavailable';
+           END IF;
+           RETURN NEW;
+         END
+         $lab$`,
+      );
+      await db.query(
+        `CREATE TRIGGER lab_refuse_correction_audit BEFORE INSERT ON public.audit_events
+         FOR EACH ROW EXECUTE FUNCTION lab_refuse_correction_audit()`,
+      );
+      try {
+        const failed = await read(await call("PATCH", `/${row.id}`, body));
+        assert.equal(failed.status, 500, JSON.stringify(failed.body));
+        assert.match(failed.body.message, /not changed/);
+        assert.deepEqual(await snapshot(row.id), before);
+        assert.equal((await correctionEvents(row.id)).length, 0);
+      } finally {
+        await db.query("DROP TRIGGER IF EXISTS lab_refuse_correction_audit ON public.audit_events");
+        await db.query("DROP FUNCTION IF EXISTS lab_refuse_correction_audit()");
+      }
+
+      // With the audit log available again, the same correction goes through.
+      const retried = await read(await call("PATCH", `/${row.id}`, body));
+      assert.equal(retried.status, 200, JSON.stringify(retried.body));
+      assert.equal((await correctionEvents(row.id)).length, 1);
+      await clearAttendance();
+    });
+
+    await t.test("every role sees a corrected verified record as corrected, not verified", async () => {
+      const { row, checkOut } = await verifiedRecord();
+      // A second, untouched verified scan to compare against.
+      assert.equal((await call("POST", "/check-in", { token: await freshCode(), position: atOffice }, otherEmployeeToken)).status, 201);
+      assert.equal((await call("PATCH", `/${row.id}`, { checkOutTime: checkOut, reason: "Forgot to check out" })).status, 200);
+
+      await db.query("UPDATE public.employees SET manager_id = 9201 WHERE id = 9200");
+      try {
+        // HR: the corrected record keeps its origin and is flagged; the untouched one is still verified.
+        const corrected = (await read(await call("GET", "/?employeeId=9200"))).body.data[0].verification;
+        assert.equal(corrected.correctedByHr, true);
+        assert.equal(corrected.verificationMethod, "QR_LOCATION");
+        assert.equal(corrected.verificationStatus, "manual");
+        const untouched = (await read(await call("GET", "/?employeeId=9201"))).body.data[0].verification;
+        assert.equal(untouched.correctedByHr, false);
+        assert.equal(untouched.verificationStatus, "verified");
+
+        // The employee.
+        const mine = (await read(await call("GET", "/today", undefined, employeeToken))).body.data.verification;
+        assert.equal(mine.correctedByHr, true);
+        assert.notEqual(mine.verificationStatus, "verified");
+
+        // The manager: flagged, and still no coordinates, reason or audit detail.
+        const team = await read(await asManager("/team/attendance"));
+        assert.equal(team.status, 200, JSON.stringify(team.body));
+        const member = team.body.data.members.find((entry: { id: number }) => entry.id === 9200);
+        assert.equal(member.day.correctedByHr, true);
+        assert.notEqual(member.day.verificationStatus, "verified");
+        const text = JSON.stringify(team.body);
+        for (const needle of ["latitude", "longitude", "accuracy", "distance", "Forgot to check out", "admin_note", "adminNote"]) {
+          assert.equal(text.includes(needle), false, `team attendance exposed ${needle}`);
+        }
+      } finally {
+        await db.query("UPDATE public.employees SET manager_id = NULL WHERE id = 9200");
+        await clearAttendance();
+      }
     });
 
     await t.test("the protected orphan attendance rows are untouched by the whole suite", async () => {

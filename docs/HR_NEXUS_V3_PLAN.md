@@ -244,6 +244,21 @@ plus route-splitting build assertions and axe/keyboard browser checks.
 - **14 Sep 2026 — No new settings in M8.** Timezone, working week and office location
   (V2) and holidays (M3) are the settings with real effects, and all are revisioned. No
   V3 module needs another, and master §24 forbids decorative ones.
+- **15 Sep 2026 — An attendance correction needs a reason and cannot exist without its
+  evidence.**
+  - **Why.** The read-only integrity audit found that a correction overwrote the row,
+    audited only new values, needed no reason, left a corrected scan labelled
+    verified, and could survive a failed audit write.
+  - **Reason and evidence.** Corrections now require a 5–300 character reason, stored
+    as the record's note. The row is locked and the correction and its before/after
+    `ATTENDANCE_CORRECTED` entry are written in one transaction, so a failed audit
+    insert rolls the correction back.
+  - **Corrected scans.** A corrected QR record keeps `QR_LOCATION` as its origin, but
+    its status becomes `manual`, and every role sees it as "Corrected by HR".
+  - **No migration.** The existing note, status and method columns carry all of this.
+  - **Scope.** Deliberately not GPS spoof detection, device binding, IP tracking or
+    biometrics: those remain future hardening, and nothing here claims physical-presence
+    proof (architecture §12).
 
 ## M0 — Architecture & foundation (11 September 2026)
 
@@ -935,3 +950,57 @@ The final integrity assessment was re-run read-only against source:
 M10 status: **complete.** Every engineering gate passes and no blocker remains. The release
 report is **READY FOR v3.0.0**. The `v3.0.0` tag has not been created; tagging is left to a
 person (see the release procedure).
+
+## Attendance correction integrity (15 September 2026)
+
+This follows the read-only attendance integrity audit at `c7e6840`. The design is in architecture §12 and the decision is in the log above. The audit's findings describe the system *before* this change and are not rewritten.
+
+What changed:
+- **Reason.** HR corrections need a 5–300 character reason, validated by the server and stored as the record's note.
+- **Evidence.** The service locks the row and applies the change. It writes `ATTENDANCE_CORRECTED` with before/after values for changed fields only, through the new `recordRequiredAudit`, in the same transaction. A failed audit insert therefore rolls the correction back.
+- **No-op corrections.** A correction that changes no value is refused.
+- **Corrected scans.** A corrected QR record keeps `QR_LOCATION` as its origin, moves from `verified` to `manual`, and exposes `correctedByHr`. HR, the employee and the manager all see "Corrected by HR". The employee's Today card also stops showing "Verified with the office QR code" on a corrected, finished day.
+- **The form** sends only the values HR changed.
+
+No migration was needed. Clock-in, clock-out, QR, geofence and authorisation are unchanged.
+
+Verification ran on the isolated laboratory and V3 demo stack only, with a freshly rebuilt demo before each browser smoke and before the gates:
+
+| Check | Result |
+| --- | --- |
+| Backend type-check (source and tests) | pass |
+| Backend full laboratory suite | **570 pass, 0 fail, 0 skipped**. It includes the attendance suite, 25/25, whose new tests check that: a missing, empty, whitespace-only, too-short, too-long or non-text reason is refused; before/after, reason and actor are in the audit entry; unchanged fields are not reported; a second correction diffs from the corrected values; a no-op or reason-only correction is refused with no entry; employees and a real manager get 403; a failed audit insert leaves the record and log untouched, and the retry then succeeds; HR, employee and manager each see the record as corrected; the manager sees no reason or coordinates |
+| Database-free unit tests (attendance verification, authorisation, audit redaction) | 71/71 |
+| Frontend typecheck, Oxlint (0 findings), production build, `check:bundle` | pass; initial JS 352.96 kB (gzip 115.11 kB) |
+| Attendance verification browser smoke | 15/15 |
+| Correction browser smoke (`c1-correction.mjs`) | **25/25**, below |
+| M1 smoke (manager team attendance) | 51/51, on the implementation before the Today-card caption fix |
+| Accessibility gate | 17/17; no WCAG 2.2 AA violation across 252 axe scans |
+| Visual gate | 2/2; 676 rendered pages and overlays |
+| Employee Home | 46/46, on the implementation before the caption fix; Home does not use the changed card |
+
+What the correction smoke checks:
+- **API:** a missing or whitespace-only reason is refused, as are the employee and their manager.
+- **Form:** it explains the verified notice and requires the reason.
+- **HR's list:** it shows "Corrected by HR · Originally QR + location" and the reason, while an untouched scan still reads "QR + location".
+- **Audit page:** it shows "empty → 23:59:00", "verified → manual" and "no → yes", and does not list unchanged fields.
+- **Employee:** they see "corrected by HR", the reason as the note, no audit detail and no QR caption, and Home does not say verified.
+- **Manager:** they see "Corrected by HR" with no reason or coordinates.
+- **Layout and accessibility:** the dialog fits at 375 px dark, and axe finds no violation on any of these surfaces.
+
+The first full run passed every gate except the correction smoke, which scored 23/24. The failure was in the check, not the product: it treated any "→" as audit detail, but the employee's history has always separated check-in and check-out times with one. The check now looks for the audit log's own labels. The same review found that a corrected, finished day still showed "Verified with the office QR code" under "Done for today". That caption is now hidden in that case, and a check was added for it. Frontend checks, both attendance smokes, the accessibility gate and the visual gate were then re-run on the new bundle, with the results above. The backend was unchanged by the fix, so its suite was not repeated.
+
+Source integrity, read-only fingerprints taken at 13:44 before the gates and at 14:54 after them:
+
+| Item | State |
+| --- | --- |
+| Attendance | 5 rows, digest unchanged; no `ATTENDANCE_CORRECTED` event exists on source |
+| Historical orphans | `1:1,3:1,4:2,5:1,6:1`, row digest unchanged |
+| September 2026 payroll period | `calculated` |
+| Audit events | 69 → 73: sign-outs and sign-ins through the source application, 05:52–06:00 UTC |
+| Employees | 1 row; updated at 05:50 UTC, inside a source-application session. Not caused by this work: every test targeted the lab or the demo API, whose database is `hr_nexus_v3_demo` on the laboratory server |
+| Leave-entitlement sequence | 324 → 380 from the existing insert-if-absent on source page loads; no row added |
+
+The `v3.0.0` tag has not been created.
+
+Still not claimed: GPS spoof detection, device binding, IP checks and biometric checks do not exist. QR plus geofence is not proof of physical presence against a determined attacker.

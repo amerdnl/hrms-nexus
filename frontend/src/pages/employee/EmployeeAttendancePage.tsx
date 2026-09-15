@@ -160,6 +160,7 @@ function EmployeeAttendancePage() {
             checkInTime={today?.checkInTime}
             checkOutTime={today?.checkOutTime}
             verificationStatus={today?.verification?.verificationStatus ?? null}
+            correctedByHr={today?.verification?.correctedByHr ?? false}
             lateMinutes={today?.verification?.lateMinutes ?? null}
             actionsDisabled={loading || clockMode !== null}
             onStart={(mode) => { setClockMode(mode); setMessage(""); setError(""); }}

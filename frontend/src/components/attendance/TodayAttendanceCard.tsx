@@ -1,4 +1,4 @@
-import { BadgeCheck, Clock3, LogIn, LogOut } from "lucide-react";
+import { BadgeCheck, Clock3, LogIn, LogOut, Pencil } from "lucide-react";
 import type { AttendanceStatus } from "../../types/attendance";
 import { calcWorkMinutes, formatWorkHours } from "../../utils/attendance";
 import { cn } from "../../utils/cn";
@@ -27,6 +27,8 @@ interface TodayAttendanceCardProps {
    * coordinates, accuracy or distance, so it cannot display them.
    */
   verificationStatus?: "verified" | "manual" | "exception" | null;
+  /** Today's record began as a verified scan and HR has since corrected it. */
+  correctedByHr?: boolean;
   lateMinutes?: number | null;
   /** True while loading or while the verified panel is already open. */
   actionsDisabled?: boolean;
@@ -46,7 +48,9 @@ const heroTone: Record<StatusTone, string> = {
   neutral: "bg-surface-muted text-fg-muted",
 };
 
-function verificationLabel(status: "verified" | "manual" | "exception"): string {
+function verificationLabel(status: "verified" | "manual" | "exception", correctedByHr: boolean): string {
+  // First: a corrected scan is neither verified nor entered by HR.
+  if (correctedByHr) return "Today's record was corrected by HR";
   if (status === "verified") return "Today's record is verified";
   if (status === "manual") return "Today's record was entered by an administrator";
   return "Today's record is marked as an exception";
@@ -79,6 +83,7 @@ export default function TodayAttendanceCard({
   checkInTime,
   checkOutTime,
   verificationStatus,
+  correctedByHr = false,
   lateMinutes,
   actionsDisabled = false,
   onStart,
@@ -89,6 +94,7 @@ export default function TodayAttendanceCard({
   const checkedOut = Boolean(checkOutTime);
   const minutes = calcWorkMinutes(checkInTime, checkOutTime);
   const next: ClockMode | null = !checkedIn ? "check-in" : !checkedOut ? "check-out" : null;
+  const VerificationIcon = correctedByHr ? Pencil : BadgeCheck;
 
   return (
     <SectionCard className={className} title="Today" description={dateLabel} icon={Clock3}>
@@ -105,8 +111,8 @@ export default function TodayAttendanceCard({
             <p className="mt-0.5 flex items-center gap-1.5 text-xs text-fg-subtle">
               {verificationStatus ? (
                 <>
-                  <BadgeCheck className="size-3.5" aria-hidden="true" />
-                  {verificationLabel(verificationStatus)}
+                  <VerificationIcon className="size-3.5" aria-hidden="true" />
+                  {verificationLabel(verificationStatus, correctedByHr)}
                 </>
               ) : (
                 "Nothing recorded yet today"
@@ -128,7 +134,12 @@ export default function TodayAttendanceCard({
           ) : (
             <StatusBadge label="Done for today" tone="success" icon={BadgeCheck} />
           )}
-          <p className="text-xs text-fg-subtle">Verified with the office QR code</p>
+          {/* How the next action is verified. Once HR has corrected a finished
+              day there is no next action, and the line would read as a claim
+              about the corrected record, so it is left out. */}
+          {(next || !correctedByHr) && (
+            <p className="text-xs text-fg-subtle">Verified with the office QR code</p>
+          )}
         </div>
       </div>
 

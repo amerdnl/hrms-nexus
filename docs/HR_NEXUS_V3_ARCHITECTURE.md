@@ -308,3 +308,36 @@ twenty pages grows the number of chunks rather than the entry. M9 finished the j
 - Multi-company tenancy, document storage, external identity providers, self sign-up,
   password reset by email, WebSockets. None is required for the product to be complete
   and each would widen the security surface for no approved requirement.
+
+## 12. Attendance corrections carry their own evidence (15 September 2026)
+
+The read-only attendance integrity audit at `c7e6840` found that an HR correction (`PATCH /api/attendance/:id`) had four gaps:
+- it overwrote the row;
+- its audit entry recorded only new values;
+- it needed no reason;
+- a corrected QR-verified record still showed as verified.
+
+The audit entry was also best-effort, so a correction could stand without one. This change closes those four gaps and the best-effort audit write. It adds no migration, and it does not change clock-in or clock-out.
+
+- **A reason is required.** The server refuses a correction whose trimmed reason is shorter than 5 or longer than 300 characters (`reason_required`, `reason_too_long`). 300 is the longest string the audit log keeps whole. The reason becomes the record's `admin_note`, the note it already had for "why this record was entered or corrected". The employee sees it on their own history; managers never do.
+- **A correction must change something.** At least one of check-in, check-out or status must be sent and must differ from the stored value, compared as the database stores it (`nothing_to_correct` otherwise). A reason on its own is not a correction. The form sends only the values HR changed, so saving a check-out cannot rewrite a scanned `08:03:12` check-in to `08:03:00`.
+- **Before and after.** The service locks the row (`SELECT … FOR UPDATE`) and applies the change. It then writes `ATTENDANCE_CORRECTED` with `diffChanges(before, after)` over `check_in_time`, `check_out_time`, `status`, `admin_note`, `verification_status` and `is_manual`. Unchanged fields are left out. The entry records:
+  - the actor (user, role, label) and the time;
+  - the attendance record as `entity_id`;
+  - a summary naming the employee, the date and the reason.
+
+  The audit page shows each field as "before → after".
+- **Atomic.** The entry is written with the new `recordRequiredAudit`, inside the correction's transaction. If the insert fails, the transaction rolls back, the API answers 500 ("The record was not changed"), and no unaudited correction exists. `recordRequiredAudit` and the best-effort `recordAudit` share one INSERT; every other audit call keeps its contained behaviour. Both only insert, so the append-only trigger is unchanged.
+- **Corrected verified records.** A correction keeps `verification_method = 'QR_LOCATION'` and the check-in's distance and coordinates on the record, as evidence of where it came from. It moves `verification_status` from `verified` to `manual`, because the values on the record are no longer what the scan recorded. The API adds `verification.correctedByHr` (and `day.correctedByHr` on the manager's team day). It is true for a QR record whose status is no longer `verified`, and is derived in one place, `isCorrectedVerification`. How each role sees such a record:
+  - **HR** sees "Corrected by HR" and "Originally QR + location · n m from office".
+  - **The employee** sees "Today's record was corrected by HR".
+  - **The manager** sees "Corrected by HR", without the verified badge, reason or coordinates.
+  - **Employee Home and exports** no longer call the record verified, because they read the stored status.
+  - An untouched verified scan still reads as verified everywhere.
+- **Authorisation unchanged.** Correction stays behind `authorizeRoles("admin")`. Employees and managers are refused at the API (403), whatever the interface shows, and there is still no attendance deletion.
+
+What this does **not** change or claim:
+- Clock-in and clock-out still use the server's clock, the authenticated identity, the 45-second single-use office QR code, the geofence with its accuracy cap, one record per employee per day, and the check-out state rules.
+- The location is still reported by the employee's device. There is no GPS spoof detection, device binding, IP or VPN check, or biometric or selfie check.
+- QR plus geofence makes casual misuse harder. It is not proof of physical presence against a determined attacker who relays a code and spoofs a location.
+- HR can still correct any record, including an administrator's own. The difference is that every correction now carries a reason and its before and after values.

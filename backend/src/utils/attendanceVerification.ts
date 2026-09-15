@@ -182,6 +182,22 @@ export function statusForMethod(method: VerificationMethod): "verified" | "manua
   return "exception";
 }
 
+/**
+ * A record that began as a verified QR and location scan and whose values HR
+ * later corrected.
+ *
+ * A correction keeps QR_LOCATION as the record's origin - that is still where
+ * it came from - but takes its status off "verified", because the values on it
+ * are no longer the ones the scan recorded. A QR record is only ever inserted
+ * as verified, so any other status on one means it was corrected.
+ */
+export function isCorrectedVerification(
+  method: string | null | undefined,
+  status: string | null | undefined,
+): boolean {
+  return method === "QR_LOCATION" && status !== "verified";
+}
+
 export interface PositionValidation {
   valid: boolean;
   errors: Record<string, string>;

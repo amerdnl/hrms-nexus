@@ -153,6 +153,45 @@ const MAX_LABEL = 160;
 const MAX_SUMMARY = 500;
 const MAX_ENTITY_ID = 64;
 
+/** The one INSERT behind both entry points below, so they cannot drift apart. */
+async function insertAuditEvent(input: AuditInput, db: Db): Promise<void> {
+  await db.query(
+    `INSERT INTO public.audit_events
+       (actor_user_id, actor_employee_id, actor_label, actor_role,
+        action, entity_type, entity_id, summary, changes, outcome)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [
+      input.actor.userId,
+      input.actor.employeeId,
+      // Untrusted input reaches actor_label on a failed sign-in, so it is
+      // truncated here as well as bounded by the column.
+      input.actor.label.slice(0, MAX_LABEL),
+      input.actor.role,
+      input.action,
+      input.entityType,
+      input.entityId === null || input.entityId === undefined
+        ? null : String(input.entityId).slice(0, MAX_ENTITY_ID),
+      input.summary.slice(0, MAX_SUMMARY),
+      JSON.stringify(fitChanges(input.changes ?? null)),
+      input.outcome ?? "success",
+    ],
+  );
+}
+
+/**
+ * Records an event that the change it describes cannot stand without.
+ *
+ * The deliberate exception to rule 1 above. Some changes are only trustworthy
+ * together with their evidence - an attendance correction rewrites a record an
+ * employee's verified scan created - so here a failed insert is not contained.
+ * It is thrown inside the caller's transaction, the caller rolls back, and the
+ * change is refused rather than kept without its entry. This only ever
+ * inserts, so the append-only trigger is untouched.
+ */
+export async function recordRequiredAudit(input: AuditInput, client: PoolClient): Promise<void> {
+  await insertAuditEvent(input, client);
+}
+
 /**
  * Records one event.
  *
@@ -167,27 +206,7 @@ export async function recordAudit(input: AuditInput, db: Db = pool): Promise<voi
   try {
     if (transactional) await db.query("SAVEPOINT hr_nexus_audit");
 
-    await db.query(
-      `INSERT INTO public.audit_events
-         (actor_user_id, actor_employee_id, actor_label, actor_role,
-          action, entity_type, entity_id, summary, changes, outcome)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [
-        input.actor.userId,
-        input.actor.employeeId,
-        // Untrusted input reaches actor_label on a failed sign-in, so it is
-        // truncated here as well as bounded by the column.
-        input.actor.label.slice(0, MAX_LABEL),
-        input.actor.role,
-        input.action,
-        input.entityType,
-        input.entityId === null || input.entityId === undefined
-          ? null : String(input.entityId).slice(0, MAX_ENTITY_ID),
-        input.summary.slice(0, MAX_SUMMARY),
-        JSON.stringify(fitChanges(input.changes ?? null)),
-        input.outcome ?? "success",
-      ],
-    );
+    await insertAuditEvent(input, db);
     if (transactional) await db.query("RELEASE SAVEPOINT hr_nexus_audit");
   } catch (error) {
     // Losing an entry is bad; losing the change it describes would be worse, so

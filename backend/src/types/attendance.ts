@@ -15,6 +15,8 @@ export interface AttendanceVerification {
   verificationMethod: string | null;
   verificationStatus: VerificationStatus | null;
   lateMinutes: number | null;
+  /** Began as a verified QR and location scan, and HR has since corrected it. */
+  correctedByHr: boolean;
 }
 
 export interface AttendanceRecord {
@@ -65,11 +67,16 @@ export interface ManualAttendanceInput {
   verificationMethod?: string;
 }
 
-export interface UpdateAttendanceInput {
+/**
+ * HR's correction of an existing record. At least one of the three values must
+ * change, and the reason is required: it becomes the record's note and is kept
+ * in the audit log with the values before and after.
+ */
+export interface AttendanceCorrectionInput {
   checkInTime?: string | null;
   checkOutTime?: string | null;
   status?: AttendanceStatus;
-  adminNote?: string | null;
+  reason: string;
 }
 
 export interface AttendanceFilters {

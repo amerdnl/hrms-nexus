@@ -105,6 +105,9 @@ const methodLabels: Record<string, string> = {
 
 /** Records predating verification have no method; they are simply older. */
 function sourceLabel(record: AttendanceRecord): string {
+  // First: a corrected scan still carries QR_LOCATION as its origin, and must
+  // not read as one.
+  if (record.verification?.correctedByHr) return "Corrected by HR";
   const method = record.verification?.verificationMethod;
   if (method) return methodLabels[method] ?? method;
   return record.isManual ? "Manual" : "Employee";
@@ -684,12 +687,21 @@ function AdminAttendancePage() {
                     coordinates themselves. */}
                 <td className="max-w-56 px-4 py-3 text-fg-muted">
                   <p className="flex items-center gap-1.5 whitespace-nowrap">
-                    {record.verification?.verificationMethod === "QR_LOCATION" && (
+                    {record.verification?.correctedByHr ? (
+                      <Pencil size={14} className="shrink-0 text-warning-fg" aria-hidden="true" />
+                    ) : record.verification?.verificationMethod === "QR_LOCATION" && (
                       <ShieldCheck size={14} className="shrink-0 text-success-fg" aria-hidden="true" />
                     )}
                     {sourceLabel(record)}
                   </p>
-                  {distance !== null && distance !== undefined && (
+                  {/* A corrected scan keeps where it was first verified, stated
+                      as history so it cannot be read as the current values. */}
+                  {record.verification?.correctedByHr ? (
+                    <p className="mt-0.5 whitespace-nowrap text-xs text-fg-subtle">
+                      Originally QR + location
+                      {distance !== null && distance !== undefined ? ` · ${Math.round(distance)} m from office` : ""}
+                    </p>
+                  ) : distance !== null && distance !== undefined && (
                     <p className="mt-0.5 whitespace-nowrap text-xs text-fg-subtle">
                       {Math.round(distance)} m from office
                     </p>
