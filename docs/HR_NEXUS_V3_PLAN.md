@@ -276,6 +276,24 @@ plus route-splitting build assertions and axe/keyboard browser checks.
   - **Deliberately not built.** A Malaysian public-holiday dataset, because that belongs to the
     demo-data pass.
 
+- **16 Sep 2026 — the presentation environment is a separate company, on a separate database.**
+  - **Why not the demo.** `hr_nexus_v3_demo` is what every browser gate asserts against. Rebuilding it
+    as Meridian Digital would have meant rewriting those gates to match new data, which is how a
+    regression suite quietly stops protecting anything. The presentation company therefore lives in
+    `hr_nexus_v3_presentation` with its own API container (:5019) and bundle (:5191), and every
+    existing gate keeps running unchanged against the demo.
+  - **Migration 0017 on the presentation database only.** The presentation must show dashboard
+    personalisation, which needs `user_dashboard_layouts`. It is applied to the presentation and
+    laboratory databases. The application database is untouched and still ends at 0016.
+  - **The company clock decides "now".** Only fixed history is written as a date; everything a viewer
+    reads as today is derived from `Asia/Kuala_Lumpur` at seed time, so a rebuild on the morning of
+    the presentation is coherent that morning. `--today` exists for rehearsal proof alone.
+  - **Leave counting follows the product, not an ideal.** The product counts leave on the working
+    week and still counts a public holiday inside a range, which the leave page states. The seed was
+    corrected to match it rather than to seed a rule the product does not apply.
+  - **Attendance claims nothing.** Seeded history carries no verification method or status, so it
+    reads as history rather than as a QR and location scan that never happened.
+
 ## M0 — Architecture & foundation (11 September 2026)
 
 Delivered:
@@ -1074,5 +1092,44 @@ Source integrity, read-only fingerprints taken before and after the gate run:
 | Attendance | 5 rows, digest unchanged; rows `1:1,3:1,4:2,5:1,6:1` |
 | September 2026 payroll period | `calculated` |
 | Whole fingerprint | byte-identical before and after the gates |
+
+The `v3.0.0` tag has not been created, and nothing has been pushed.
+
+## Presentation build verification (16 September 2026)
+
+Everything ran on the isolated laboratory, the V3 demo stack and the presentation stack. The
+application database was never written to, and its read-only fingerprint is byte-identical before
+and after the whole pass.
+
+| Check | Result |
+| --- | --- |
+| Frontend typecheck, Oxlint, production build, `check:bundle` | pass; **0 lint findings**; initial JS **353.37 kB (gzip 115.29 kB)** of the 380 kB / 125 kB budget |
+| Backend typecheck (source and tests) | pass |
+| Backend laboratory suite | **595 pass, 0 fail, 0 skipped** (includes 9 new presentation-dataset tests) |
+| HR Home `u3-home` | 45/45 |
+| Employee and manager Home `u4-home` | 46/46 |
+| Navigation `navgate-v3` | 64/64 |
+| Shell `u2-shell` | 132/132 |
+| Personalised Home smoke `d1-dashboard` | **65/65** |
+| Accessibility `m9-a11y` | 17/17; no WCAG 2.2 AA violation across 252 axe scans |
+| Visual `m10-visual` | 2/2; 676 rendered pages and overlays |
+| Approved reference comparison `u9-compare` | pass |
+| Presentation integrity (`scripts/presentation-integrity.sql`) | **20 assertions, all PASS** |
+| Presentation walkthrough `p1-walkthrough` | **48/48**, Admin → Manager → Employee, with 6 axe scans clean |
+| Presentation responsive `p2-responsive` | **7/7**; **432 rendered pages** at 1536, 1280, 1024, 834, 390 and 375 in light, dark and System |
+| Presentation-day rehearsal (`--today 2026-09-17`, throwaway clone) | 5/5: 29 present, 2 late, 3 on leave, 19 distinct arrival times from 08:37 to 09:48, nothing on Malaysia Day, no false verification |
+
+Three real defects were found and fixed during the pass, not worked around:
+- **A tablet-width horizontal scrollbar.** Screen-reader-only text inside a wide table is absolutely
+  positioned; with no positioned ancestor it took its containing block from the page and dragged the
+  document sideways (51 px on HR's leave page at 834 px). `DataTable`'s scroll container is now a
+  containing block. Nothing visible had moved, which is why the earlier element-level check missed it.
+- **Touch targets in the dashboard editor.** The shared `sm` button size deliberately stops at 36 px
+  on a coarse pointer for dense table rows, and that quietly overrode the editor toolbar's own 44 px
+  rule on a phone. The toolbar now states 44 px in a way that also wins on a touch screen; the shared
+  rule for dense rows is unchanged.
+- **Seeded leave counted holidays out.** The product counts leave on the working week alone and still
+  counts a public holiday inside a range, as the leave page says. The seed was corrected to the
+  product's rule so the demo cannot show figures the product would never produce.
 
 The `v3.0.0` tag has not been created, and nothing has been pushed.

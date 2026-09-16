@@ -90,6 +90,23 @@ personalization (architecture §13).
 - **Rollback:** `docs/sql/rollback_0017_dashboard_layouts.sql`, SHA-256
   `42b724fb6365f47902980eec553306b94af31a5b7a94c8dad121e543373afe08`.
 
+## 3b. Presentation environment (16 September 2026)
+
+The presentation company, Meridian Digital Solutions Sdn. Bhd., is a **second isolated
+environment**, separate from the demo the browser gates assert against:
+
+| | |
+| --- | --- |
+| Database | `hr_nexus_v3_presentation` on `hr-nexus-v2-migration-lab` |
+| API | `hr-nexus-v3-presentation-api`, host port 5019 |
+| Bundle | host port 5191, built against `http://localhost:5019/api` |
+| Migrations | `0001`-`0017`, including `0017_dashboard_layouts` |
+| Rebuild | `PRESENTATION_PASSWORD=… scripts/presentation-reset.sh` |
+| Integrity | `scripts/presentation-integrity.sql`, 20 cross-module assertions |
+
+It is described in `HR_NEXUS_V3_PRESENTATION.md`. The application database is not involved: it
+still ends at 0016 and has no `user_dashboard_layouts` table.
+
 ## 4. Demo stack
 
 Browser verification uses an isolated demo company, never the application database:
