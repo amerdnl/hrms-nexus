@@ -123,7 +123,12 @@ export default function DataTable({
           reaches a scroll region they cannot see. */}
       <div
         className={cn(
-          "overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+          // Positioned, so the screen-reader-only text inside a wide table
+          // resolves against this box. Without it those absolutely positioned
+          // spans take their containing block from the page and drag the
+          // document sideways, which is a real horizontal scrollbar on a
+          // tablet even though nothing visible is out of place.
+          "relative overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
           hasCards && "hidden md:block",
         )}
         tabIndex={0}

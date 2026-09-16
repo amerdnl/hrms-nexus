@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Layers, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { StackPlacement } from "../../types/dashboardLayout";
 import { cn } from "../../utils/cn";
@@ -110,7 +110,15 @@ export default function WidgetStack({ stack }: { stack: StackPlacement }) {
               <span className="truncate" title={reason}><span className="sr-only">Suggested now: </span>{reason}</span>
             </>
           ) : (
-            <span className="truncate">{titleOf(current)}</span>
+            <>
+              <Layers size={13} className="shrink-0 text-fg-subtle" aria-hidden="true" />
+              <span className="truncate">{titleOf(current)}</span>
+              {stack.smart && (
+                <span className="hidden shrink-0 items-center gap-1 rounded-full bg-primary-soft px-1.5 py-0.5 text-[0.625rem] font-semibold text-primary sm:inline-flex">
+                  <Sparkles size={10} aria-hidden="true" />Smart
+                </span>
+              )}
+            </>
           )}
         </p>
         <div className="flex shrink-0 items-center gap-1">
@@ -122,7 +130,7 @@ export default function WidgetStack({ stack }: { stack: StackPlacement }) {
               <span key={id} className={cn("size-1.5 rounded-full", dot === position ? "bg-primary" : "bg-line-strong")} />
             ))}
           </span>
-          <span className="sr-only">{position + 1} of {order.length}</span>
+          <span className="text-[0.6875rem] tabular-nums text-fg-subtle">{position + 1} of {order.length}</span>
           <button type="button" className={control} onClick={() => go(1)} aria-label={`Next widget in the stack (${position + 1} of ${order.length})`}>
             <ChevronRight size={16} aria-hidden="true" />
           </button>

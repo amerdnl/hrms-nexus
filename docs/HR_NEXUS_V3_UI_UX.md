@@ -819,3 +819,28 @@ at up to 64 rem. On tablets and phones they fill the width as before.
 - **Focus:** focus returns to a sensible place after add, remove and closing the gallery.
 
 Verification results are recorded in the plan.
+
+## Presentation build: making customisation obvious (16 September 2026)
+
+The personalisation architecture was already right; what was missing was that a person could see
+it. The changes are interaction quality, not a redesign: the approved default Homes, the shell, the
+mountain hero, the tokens and dark mode are untouched.
+
+- **Editing has its own surface.** While Home is being edited the grid sits on a quiet inset panel
+  with a soft ring, so edit mode is unmistakable without a single wobbling icon. Motion stays
+  restrained and reduced-motion still turns it off.
+- **Resizing is visible work.** The size control is now a small segmented control on the widget
+  itself - S, M, L - showing only the sizes that widget declares, with the current one pressed. A
+  widget with one supported size shows no control at all rather than a dead affordance. It is on
+  every width, and the sizes remain in the widget menu as the non-pointer alternative.
+- **A dragged widget lifts.** It scales very slightly and takes a panel shadow while it is carried,
+  and the destination keeps its dashed placeholder, so a drag reads as picking a card up and
+  putting it down rather than as something fading out.
+- **A stack says what it is.** The footer carries a stack mark and the widget's name, the position
+  ("1 of 2") is now visible as well as announced, and when smart ordering is on without a signal to
+  report the stack shows a quiet Smart mark. When a rule does fire, the reason replaces the name, as
+  before.
+
+Apple's interaction language is the reference for clarity - clear edit mode, tactile cards, plain
+controls, restrained motion - not its appearance. No glass, no wiggle, no borrowed iconography, and
+nothing that makes enterprise information harder to read.

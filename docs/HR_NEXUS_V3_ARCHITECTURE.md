@@ -447,6 +447,15 @@ With smart ordering on, a stack opens on the widget that matters now and shows t
 
 Ordering changes presentation only, never authorization.
 
+### Making it discoverable (16 September 2026)
+
+- The size control is a segmented control on the widget, built from the registry's own
+  `sizes` list, so it can never offer a size the widget does not support.
+- Edit mode renders the grid on its own inset surface; the dragged tile lifts and the drop target
+  keeps the dashed placeholder.
+- `WidgetStack` shows its position and, with smart ordering on and no rule firing, a Smart mark.
+- None of this changes the layout model, the registry, persistence or authorisation.
+
 ### Workflows layout
 
 Onboarding, Offboarding and Performance now use the Action Center's container, `mx-auto w-full max-w-5xl`. Their page header, area tabs and content are centred together on desktop and fill the width on phones.

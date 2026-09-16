@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Plus,
   RotateCcw,
-  Scaling,
   X,
 } from "lucide-react";
 import {
@@ -74,6 +73,9 @@ const spans: Record<WidgetSize, string> = {
 };
 
 const iconButton = "grid size-8 place-items-center rounded-full text-fg-muted transition-colors hover:bg-surface-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring motion-reduce:transition-none pointer-coarse:size-10";
+
+/** One step of the inline size control: a letter, wide enough to press on a touch screen. */
+const sizePill = "grid h-7 min-w-7 place-items-center rounded-full px-1.5 text-[0.6875rem] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring motion-reduce:transition-none pointer-coarse:h-10 pointer-coarse:min-w-10";
 
 const lower = (size: WidgetSize) => sizeLabels[size].toLowerCase();
 
@@ -303,16 +305,22 @@ export default function DashboardCanvas({ home }: { home: DashboardHome }) {
         >
           <GripVertical size={16} aria-hidden="true" />
         </button>
+        {/* Only the sizes this widget declares, shown rather than hidden behind a
+            menu, so resizing is visible work rather than something to discover. */}
         {sizes.length > 1 && (
-          <span className="max-sm:hidden">
-            <DropdownMenu
-              unstyled
-              label={`Size of ${title}: ${sizeLabels[item.size]}`}
-              className={iconButton}
-              align="end"
-              trigger={<Scaling size={15} aria-hidden="true" />}
-              items={sizes.map((size) => ({ key: size, label: sizeLabels[size], checked: size === item.size, onSelect: () => resize(size) }))}
-            />
+          <span role="group" aria-label={`Size of ${title}`} className="flex items-center gap-0.5 rounded-full bg-surface-muted/80 p-0.5">
+            {sizes.map((size) => (
+              <button
+                key={size}
+                type="button"
+                aria-pressed={size === item.size}
+                aria-label={`${sizeLabels[size]} size for ${title}`}
+                onClick={() => resize(size)}
+                className={cn(sizePill, size === item.size ? "bg-elevated text-fg shadow-card" : "text-fg-subtle hover:text-fg")}
+              >
+                {sizeLabels[size].slice(0, 1)}
+              </button>
+            ))}
           </span>
         )}
         <DropdownMenu
@@ -350,16 +358,16 @@ export default function DashboardCanvas({ home }: { home: DashboardHome }) {
             </p>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-0 sm:flex sm:shrink-0 sm:items-center">
-            <Button ref={addButton} variant="secondary" size="sm" icon={Plus} className="max-sm:min-h-11" onClick={() => setGalleryOpen(true)} disabled={items.length >= MAX_ITEMS}>
+            <Button ref={addButton} variant="secondary" size="sm" icon={Plus} className="max-sm:min-h-11 max-sm:pointer-coarse:min-h-11" onClick={() => setGalleryOpen(true)} disabled={items.length >= MAX_ITEMS}>
               Add widget
             </Button>
-            <Button variant="ghost" size="sm" icon={RotateCcw} className="max-sm:min-h-11" onClick={() => setConfirmReset(true)} disabled={home.saving}>
+            <Button variant="ghost" size="sm" icon={RotateCcw} className="max-sm:min-h-11 max-sm:pointer-coarse:min-h-11" onClick={() => setConfirmReset(true)} disabled={home.saving}>
               Reset to default
             </Button>
-            <Button variant="ghost" size="sm" className="max-sm:min-h-11" onClick={home.cancelEditing} disabled={home.saving}>
+            <Button variant="ghost" size="sm" className="max-sm:min-h-11 max-sm:pointer-coarse:min-h-11" onClick={home.cancelEditing} disabled={home.saving}>
               Cancel
             </Button>
-            <PrimaryButton size="sm" icon={Check} className="max-sm:min-h-11" onClick={() => void home.save()} isLoading={home.saving} loadingLabel="Saving...">
+            <PrimaryButton size="sm" icon={Check} className="max-sm:min-h-11 max-sm:pointer-coarse:min-h-11" onClick={() => void home.save()} isLoading={home.saving} loadingLabel="Saving...">
               Done
             </PrimaryButton>
           </div>
@@ -380,7 +388,10 @@ export default function DashboardCanvas({ home }: { home: DashboardHome }) {
       ) : (
         <ul
           aria-label={editing ? "Home widgets, being edited" : "Home widgets"}
-          className="grid grid-cols-1 gap-3 [grid-auto-rows:minmax(7.25rem,auto)] sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 min-[80rem]:gap-3"
+          className={cn(
+            "grid grid-cols-1 gap-3 [grid-auto-rows:minmax(7.25rem,auto)] sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 min-[80rem]:gap-3",
+            editing && "rounded-[1.5rem] bg-surface-muted/40 p-3 ring-1 ring-line/70 sm:p-4",
+          )}
         >
           {shown.map((item) => {
             const key = itemKey(item);
@@ -392,14 +403,17 @@ export default function DashboardCanvas({ home }: { home: DashboardHome }) {
                 data-dashboard-key={key}
                 className={cn(
                   spans[item.size],
-                  "relative min-w-0",
+                  "relative min-w-0 transition-[transform,box-shadow] duration-150 ease-out motion-reduce:transition-none",
                   editing && "rounded-card outline-1 outline-offset-4 outline-line-strong",
                   isDropTarget && "rounded-card outline-2 outline-dashed outline-primary",
                   picked?.key === key && "rounded-card outline-2 outline-primary",
+                  // Lifted off the page while it is being carried, the way a card
+                  // picked up under a finger should behave.
+                  isDragged && "z-20 scale-[1.02] rounded-card shadow-panel",
                 )}
               >
                 {/* While editing, a widget is a preview: not clickable, not in the tab order. */}
-                <div className={cn("h-full", editing && "pointer-events-none select-none", isDragged && "opacity-35")} inert={editing || undefined}>
+                <div className={cn("h-full", editing && "pointer-events-none select-none")} inert={editing || undefined}>
                   {item.kind === "widget" ? <WidgetFrame id={item.widget} size={item.size} /> : <WidgetStack stack={item} />}
                 </div>
                 {editing && controls(item, items.findIndex((entry) => itemKey(entry) === key))}
