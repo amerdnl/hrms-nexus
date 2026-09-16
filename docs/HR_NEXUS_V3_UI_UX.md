@@ -760,3 +760,62 @@ Still for human judgement:
 - the 64 rem Action Center width on very wide screens;
 - a real company far larger than the 25-person demo. The chart opens only 40 people at first, and
   Expand all on thousands of people has not been measured.
+
+## Final enhancement: Workflows centring, personalised Home and Smart Widget Stacks (15 September 2026)
+
+The approved Homes stay the default. Everything below is opt-in, per account, and presentation
+only. The architecture is in architecture §13. No presentation or demo company data was created.
+
+### Workflows centring
+
+Onboarding, Offboarding and Performance were still left-aligned on desktop. They now use the
+Action Center's container, so the header, the Workflows tabs and the content are centred together,
+at up to 64 rem. On tablets and phones they fill the width as before.
+
+### Edit dashboard
+
+- **Entry point:** a quiet outlined control beside the greeting's primary action, at the same 44 px
+  height, so the approved greeting keeps its line. It is icon-only on a phone.
+- **Edit mode:** calm rather than playful. A sticky toolbar sits below the header with "Editing
+  Home", a one-line hint, Add widget, Reset to default, Cancel and Done. Each widget gains a thin
+  outline and a small floating control group: drag handle, size, menu and remove. On a phone the
+  toolbar buttons form a two-by-two touch grid, and size and remove move into the widget's menu. No
+  wiggle and no motion; skeletons respect reduced motion.
+- **Editing is non-destructive:** widgets become inert previews, nothing saves until Done, and Done
+  without a change keeps the default page.
+- **Responsive order:** phones use one clear reading/reorder column, tablets use two columns and
+  desktop uses four. The saved order stays the visual and assistive-technology order at every size.
+- **Reset to Default:** confirmed, then Home returns to the exact default for the account's role.
+
+### Widget gallery
+
+- **Structure:** a dialog (a bottom sheet on a phone) with search focused on open, category chips
+  and a two-pane layout. The list shows each widget's icon, title, description, category and
+  supported sizes, and marks widgets already "On Home".
+- **Live preview:** the preview renders the real widget with the account's own data at the chosen
+  size, scaled to fit. It is never sample data.
+- **Only permitted widgets:** widgets the account cannot open are not listed.
+- **Loading:** the gallery and every widget group load only when needed.
+
+### Smart Widget Stacks
+
+- **What a stack looks like:** one position with a slim footer of Previous and Next, dots and the
+  current widget's name. With smart ordering on and a relevant signal, the footer shows a small
+  sparkle and the reason instead, for example "1 important item needs you", "1 leave request to
+  decide" or "2 requests are waiting for a decision".
+- **Editing a stack:** its dialog lists its widgets with move-up, move-down and take-out controls,
+  can add compatible widgets from Home, and has a Smart ordering checkbox that says exactly what
+  it uses.
+- **Unstack:** returns every widget to Home.
+- **Stability:** after a person cycles a stack, pending or later relevance results cannot move the
+  visible widget underneath them during that visit.
+
+### Accessibility
+
+- **Keyboard reorder:** each handle states its widget and position. Space picks up, the arrows
+  move, Space drops and Escape cancels.
+- **Announcements:** every move, resize, stack change and stack switch is announced politely.
+- **Menus as alternatives:** widget menus offer non-drag alternatives for every action.
+- **Focus:** focus returns to a sensible place after add, remove and closing the gallery.
+
+Verification results are recorded in the plan.

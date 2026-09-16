@@ -1,29 +1,25 @@
 import {
-  Activity,
   ArrowUp,
-  Award,
   CalendarDays,
   CalendarPlus,
   ClipboardCheck,
   Clock3,
   FileText,
-  LayoutGrid,
   Megaphone,
-  Settings,
-  Target,
   TrendingUp,
-  Upload,
   UserMinus,
   UserPlus,
   Users,
-  Wallet,
-  type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { getAuditLog } from "../../api/auditApi";
 import { getAdminDashboard } from "../../api/dashboardApi";
 import { getEmployees } from "../../api/employeeApi";
-import ActivityCard, { type ActivityEntry } from "../../components/home/ActivityCard";
+import DashboardSkeleton from "../../components/dashboard/DashboardSkeleton";
+import EditDashboardButton from "../../components/dashboard/EditDashboardButton";
+import { useDashboardLayout } from "../../components/dashboard/useDashboardLayout";
+import ActivityCard from "../../components/home/ActivityCard";
+import { QUIET_ACTIONS, toActivity } from "../../components/home/adminActivity";
 import BrandCard from "../../components/home/BrandCard";
 import HomeGreeting from "../../components/home/HomeGreeting";
 import HomeMountain from "../../components/home/HomeMountain";
@@ -39,50 +35,8 @@ import { useCompanyCalendar } from "../../components/home/useCompanyCalendar";
 import { useAuth } from "../../context/useAuth";
 import type { AdminDashboardData } from "../../types/dashboard";
 import type { AuditEvent } from "../../types/audit";
-import { formatDate, formatDateRange } from "../../utils/datetime";
 
-/** Audit actions that are not company activity: signing in, exports, reading. */
-const QUIET_ACTIONS = new Set(["LOGIN", "LOGIN_FAILED", "LOGOUT", "PASSWORD_CHANGED", "DATA_EXPORTED", "REVIEW_VIEWED"]);
-
-const ENTITY_ICONS: Record<string, LucideIcon> = {
-  employee: Users,
-  leave: FileText,
-  attendance: Clock3,
-  department: LayoutGrid,
-  payroll: Wallet,
-  compensation: Wallet,
-  announcement: Megaphone,
-  lifecycle: ClipboardCheck,
-  review: Target,
-  goal: Target,
-  recognition: Award,
-  settings: Settings,
-  holiday: CalendarDays,
-  event: CalendarDays,
-  import: Upload,
-};
-
-/**
- * An audit summary as a sentence to read: "employee #9006" becomes the person's
- * name when HR's employee list has it, and ISO dates read as "17-21 Aug 2026".
- * Presentation only - the audit log itself is unchanged.
- */
-function readableSummary(summary: string, names: Map<number, string>): string {
-  return summary
-    .replace(/employee #(\d+)/g, (match, id: string) => names.get(Number(id)) ?? match)
-    .replace(/(\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})/g, (_, from: string, to: string) => formatDateRange(from, to))
-    .replace(/\b(\d{4}-\d{2}-\d{2})\b/g, (_, day: string) => formatDate(day));
-}
-
-function toActivity(event: AuditEvent, names: Map<number, string>): ActivityEntry {
-  return {
-    key: event.id,
-    icon: ENTITY_ICONS[event.entity_type] ?? Activity,
-    text: readableSummary(event.summary, names),
-    at: event.occurred_at,
-    tone: event.outcome === "failure" || /DELETED|DEACTIVATED|REJECTED|CANCELLED/.test(event.action) ? "alert" : "neutral",
-  };
-}
+const DashboardCanvas = lazy(() => import("../../components/dashboard/DashboardCanvas"));
 
 const percentOf = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : "0%");
 
@@ -91,9 +45,58 @@ const percentOf = (part: number, whole: number) => (whole > 0 ? `${Math.round((p
  * composition. Every figure, name and entry on it comes from a V3 endpoint
  * HR is already authorised for; each card loads and fails on its own, so one
  * slow source never blanks the page.
+ *
+ * Below the greeting, an account that has saved a personalised layout sees its
+ * widgets instead; every other account sees the approved default, unchanged.
  */
 export default function AdminDashboardPage() {
   const { user } = useAuth();
+  const home = useDashboardLayout();
+
+  return (
+    <div className="relative mx-auto w-full max-w-[89rem]">
+      {/* The mountain: beside the greeting as the reference places it from
+          80rem; to the right of it from md; a quiet band above it on a phone,
+          where it would otherwise sit behind the text. */}
+      <HomeMountain wide className="absolute -top-10 left-[29.1%] hidden w-[46.9%] min-[80rem]:block" />
+      <HomeMountain className="absolute -top-4 right-0 hidden w-[46%] md:block min-[80rem]:hidden" />
+      <HomeMountain className="-mt-2 mb-1 w-full max-w-md opacity-90 md:hidden" />
+
+      <div className="relative pb-8 pt-2 md:pt-8 min-[80rem]:pb-6 min-[80rem]:pt-7">
+        <HomeGreeting
+          name={user?.employee ? givenName(user.employee.fullName) : null}
+          lines={["People build great workplaces.", "Let’s keep things moving."]}
+          action={
+            <>
+              <SplitAction
+                primary={{ label: "Add employee", to: "/admin/employees/new", icon: UserPlus }}
+                more={[
+                  { label: "New announcement", to: "/admin/announcements/new", icon: Megaphone },
+                  { label: "Start onboarding", to: "/admin/onboarding", icon: ClipboardCheck },
+                  { label: "Start offboarding", to: "/admin/offboarding", icon: UserMinus },
+                  { label: "Review cycles", to: "/admin/performance", icon: TrendingUp },
+                  { label: "Company calendar", to: "/calendar", icon: CalendarPlus },
+                ]}
+              />
+              {home.canEdit && !home.editing && <EditDashboardButton onClick={home.startEditing} />}
+            </>
+          }
+        />
+      </div>
+
+      {home.showCustom ? (
+        <Suspense fallback={<DashboardSkeleton />}>
+          <DashboardCanvas home={home} />
+        </Suspense>
+      ) : (
+        <AdminDefaultHome />
+      )}
+    </div>
+  );
+}
+
+/** The approved default below the greeting, exactly as reviewed. */
+function AdminDefaultHome() {
   const [dashboard, setDashboard] = useState<AdminDashboardData | null>(null);
   const [dashboardFailed, setDashboardFailed] = useState(false);
   const [joiners, setJoiners] = useState<number[] | null>(null);
@@ -132,33 +135,7 @@ export default function AdminDashboardPage() {
   const joinedThisMonth = joiners?.[joiners.length - 1] ?? null;
 
   return (
-    <div className="relative mx-auto w-full max-w-[89rem]">
-      {/* The mountain: beside the greeting as the reference places it from
-          80rem; to the right of it from md; a quiet band above it on a phone,
-          where it would otherwise sit behind the text. */}
-      <HomeMountain wide className="absolute -top-10 left-[29.1%] hidden w-[46.9%] min-[80rem]:block" />
-      <HomeMountain className="absolute -top-4 right-0 hidden w-[46%] md:block min-[80rem]:hidden" />
-      <HomeMountain className="-mt-2 mb-1 w-full max-w-md opacity-90 md:hidden" />
-
-      <div className="relative pb-8 pt-2 md:pt-8 min-[80rem]:pb-6 min-[80rem]:pt-7">
-        <HomeGreeting
-          name={user?.employee ? givenName(user.employee.fullName) : null}
-          lines={["People build great workplaces.", "Let’s keep things moving."]}
-          action={
-            <SplitAction
-              primary={{ label: "Add employee", to: "/admin/employees/new", icon: UserPlus }}
-              more={[
-                { label: "New announcement", to: "/admin/announcements/new", icon: Megaphone },
-                { label: "Start onboarding", to: "/admin/onboarding", icon: ClipboardCheck },
-                { label: "Start offboarding", to: "/admin/offboarding", icon: UserMinus },
-                { label: "Review cycles", to: "/admin/performance", icon: TrendingUp },
-                { label: "Company calendar", to: "/calendar", icon: CalendarPlus },
-              ]}
-            />
-          }
-        />
-      </div>
-
+    <>
       <div className="grid gap-4 [&>*]:min-w-0 min-[80rem]:grid-cols-[minmax(0,1fr)_21.07%] min-[80rem]:gap-x-3.5 min-[80rem]:gap-y-3">
         <div className="min-w-0 space-y-4 min-[80rem]:space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:gap-4 [&>*]:min-w-0 lg:grid-cols-4 min-[90rem]:mr-4 min-[80rem]:grid-cols-[1.19fr_1fr_0.945fr_1fr] min-[80rem]:gap-3">
@@ -241,6 +218,6 @@ export default function AdminDashboardPage() {
           </section>
         )}
       </div>
-    </div>
+    </>
   );
 }

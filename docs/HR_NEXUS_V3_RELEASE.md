@@ -74,9 +74,21 @@ Evidence lives in `.local-backups/<versions>-<date>/`. Rollback scripts are in `
 | 0014 | `0014_lifecycle.sql` | `0284a031967c01005de5bba675b6afcdda0e110b42e8785a8daa243edaed6503` |
 | 0015 | `0015_recognition.sql` | `a0a398d23072b52879497fcbd6fbc7479154edfb44ffb127ef00e35f2697a559` |
 | 0016 | `0016_goals_reviews.sql` | `a124d261f81655bfeb9fad77c6c2e92bab5b62b36d43186b31a80f3335acb442` |
+| 0017 | `0017_dashboard_layouts.sql` | `a86a44d4297426c29bd48ebdb718abfa5e664bf6bffb218a2944e1618d2c3c63` — **not applied to the application database** (see below) |
 
 Every V3 migration only adds tables, columns, constraints, indexes and triggers. None
 drops, rewrites or reconciles anything.
+
+**0017 (15 September 2026)** adds one table, `user_dashboard_layouts`, for opt-in Home
+personalization (architecture §13).
+- **Where it has been applied:** only to laboratory clones and the isolated V3 demo database. The
+  pass that introduced it forbids changing the protected source database, so `hr_nexus` still ends
+  at 0016.
+- **Until it is applied there:** the layout API reports personalization as unavailable, every
+  account keeps the approved default Home, and nothing else is affected.
+- **Applying it:** a separate, approved step through the migration procedure.
+- **Rollback:** `docs/sql/rollback_0017_dashboard_layouts.sql`, SHA-256
+  `42b724fb6365f47902980eec553306b94af31a5b7a94c8dad121e543373afe08`.
 
 ## 4. Demo stack
 

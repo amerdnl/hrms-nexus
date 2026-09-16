@@ -259,6 +259,22 @@ plus route-splitting build assertions and axe/keyboard browser checks.
   - **Scope.** Deliberately not GPS spoof detection, device binding, IP tracking or
     biometrics: those remain future hardening, and nothing here claims physical-presence
     proof (architecture §12).
+- **15 Sep 2026 — Home personalization is opt-in, and its storage is not yet on the application
+  database.**
+  - **Why a migration was needed.** A layout must follow the account across devices, and no
+    existing table holds per-account presentation, so migration 0017 adds
+    `user_dashboard_layouts`: additive, one table, no existing data touched.
+  - **Not applied to source.** The pass forbids changing the protected source database, so 0017
+    was applied only to laboratory clones and the isolated demo, not to `hr_nexus`. The backend
+    live-reloads on source, so the layout API answers "unavailable" where the table is missing,
+    and Home there stays the approved default with no Edit dashboard. Applying 0017 to source is
+    a separate, approved step through the migration procedure above.
+  - **Defaults are untouched.** They are the previous page bodies, unchanged, and a saved layout
+    replaces only the body below the greeting.
+  - **Smart ordering.** Deterministic and explainable, it reads only data the widget itself shows,
+    uses the company clock, and never runs after the person has moved through a stack.
+  - **Deliberately not built.** A Malaysian public-holiday dataset, because that belongs to the
+    demo-data pass.
 
 ## M0 — Architecture & foundation (11 September 2026)
 
@@ -1004,3 +1020,59 @@ Source integrity, read-only fingerprints taken at 13:44 before the gates and at 
 The `v3.0.0` tag has not been created.
 
 Still not claimed: GPS spoof detection, device binding, IP checks and biometric checks do not exist. QR plus geofence is not proof of physical presence against a determined attacker.
+
+## Final UI enhancement — Workflows centring, personalised Home and Smart Widget Stacks (15–16 September 2026)
+
+The design is in architecture §13 and the UI record in `HR_NEXUS_V3_UI_UX.md`. No demo or presentation
+company data was created in this pass. Verification ran on the isolated laboratory and the V3 demo
+stack only, with the demo rebuilt before each browser smoke and between gate groups:
+
+| Check | Result |
+| --- | --- |
+| Frontend typecheck, Oxlint, production build, `check:bundle` | pass; 0 lint findings; initial JS **353.37 kB (gzip 115.27 kB)** against the 380 kB / 125 kB budget. The canvas, the gallery and the four widget groups are separate lazy chunks |
+| Backend typecheck (source and tests) | pass |
+| Backend full laboratory suite | **586 pass, 0 fail, 0 skipped**, including the 7 offline layout tests and the 8 layout laboratory tests |
+| Personalised Home smoke (`d1-dashboard.mjs`) | **65/65**, below |
+| HR Home (`u3-home`) | 45/45, byte-identical to the run before this pass |
+| Employee and manager Home (`u4-home`) | 46/46, byte-identical |
+| Navigation and gates (`navgate-v3`) | 64/64, byte-identical |
+| Shell (`u2-shell`) | 132/132, byte-identical |
+| Approved reference comparison (`u9-compare`) | pass. The Today and My tasks cards are 42 px taller than in yesterday's run because 16 September is Malaysia Day in the demo calendar, so the card carries one more line; every other measurement is unchanged |
+| Accessibility gate (`m9-a11y`) | 17/17; no WCAG 2.2 AA violation across 252 axe scans |
+| Visual gate (`m10-visual`) | 2/2; 676 rendered pages and overlays |
+
+What the personalised-Home smoke checks, at 1536, 1280, 1024, 834, 390 and 375 px in light, dark
+and System:
+- **Default first:** HR's, a manager's and an employee's default Homes are unchanged; Edit dashboard
+  shares the greeting's line and height; with the layout API unavailable or failing, Home is the
+  default and offers no editing at all.
+- **Workflows centring:** Onboarding, Offboarding, Performance and the Action Center share one
+  centred container, header and tabs included, across 72 rendered pages.
+- **Gallery:** search takes focus, categories filter, the preview renders the account's own data,
+  and no widget an account may not open is offered.
+- **Editing:** add, remove, resize, reorder by pointer with a dashed placeholder at the drop
+  position, reorder by keyboard, cancel, Done, and Reset to default returning the exact default.
+- **Persistence:** a layout survives a reload and follows the account to another browser and
+  sign-in; HR's layout does not reach the employee; only presentation keys are stored.
+- **Stacks:** create, add, reorder, take out, unstack without losing widgets, manual cycling by
+  button and arrow key with announcements, smart ordering off keeping the manual order, and a
+  reason shown only where a rule fired.
+- **Accessibility:** no WCAG 2.2 AA violation across 9 axe scans of edit mode, the gallery, the
+  stack editor and personalised Homes.
+
+Two findings from the first full run were fixed and re-verified: a pointer drag did not commit
+because reordering during the drag moved the handle's node and cancelled pointer capture (the drag
+is now tracked on the window, with the DOM order held stable until the drop), and the edit
+toolbar's buttons were below the 44 px touch size on a phone.
+
+Source integrity, read-only fingerprints taken before and after the gate run:
+
+| Item | State |
+| --- | --- |
+| Migration ledger | 16 rows, latest `0016`. **0017 is not applied to the application database** |
+| `user_dashboard_layouts` | absent on source |
+| Attendance | 5 rows, digest unchanged; rows `1:1,3:1,4:2,5:1,6:1` |
+| September 2026 payroll period | `calculated` |
+| Whole fingerprint | byte-identical before and after the gates |
+
+The `v3.0.0` tag has not been created, and nothing has been pushed.

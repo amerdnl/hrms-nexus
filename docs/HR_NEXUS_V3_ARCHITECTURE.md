@@ -341,3 +341,112 @@ What this does **not** change or claim:
 - The location is still reported by the employee's device. There is no GPS spoof detection, device binding, IP or VPN check, or biometric or selfie check.
 - QR plus geofence makes casual misuse harder. It is not proof of physical presence against a determined attacker who relays a code and spoofs a location.
 - HR can still correct any record, including an administrator's own. The difference is that every correction now carries a reason and its before and after values.
+
+## 13. Personalised Home, widgets and Smart Widget Stacks (15 September 2026)
+
+### Default first
+
+The approved Admin, Manager and Employee Homes are the defaults. Personalization is opt-in and per account.
+- **No saved layout:** the page renders exactly as reviewed. `AdminDefaultHome` and `EmployeeDefaultHome` are the previous page bodies, moved unchanged into their own components.
+- **Edit dashboard:** a control sits beside the greeting's primary action at the same height, so the greeting keeps its line. It is icon-only on a phone.
+- **Entering edit mode:** starts from the default Home's cards, expressed as widgets. Pressing Done with no change saves nothing, and the page stays the approved default.
+- **Reset to Default:** deletes the account's row, which brings back the untouched default page for that role and capability.
+- **A saved layout:** replaces only the body below the greeting. The greeting, mountain and actions are shared by both modes.
+
+### Modules (`frontend/src/components/dashboard/`)
+
+| Module | Role |
+| --- | --- |
+| `widgetCatalog.ts` | The one source of truth: id, title, description, category, icon, tint, supported sizes and required capability. Plain data, read by the gallery, the layout rules and smart ordering |
+| `widgetRegistry.ts` | Each widget's lazily loaded component, split by audience (shared, employee, manager, HR) so no account downloads another audience's widget code |
+| `layoutModel.ts` | Pure layout operations: default seed, client-side filtering, move, resize, remove, add, stack, unstack, reorder within a stack, smart on or off |
+| `useDashboardLayout.ts` | Load, draft, save on Done, reset. Remembers per account and browser whether Home was last personalised, as a hint only, so a personalised Home does not flash the default while the server answers |
+| `DashboardCanvas.tsx` | The grid and the editor, lazy |
+| `WidgetGallery.tsx` | The gallery, lazy |
+| `WidgetStack.tsx` | The stack view |
+| `dashboardData.ts` | One shared request per source for a minute, bound to the signed-in account and cleared when another account uses the browser. Nothing polls |
+| `smartOrdering.ts` | The relevance rules below |
+
+### Widgets and the capability each needs
+
+Each capability matches the guard on the endpoints the widget reads.
+
+| Capability | Widgets |
+| --- | --- |
+| Any signed-in account | Action Center (S, M, L); My tasks (M); Today (M, L); Who's out (M, L); Company updates (M) |
+| Employee account | My attendance (S, M); Leave (S, M); Latest payslip (S); My goals (S, M); Recognition (M) |
+| Manager (derived from current reports) | Your team today (M); Leave to decide (S, M); Reviews to write (S, M) |
+| HR | Headcount, On leave today, Late today, Pending requests (S); Attendance today (M); Payroll (S, M); Onboarding & offboarding (S, M); Recent activity (M); Recently added employees (M); Insights (M) |
+
+Every widget reuses an existing Home card or endpoint, and nothing is sample data. My attendance links to the verified Attendance page and records nothing itself.
+
+### Grid, sizes and reordering
+
+- **Grid:** one deliberate column on phones, two on tablets, four from 1024 px.
+- **Sizes:** small is one cell; medium is two columns by two rows; large is the full width from 1024 px. Each widget lists only the sizes its content is designed for.
+- **Rows:** they have a minimum height and grow with content, so nothing is clipped.
+- **Order:** strict, with no dense packing, so the visual order and the reading order are the same.
+- **Reordering:**
+  - **pointer or touch:** a drag handle, showing a dashed placeholder at the drop position;
+  - **keyboard:** Space picks a widget up, arrow keys move it, Space drops it and Escape cancels;
+  - **each widget's menu:** move earlier or later, size, stack, and remove.
+- **Announcements:** every change is announced.
+- **While editing:** widgets are `inert` previews.
+
+### Persistence (migration 0017)
+
+**Storage.** `public.user_dashboard_layouts` holds one row per account:
+- `user_id`, the primary key, referencing `users`;
+- `layout`, JSONB with a CHECK on its shape and a 16 KB ceiling;
+- `revision` and `updated_at`.
+
+It stores presentation only: version, items, widget ids, sizes, stacks and each stack's smart flag. No permission is ever stored.
+
+**API** (`/api/dashboard/layout`, session account only):
+
+| Request | Behaviour |
+| --- | --- |
+| `GET` | Returns the saved layout, filtered to what the account may use now (`sanitizeStoredLayout`), or `null` for the default |
+| `PUT` | Validates every item before saving (`validateLayout`): a known widget, the account's capability (403 `widget_not_allowed`), a supported size, no duplicates, stacks of 2–6 widgets sharing a size, at most 16 items. The layout is rebuilt from known fields only |
+| `DELETE` | Reset to default |
+
+- **Losing access:** a manager whose reports move elsewhere stops seeing team widgets on the next read. The stored row is never treated as a grant.
+- **Catalogs:** `backend/src/utils/dashboardLayout.ts` mirrors the frontend catalog.
+- **Where 0017 has not been applied:** reads answer `available: false` and writes answer 503 `personalization_unavailable`. Home offers no Edit dashboard and stays the default, and no other endpoint is affected.
+- **Source database:** 0017 is added to the chain and applied only to laboratory clones and the isolated demo. It has **not** been applied to the application database. That is a separate, approved step through the migration procedure. Its rollback script is `docs/sql/rollback_0017_dashboard_layouts.sql`.
+
+### Smart Widget Stacks
+
+- **What a stack is:** one grid position holding 2–6 widgets that share a size. The account can move through it with Previous/Next or the arrow keys, and each change is announced.
+- **Editing:** a stack is created from compatible widgets through "Stack with another widget…". It can be edited: add or take out widgets, reorder them inside it, turn smart ordering on or off, or unstack without losing widgets.
+- **Accessibility:** the stack is named for assistive technology, and its position is always stated.
+
+With smart ordering on, a stack opens on the widget that matters now and shows the reason. The rules are deterministic, use only data the widget itself shows the account, and use the company clock from Company Settings:
+
+| Widget | Brought forward when | Score |
+| --- | --- | --- |
+| My attendance | a working day that is not a holiday, from 60 minutes before the configured start to 120 minutes after start plus grace, and not yet checked in | 90 |
+| Action Center | important items need the account, or any items do | 80 / 60 |
+| My tasks | assigned tasks are due or overdue, or any are assigned | 75 / 55 |
+| Latest payslip | a payslip was paid in the last seven company days | 65 |
+| Leave | approved leave has started or starts within seven days | 60 |
+| Today | a company holiday or event is today | 50 |
+| Leave to decide | the manager has pending decisions | 72 |
+| Reviews to write | manager reviews are overdue, or waiting, in an open cycle | 78 / 62 |
+| Pending requests | leave requests await HR | 65 |
+| Payroll | the latest period is calculated or approved | 60 |
+
+**How the order is chosen:**
+- Widgets scoring 50 or more lead, highest first. Everything else keeps its manual order, and the manual order breaks ties.
+- A rule that cannot read its data abstains.
+
+**Stability:**
+- Ordering is evaluated when Home opens, then again only when the page is looked at after ten minutes away.
+- It never changes once the person has moved through the stack themselves; an in-flight
+  relevance request is also ignored after that first manual move.
+
+Ordering changes presentation only, never authorization.
+
+### Workflows layout
+
+Onboarding, Offboarding and Performance now use the Action Center's container, `mx-auto w-full max-w-5xl`. Their page header, area tabs and content are centred together on desktop and fill the width on phones.

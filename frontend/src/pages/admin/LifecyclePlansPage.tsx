@@ -44,7 +44,8 @@ export default function LifecyclePlansPage({ kind }: { kind: LifecycleKind }) {
 
   const title = kind === "onboarding" ? "Onboarding" : "Offboarding";
   return (
-    <section className="max-w-5xl space-y-6">
+    // Centred at the Workflows width, header and tabs included, as the Action Center is.
+    <section className="mx-auto w-full max-w-5xl space-y-6">
       <PageHeader
         title={title}
         description={kind === "onboarding"

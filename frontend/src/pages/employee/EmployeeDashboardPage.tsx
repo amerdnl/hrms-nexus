@@ -1,9 +1,12 @@
 import { Award, Clock3, Inbox, LogIn, LogOut, Target, Users, Wallet, CalendarDays } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { getEmployeeDashboard } from "../../api/dashboardApi";
 import { getActionCenter } from "../../api/workplaceApi";
 import VerifiedClockPanel from "../../components/attendance/VerifiedClockPanel";
+import DashboardSkeleton from "../../components/dashboard/DashboardSkeleton";
+import EditDashboardButton from "../../components/dashboard/EditDashboardButton";
+import { useDashboardLayout } from "../../components/dashboard/useDashboardLayout";
 import ActionsCard from "../../components/home/ActionsCard";
 import GoalsCard from "../../components/home/GoalsCard";
 import HomeGreeting from "../../components/home/HomeGreeting";
@@ -26,6 +29,8 @@ import type { ActionCenter } from "../../types/workplace";
 import { calcWorkMinutes, formatWorkHours } from "../../utils/attendance";
 import { attendanceStatusMeta } from "../../utils/status";
 
+const DashboardCanvas = lazy(() => import("../../components/dashboard/DashboardCanvas"));
+
 type ClockMode = "check-in" | "check-out";
 
 const shortPeriod = (year: number, month: number) =>
@@ -37,9 +42,55 @@ const shortPeriod = (year: number, month: number) =>
  * what is on today, my leave, my goals, what the company is saying, and who
  * thanked me. A manager additionally sees their team today; nothing here is an
  * administration surface, and every card is the account's own data.
+ *
+ * Below the greeting, an account that has saved a personalised layout sees its
+ * widgets instead; every other account sees the approved default, unchanged.
  */
 export default function EmployeeDashboardPage() {
   const { user } = useAuth();
+  const home = useDashboardLayout();
+  const name = user?.employee?.fullName ?? null;
+
+  return (
+    <div className="relative mx-auto w-full max-w-[89rem]">
+      <HomeMountain wide className="absolute -top-10 left-[29.1%] hidden w-[46.9%] min-[80rem]:block" />
+      <HomeMountain className="absolute -top-4 right-0 hidden w-[46%] md:block min-[80rem]:hidden" />
+      <HomeMountain className="-mt-2 mb-1 w-full max-w-md opacity-90 md:hidden" />
+
+      <div className="relative pb-8 pt-2 md:pt-8 min-[80rem]:pb-6 min-[80rem]:pt-7">
+        <HomeGreeting
+          name={name ? givenName(name) : null}
+          lines={["Here’s your day at a glance.", "Let’s keep things moving."]}
+          action={
+            <>
+              <SplitAction
+                primary={{ label: "Request leave", to: "/employee/leave", icon: CalendarDays }}
+                more={[
+                  { label: "Recognise someone", to: "/recognition", icon: Award },
+                  { label: "My goals", to: "/goals", icon: Target },
+                  { label: "My payslips", to: "/employee/payroll", icon: Wallet },
+                  { label: "Find a colleague", to: "/people", icon: Users },
+                ]}
+              />
+              {home.canEdit && !home.editing && <EditDashboardButton onClick={home.startEditing} />}
+            </>
+          }
+        />
+      </div>
+
+      {home.showCustom ? (
+        <Suspense fallback={<DashboardSkeleton />}>
+          <DashboardCanvas home={home} />
+        </Suspense>
+      ) : (
+        <EmployeeDefaultHome isManager={Boolean(user?.isManager)} />
+      )}
+    </div>
+  );
+}
+
+/** The approved default below the greeting, exactly as reviewed. */
+function EmployeeDefaultHome({ isManager }: { isManager: boolean }) {
   const [dashboard, setDashboard] = useState<EmployeeDashboardData | null>(null);
   const [dashboardError, setDashboardError] = useState("");
   const [actions, setActions] = useState<ActionCenter | null>(null);
@@ -110,37 +161,13 @@ export default function EmployeeDashboardPage() {
   // even two-by-two, so no card spans past its content or ends in a gap.
   const bottomCards = [
     ...(isWide ? [] : [<LeaveCard key="leave" dashboard={dashboard} />]),
-    ...(user?.isManager
+    ...(isManager
       ? [<TeamCard key="team" />, <GoalsCard key="goals" />, <UpdatesCard key="updates" />]
       : [<GoalsCard key="goals" />, <UpdatesCard key="updates" />, <RecognitionCard key="recognition" />]),
   ];
 
-  const name = dashboard?.employee.fullName ?? user?.employee?.fullName ?? null;
-
   return (
-    <div className="relative mx-auto w-full max-w-[89rem]">
-      <HomeMountain wide className="absolute -top-10 left-[29.1%] hidden w-[46.9%] min-[80rem]:block" />
-      <HomeMountain className="absolute -top-4 right-0 hidden w-[46%] md:block min-[80rem]:hidden" />
-      <HomeMountain className="-mt-2 mb-1 w-full max-w-md opacity-90 md:hidden" />
-
-      <div className="relative pb-8 pt-2 md:pt-8 min-[80rem]:pb-6 min-[80rem]:pt-7">
-        <HomeGreeting
-          name={name ? givenName(name) : null}
-          lines={["Here’s your day at a glance.", "Let’s keep things moving."]}
-          action={
-            <SplitAction
-              primary={{ label: "Request leave", to: "/employee/leave", icon: CalendarDays }}
-              more={[
-                { label: "Recognise someone", to: "/recognition", icon: Award },
-                { label: "My goals", to: "/goals", icon: Target },
-                { label: "My payslips", to: "/employee/payroll", icon: Wallet },
-                { label: "Find a colleague", to: "/people", icon: Users },
-              ]}
-            />
-          }
-        />
-      </div>
-
+    <>
       {dashboardError && (
         <Alert tone="danger" className="mb-4">
           {dashboardError}{" "}
@@ -232,6 +259,6 @@ export default function EmployeeDashboardPage() {
       <div className="mt-4 grid gap-4 [&>*]:min-w-0 md:grid-cols-2 min-[80rem]:mt-3 min-[80rem]:grid-cols-[469fr_450fr_481fr] min-[80rem]:gap-3">
         {bottomCards}
       </div>
-    </div>
+    </>
   );
 }

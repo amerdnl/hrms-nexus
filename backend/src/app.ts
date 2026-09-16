@@ -13,6 +13,7 @@ import employeeRoutes from "./routes/employeeRoutes.js";
 import departmentRoutes from "./routes/departmentRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import dashboardLayoutRoutes from "./routes/dashboardLayoutRoutes.js";
 import companySettingsRoutes from "./routes/companySettingsRoutes.js";
 import importRoutes from "./routes/importRoutes.js";
 import payrollRoutes from "./routes/payrollRoutes.js";
@@ -62,6 +63,8 @@ app.use("/api/employees", employeeRoutes);
 app.use("/api/departments", departmentRoutes);
 
 app.use("/api/leaves", leaveRoutes);
+// Before /api/dashboard: every account's own layout, not a role dashboard.
+app.use("/api/dashboard/layout", dashboardLayoutRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 // Mounted before /api/settings so a holiday request is authorised once, by its own router.
 app.use("/api/settings/holidays", holidayRouter);
