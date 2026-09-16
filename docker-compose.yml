@@ -4,19 +4,40 @@ services:
     container_name: hr-nexus-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: hr_nexus_v3_presentation
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database:/docker-entrypoint-initdb.d
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hr_nexus_v3_presentation"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  presentation-setup:
+    build:
+      context: ./backend
+    container_name: hr-nexus-presentation-setup
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/hr_nexus_v3_presentation
+      PRESENTATION_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/hr_nexus_v3_presentation
+      PRESENTATION_PASSWORD: ${PRESENTATION_PASSWORD}
+    command:
+      - /bin/sh
+      - -c
+      - >
+        npx tsx src/database/migrate.ts apply
+        --database hr_nexus_v3_presentation &&
+        npx tsx src/database/seedPresentation.ts
+        --database hr_nexus_v3_presentation
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   backend:
     build:
@@ -26,7 +47,7 @@ services:
     environment:
       PORT: 5000
       FRONTEND_URL: http://localhost:5173
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/hr_nexus_v3_presentation
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
     ports:
@@ -37,6 +58,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      presentation-setup:
+        condition: service_completed_successfully
 
   frontend:
     build:
