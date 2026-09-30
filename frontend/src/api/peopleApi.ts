@@ -2,7 +2,10 @@ import apiClient from "./axios";
 import type {
   AboutMe,
   DirectoryPage,
+  OrgLayoutBox,
   OrgNode,
+  OrgSourceLink,
+  OrgSourceNote,
   Relation,
   SocialProfile,
   TimelineEntry,
@@ -41,6 +44,32 @@ export async function getPersonTimeline(id: number): Promise<{ relation: Relatio
 export async function getOrgChart(): Promise<OrgNode[]> {
   const response = await apiClient.get<Envelope<{ nodes: OrgNode[] }>>("/org/chart");
   return response.data.data.nodes;
+}
+
+/**
+ * The chart, the company's own name, and - for a company whose chart was
+ * transcribed from a drawing - where that drawing put each box. `layout` is
+ * empty otherwise, and the chart then lays itself out.
+ */
+export async function getOrgChartWithCompany(): Promise<{
+  company: string | null;
+  nodes: OrgNode[];
+  layout: OrgLayoutBox[];
+  sourceLinks: OrgSourceLink[];
+  sourceNotes: OrgSourceNote[];
+}> {
+  const response = await apiClient.get<Envelope<{
+    company: string | null; nodes: OrgNode[]; layout?: OrgLayoutBox[];
+    sourceLinks?: OrgSourceLink[]; sourceNotes?: OrgSourceNote[];
+  }>>("/org/chart");
+  const data = response.data.data;
+  return {
+    company: data.company ?? null,
+    nodes: data.nodes,
+    layout: data.layout ?? [],
+    sourceLinks: data.sourceLinks ?? [],
+    sourceNotes: data.sourceNotes ?? [],
+  };
 }
 
 /** The signed-in employee's own colleague-facing profile. */

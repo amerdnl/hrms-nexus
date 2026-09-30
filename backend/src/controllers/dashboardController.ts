@@ -24,15 +24,18 @@ export async function getAdminDashboard(
     notClockedInResult,
     payrollStatusResult,
   ] = await Promise.all([
+    // Positions and external parties are on the org chart but are not people,
+    // so they are not part of any headcount here.
     pool.query(`
       SELECT COUNT(*)::int AS count
       FROM employees
+      WHERE position_kind = 'staff'
     `),
 
     pool.query(`
       SELECT COUNT(*)::int AS count
       FROM employees
-      WHERE employment_status = 'active'
+      WHERE employment_status = 'active' AND position_kind = 'staff'
     `),
 
     pool.query(`

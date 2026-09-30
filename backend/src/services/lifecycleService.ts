@@ -279,12 +279,20 @@ export async function listPlans(options: { kind: string | null; status: string |
 
 export async function startPlan(client: PoolClient, input: PlanStartInput, user: AuthenticatedUser): Promise<number> {
   // Serialise with every other employee lifecycle change for this person.
-  const employee = await client.query<{ id: string; full_name: string; employment_status: string; manager_id: string | null }>(
-    "SELECT id, full_name, employment_status, manager_id FROM public.employees WHERE id = $1 FOR UPDATE",
+  const employee = await client.query<{ id: string; full_name: string; employment_status: string; manager_id: string | null; position_kind: string }>(
+    "SELECT id, full_name, employment_status, manager_id, position_kind FROM public.employees WHERE id = $1 FOR UPDATE",
     [input.employeeId],
   );
   const subject = employee.rows[0];
   if (!subject) throw new LifecycleError(404, "employee_not_found", "Employee not found", { employeeId: "That employee does not exist." });
+  // Onboarding and offboarding happen to a person. A position nobody holds and
+  // an external firm are org-chart records; there is no one to hand a laptop to.
+  if (subject.position_kind !== "staff") {
+    throw new LifecycleError(
+      409, "not_a_person",
+      `${subject.full_name} is ${subject.position_kind === "vacant" ? "a position nobody holds" : "an external party"}, not an employed person; plans are for people.`,
+    );
+  }
   if (!visible(subject.employment_status)) {
     throw new LifecycleError(409, "not_employed", `${subject.full_name} is ${employmentStatusLabel(subject.employment_status).toLowerCase()}; plans are for people currently employed.`);
   }

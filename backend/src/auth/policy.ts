@@ -21,6 +21,24 @@ type Db = Pick<PoolClient, "query"> | Pool;
 export const VISIBLE_STATUSES = ["active", "probation"] as const;
 
 /**
+ * A SQL predicate for "this row is a person employed here".
+ *
+ * An employees row can also describe a position nobody holds, or an external
+ * firm on the organisation chart (see employees.position_kind, migration 0018).
+ * Those belong on the org chart and in the directory, which is why they are
+ * stored as employees at all - but they are not people, and counting them would
+ * make the product state a headcount that does not exist, run payroll for a
+ * vacancy, or expect an empty chair to clock in.
+ *
+ * So the rule is: anything that measures or operates on the workforce filters
+ * by this; anything that draws the shape of the organisation does not.
+ *
+ * `employment_status` is a separate question and still applies. A resigned
+ * person is staff; a vacant seat is not.
+ */
+export const staffOnly = (alias = "e") => `${alias}.position_kind = 'staff'`;
+
+/**
  * The caller's relationship to an employee, most privileged first where two
  * apply - except that looking at yourself is always `self`, so a linked admin or
  * a manager reads their own record through the self-service layer.

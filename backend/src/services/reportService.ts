@@ -53,10 +53,13 @@ export interface WorkforceReport {
 export async function workforceReport(db: Db = pool): Promise<WorkforceReport> {
   const [totals, byDepartment, byStatus] = await Promise.all([
     db.query(
+      // Unfilled positions and external parties are on the org chart but are
+      // not people, so no workforce figure counts them. See staffOnly in
+      // auth/policy.
       `SELECT count(*)::int AS employees,
               count(*) FILTER (WHERE employment_status = 'active')::int AS active,
               (SELECT count(*)::int FROM public.departments) AS departments
-       FROM public.employees`,
+       FROM public.employees WHERE position_kind = 'staff'`,
     ),
     // LEFT JOIN from departments so an empty department still reports a zero
     // headcount instead of vanishing, and a UNION arm covers unassigned staff.
@@ -69,7 +72,8 @@ export async function workforceReport(db: Db = pool): Promise<WorkforceReport> {
               count(e.id) FILTER (WHERE e.employment_status = 'resigned')::int AS resigned,
               count(e.id) FILTER (WHERE e.employment_status = 'terminated')::int AS terminated
        FROM public.departments d
-       LEFT JOIN public.employees e ON e.department_id = d.id
+       LEFT JOIN public.employees e
+         ON e.department_id = d.id AND e.position_kind = 'staff'
        GROUP BY d.id, d.name
        UNION ALL
        SELECT NULL, 'Unassigned',
@@ -79,12 +83,13 @@ export async function workforceReport(db: Db = pool): Promise<WorkforceReport> {
               count(*) FILTER (WHERE employment_status = 'inactive')::int,
               count(*) FILTER (WHERE employment_status = 'resigned')::int,
               count(*) FILTER (WHERE employment_status = 'terminated')::int
-       FROM public.employees WHERE department_id IS NULL
+       FROM public.employees WHERE department_id IS NULL AND position_kind = 'staff'
        ORDER BY 2`,
     ),
     db.query(
       `SELECT employment_status, count(*)::int AS count
-       FROM public.employees GROUP BY employment_status ORDER BY employment_status`,
+       FROM public.employees WHERE position_kind = 'staff'
+       GROUP BY employment_status ORDER BY employment_status`,
     ),
   ]);
 

@@ -28,7 +28,10 @@ type Db = Pick<PoolClient, "query"> | Pool;
 /** Recognition and completions are counted over the last 90 company days, today included. */
 export const WINDOW_DAYS = 90;
 
-const WORKING = "e.employment_status IN ('active', 'probation')";
+// People currently working here. position_kind keeps unfilled positions and
+// external parties out of every workforce measure: they belong on the org
+// chart, not in a headcount. See staffOnly in auth/policy.
+const WORKING = "e.employment_status IN ('active', 'probation') AND e.position_kind = 'staff'";
 /** Timestamps are compared as company dates, so a window edge falls where the company's day does. */
 const COMPANY_TZ = "COALESCE((SELECT timezone FROM public.company_settings WHERE id = 1), 'UTC')";
 

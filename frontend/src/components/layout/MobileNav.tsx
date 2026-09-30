@@ -21,6 +21,7 @@ export default function MobileNav() {
   return (
     <nav
       aria-label="Primary"
+      data-print="hide"
       className={cn(
         "fixed inset-x-0 bottom-0 z-40 border-t border-line bg-header md:hidden",
         // Keeps the row clear of the home indicator on a notched phone.

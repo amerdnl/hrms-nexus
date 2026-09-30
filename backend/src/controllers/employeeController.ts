@@ -38,6 +38,7 @@ const employeeColumns = `
   e.created_at,
   e.updated_at,
   e.manager_id,
+  e.position_kind,
   m.full_name AS manager_name`;
 
 /** The join `employeeColumns` needs for the manager's name. */

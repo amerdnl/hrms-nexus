@@ -354,3 +354,130 @@
     :root { --gutter: 3.5rem; }
   }
 }
+
+/* --- 7. Print --------------------------------------------------------------
+   The org chart is the one page that leaves this application as a document:
+   somebody prints it, or saves it as a PDF, and sends it to the person whose
+   company it describes. That copy has to be readable on paper, so it drops the
+   parts of the interface that only make sense on screen and forces the light
+   palette - a dark theme prints as a black page.
+
+   Everything here is scoped to printing. Nothing in this section changes what
+   the application looks like on screen. */
+@media print {
+  /* A screen theme must not decide what comes out of a printer. */
+  :root,
+  :root[data-theme="dark"] {
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  /* Navigation and controls are not part of the document. The shell marks its
+     own chrome with data-print="hide"; a page marks its controls `print:hidden`. */
+  [data-print="hide"] {
+    display: none !important;
+  }
+
+  /* On screen a wide chart scrolls sideways inside its own box. On paper there
+     is nothing to scroll, so the box has to give up its clipping and let the
+     content flow onto the sheet. */
+  .overflow-x-auto,
+  .overflow-auto,
+  .overflow-hidden {
+    overflow: visible !important;
+  }
+
+  /* Card borders and the canvas grid are colour the printer would otherwise
+     drop or render as grey mud. Keep the borders, lose the fill. */
+  * {
+    background-image: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Never break a person or a position across two sheets. */
+  li,
+  section,
+  article {
+    break-inside: avoid;
+  }
+
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  @page {
+    /* Landscape suits a chart that is wider than it is tall. */
+    size: A4 landscape;
+    margin: 12mm;
+  }
+
+  /* An organisation chart is one picture. Split across nine sheets it stops
+     being one, so a page that carries a whole drawing asks for a bigger sheet
+     and scales the drawing onto it. A4 cannot hold a group chart at a size
+     anyone can read. */
+  @page chart {
+    size: A3 landscape;
+    margin: 10mm;
+  }
+
+  /* The whole document has to claim the larger sheet, not just the chart. A
+     named page set on one element alone makes the browser start the document on
+     the default sheet and break to the named one, which is a blank first page
+     and a chart on the second. */
+  html:has(.print-chart-sheet) {
+    page: chart;
+  }
+
+  /* The drawing prints whole, on one sheet, at the scale the component worked
+     out. On screen the viewport is a window onto a chart bigger than itself and
+     the canvas is panned inside it; on paper there is nothing to pan, so the
+     window opens to the full height of the drawing and the pan is discarded. */
+  [data-chart-viewport] {
+    /* The drawing is scaled from its top-left corner, so its visual extent is
+       exactly this height. The box is clipped to that: without it the drawing's
+       unscaled layout height - which the transform does not change - spills past
+       the sheet and prints two more blank pages after it. */
+    height: var(--print-height) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    border: none !important;
+    break-inside: avoid;
+  }
+
+  [data-chart-canvas] {
+    transform: scale(var(--print-scale)) !important;
+  }
+
+  /* The shell's on-screen breathing room is most of a centimetre of paper at
+     each edge, and the gaps between blocks are another. On a sheet sized to the
+     drawing, that is the difference between one page and two. */
+  .print-chart-sheet {
+    margin: 0 !important;
+  }
+
+  /* The shell stretches to the height of the window so a short page still fills
+     the screen. On paper that becomes "at least one whole sheet", and the chart
+     underneath it then starts a second. Nothing needs to be stretched on paper:
+     the sheet is already the size it is. */
+  html:has(.print-chart-sheet),
+  body:has(.print-chart-sheet),
+  body:has(.print-chart-sheet) .min-h-screen {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  main:has(.print-chart-sheet) {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-chart-sheet > * + * {
+    margin-top: 0.5rem !important;
+  }
+}

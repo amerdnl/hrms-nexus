@@ -95,6 +95,14 @@ export const auditActions = [
   "REVIEW_MANAGER_SUBMITTED",
   "REVIEW_RESPONSE_SUBMITTED",
   "REVIEW_VIEWED",
+  "ORG_POSITION_CREATED",
+  "ORG_POSITION_UPDATED",
+  "ORG_POSITION_ARCHIVED",
+  "ORG_RELATIONSHIP_ADDED",
+  "ORG_RELATIONSHIP_REMOVED",
+  "ORG_NOTE_CREATED",
+  "ORG_NOTE_UPDATED",
+  "ORG_NOTE_DELETED",
 ] as const;
 
 export type AuditAction = (typeof auditActions)[number];

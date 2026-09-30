@@ -22,7 +22,7 @@ export default function AreaNav({ area }: { area: NavigationArea }) {
 
   return (
     // Scrolls sideways on a phone rather than wrapping into a second row of tabs.
-    <nav aria-label={`${section.label} pages`} className="mt-5 overflow-x-auto [scrollbar-width:none]">
+    <nav aria-label={`${section.label} pages`} data-print="hide" className="mt-5 overflow-x-auto [scrollbar-width:none]">
       <ul className="flex min-w-max gap-1 shadow-[inset_0_-1px_0_var(--line)]">
         {section.items.map((item) => {
           const active = isDestinationActive(item, pathname);

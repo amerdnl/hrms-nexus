@@ -103,6 +103,7 @@ export default function AppHeader() {
   return (
     <>
       <header
+        data-print="hide"
         className={cn(
           "sticky top-0 z-30 border-b transition-colors",
           isScrolled ? "border-line bg-header/95 backdrop-blur-sm" : "border-transparent bg-transparent",

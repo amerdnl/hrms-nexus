@@ -33,7 +33,7 @@ services:
         npx tsx src/database/migrate.ts apply
         --database hr_nexus_v3_presentation &&
         npx tsx src/database/seedPresentation.ts
-        --database hr_nexus_v3_presentation
+        --database hr_nexus_v3_presentation --skip-if-loaded
     depends_on:
       postgres:
         condition: service_healthy

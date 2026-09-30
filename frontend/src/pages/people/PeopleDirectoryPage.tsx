@@ -1,4 +1,5 @@
 import {
+  Building2,
   Ellipsis,
   Eye,
   IdCard,
@@ -9,6 +10,7 @@ import {
   Search,
   UserCheck,
   UserMinus,
+  UserRoundX,
   Users,
   X,
 } from "lucide-react";
@@ -39,6 +41,7 @@ import TextInput from "../../components/ui/TextInput";
 import { useAuth } from "../../context/useAuth";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { employmentStatusLabels, employmentStatuses } from "../../types/employee";
+import type { PositionKind } from "../../types/people";
 import { cn } from "../../utils/cn";
 import { employmentStatusMeta } from "../../utils/status";
 
@@ -47,6 +50,20 @@ const PAGE_SIZE = 24;
 const VIEW_STORAGE_KEY = "hr_nexus_people_view";
 
 type View = "grid" | "list";
+
+/**
+ * A record that is not a colleague says so, in words, wherever it is listed.
+ * The directory is a list of people; an unfilled position or an outside firm
+ * appearing in it without a word of explanation would read as one.
+ */
+function KindNote({ kind, className }: { kind: PositionKind; className?: string }) {
+  if (kind === "staff") return null;
+  return (
+    <span className={cn("text-xs font-medium uppercase tracking-wide text-fg-subtle", className)}>
+      {kind === "vacant" ? "Position \u00b7 not filled" : "External \u00b7 not employed here"}
+    </span>
+  );
+}
 
 /**
  * One person as either view draws them. Both roles fill the same shape from
@@ -65,6 +82,12 @@ interface Row {
   employmentStatus: string | null;
   /** Undefined while not yet known; null when no manager is recorded. */
   managerName: string | null | undefined;
+  /**
+   * What the record describes. A directory listing unfilled positions as though
+   * they were colleagues is the one thing it must not do, so the row carries it
+   * and the card says it.
+   */
+  positionKind: PositionKind;
 }
 
 interface Results {
@@ -178,6 +201,7 @@ export default function PeopleDirectoryPage() {
             employeeNumber: employee.employeeNumber,
             employmentStatus: employee.employmentStatus,
             managerName: employee.managerName,
+            positionKind: employee.positionKind,
           })),
         }))
       : getDirectory({ search: searchParam, department: department ? Number(department) : null, page, pageSize: PAGE_SIZE })
@@ -194,6 +218,7 @@ export default function PeopleDirectoryPage() {
               employeeNumber: null,
               employmentStatus: null,
               managerName: undefined,
+              positionKind: person.positionKind,
             })),
           }));
 
@@ -465,8 +490,22 @@ export default function PeopleDirectoryPage() {
                   to={`/people/${row.id}`}
                   className="flex h-full flex-col items-center rounded-card border border-line bg-surface px-5 pb-5 pt-6 text-center shadow-card transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 >
-                  <Avatar name={row.fullName} src={resolveProfileImageUrl(row.profileImage)} size="xl" />
+                  {row.positionKind === "staff" ? (
+                    <Avatar name={row.fullName} src={resolveProfileImageUrl(row.profileImage)} size="xl" />
+                  ) : (
+                    // Initials stand in for a face, and a position has neither.
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "flex size-16 items-center justify-center rounded-full border text-fg-subtle",
+                        row.positionKind === "vacant" ? "border-dashed border-control-border" : "border-line bg-surface-muted",
+                      )}
+                    >
+                      {row.positionKind === "vacant" ? <UserRoundX size={22} /> : <Building2 size={22} />}
+                    </span>
+                  )}
                   <span className="mt-3 font-semibold leading-snug text-fg [overflow-wrap:anywhere]">{row.fullName}</span>
+                  <KindNote kind={row.positionKind} className="mt-1" />
                   <span className="mt-1 text-sm text-fg-muted [overflow-wrap:anywhere]">{row.jobTitle ?? "No job title recorded"}</span>
                   <span className="mt-0.5 text-xs text-fg-subtle [overflow-wrap:anywhere]">{row.departmentName ?? "No department"}</span>
                   {/* Only a status worth noticing: "Active" on every card is noise. */}
@@ -508,7 +547,11 @@ export default function PeopleDirectoryPage() {
               to={`/people/${row.id}`}
               leading={<Avatar name={row.fullName} src={resolveProfileImageUrl(row.profileImage)} size="md" />}
               title={row.fullName}
-              subtitle={row.jobTitle ?? "No job title recorded"}
+              subtitle={
+                row.positionKind === "staff"
+                  ? (row.jobTitle ?? "No job title recorded")
+                  : `${row.positionKind === "vacant" ? "Position \u00b7 not filled" : "External \u00b7 not employed here"}${row.jobTitle ? ` \u00b7 ${row.jobTitle}` : ""}`
+              }
               badge={row.employmentStatus ? <StatusBadge {...employmentStatusMeta(row.employmentStatus)} /> : undefined}
               meta={[
                 { label: "Department", value: row.departmentName ?? "—" },
@@ -529,6 +572,7 @@ export default function PeopleDirectoryPage() {
                       className="font-medium text-fg hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [overflow-wrap:anywhere]"
                     >
                       {row.fullName}
+                      <KindNote kind={row.positionKind} className="mt-0.5 block" />
                     </Link>
                     {row.employeeNumber && <p className="mt-0.5 truncate text-xs text-fg-subtle">{row.employeeNumber}</p>}
                   </div>

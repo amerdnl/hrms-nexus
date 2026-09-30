@@ -103,7 +103,8 @@ export const datasets: readonly Dataset[] = [
     load: async (db) => {
       const { rows } = await db.query(
         `SELECT d.id, d.name, d.description, d.created_at, d.updated_at,
-                (SELECT COUNT(*)::int FROM public.employees e WHERE e.department_id = d.id) AS headcount
+                (SELECT COUNT(*)::int FROM public.employees e
+                  WHERE e.department_id = d.id AND e.position_kind = 'staff') AS headcount
          FROM public.departments d
          ORDER BY d.id`,
       );

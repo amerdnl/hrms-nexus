@@ -45,6 +45,7 @@ interface EmployeeApiData {
   updated_at: string;
   manager_id?: string | number | null;
   manager_name?: string | null;
+  position_kind?: string | null;
   direct_reports?: Array<{
     id: string | number;
     employee_number: string;
@@ -87,6 +88,8 @@ function mapEmployee(data: EmployeeApiData): Employee {
     updatedAt: data.updated_at,
     managerId: data.manager_id === null || data.manager_id === undefined ? null : Number(data.manager_id),
     managerName: data.manager_name ?? null,
+    positionKind:
+      data.position_kind === "vacant" || data.position_kind === "external" ? data.position_kind : "staff",
     directReports: data.direct_reports?.map((report) => ({
       id: Number(report.id),
       employeeNumber: report.employee_number,

@@ -124,6 +124,30 @@ async function main(): Promise<void> {
     }
     const personalization = versions.includes("0017");
 
+    // A rebuild starts from an empty database: scripts/presentation-reset.sh
+    // drops and recreates it, and the seed then writes the whole company. But
+    // `docker compose up` runs this step again on every start, and by then the
+    // company is already there - including payroll that has been approved, which
+    // the database refuses to delete or rewrite because approved payroll is
+    // immutable. That refusal is correct, and the seed has no business working
+    // around it. With --skip-if-loaded, a start that finds the company already
+    // present leaves it exactly as it is and succeeds, so bringing the
+    // environment up a second time is not an error.
+    if (process.argv.includes("--skip-if-loaded")) {
+      const loaded = await client.query<{ count: string }>(
+        "SELECT count(*)::int AS count FROM public.employees WHERE id BETWEEN $1 AND $2",
+        [PRESENTATION_ID_MIN, PRESENTATION_ID_MAX],
+      );
+      if (Number(loaded.rows[0]!.count) > 0) {
+        console.log(
+          `The presentation company is already loaded in "${actual}" ` +
+          `(${loaded.rows[0]!.count} records in ${PRESENTATION_ID_MIN}-${PRESENTATION_ID_MAX}); leaving it unchanged. ` +
+          `Run scripts/presentation-reset.sh to rebuild it from scratch.`,
+        );
+        return;
+      }
+    }
+
     // ------------------------------------------------------------- calendar
     const now = companyNow();
     // --today exists for verification only: it lets a rehearsal prove what the

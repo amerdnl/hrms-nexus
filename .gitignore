@@ -3,8 +3,13 @@ node_modules/
 
 .env
 *.env
+# Per-environment files such as .env.eduk8u hold real secrets and end in the
+# environment's name, not in ".env", so the two patterns above never caught them.
+.env.*
 !.env.example
 !**/.env.example
+!.env.*.example
+!**/.env.*.example
 
 dist/
 **/dist/

@@ -1,3 +1,5 @@
+import type { PositionKind } from "./people";
+
 export interface Employee {
   id: number;
   employeeNumber: string;
@@ -21,6 +23,8 @@ export interface Employee {
   /** The direct manager, when a reporting line is recorded. */
   managerId: number | null;
   managerName: string | null;
+  /** Staff, an unfilled position, or an external party. See PositionKind. */
+  positionKind: PositionKind;
   /** Only on the single-employee endpoint: everyone who reports here, any status. */
   directReports?: EmployeeReport[];
 }

@@ -1,0 +1,111 @@
+# The EDUK8U Group review environment.
+#
+# Separate from the Meridian presentation environment in every way that matters:
+# its own Compose project (hr-nexus-eduk8u), its own Postgres container, its own
+# volume, its own database and its own host ports. Nothing here can write to
+# hr_nexus_v3_presentation, and `docker compose -f docker-compose.eduk8u.yml
+# down -v` destroys only this environment's data. The two can run at once.
+#
+#   docker compose -f docker-compose.eduk8u.yml --env-file .env.eduk8u up -d --build
+#
+# Ports, chosen not to collide with the presentation environment's 5433/5001/5173:
+#   frontend  http://localhost:5174
+#   API       http://localhost:5002
+#   Postgres  localhost:5435
+#
+# This is a review environment on a developer's machine. It is not a production
+# deployment: the source directories are bind-mounted, the servers are the dev
+# servers, and the URLs are localhost. docs/EDUK8U_REVIEW_SETUP.md lists what an
+# externally reachable deployment would additionally need.
+name: hr-nexus-eduk8u
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: hr-nexus-eduk8u-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hr_nexus_eduk8u
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.eduk8u}
+    ports:
+      # Bound to the loopback interface: the review database is not something
+      # the rest of the network needs to reach.
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - eduk8u_postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hr_nexus_eduk8u"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Migrates, then loads the org chart. Re-running it rebuilds the chart from
+  # backend/src/database/eduk8uData.ts, which is how a correction from Dr. Roy
+  # gets applied. It writes only identifiers 9300-9399 and refuses any database
+  # that holds the Meridian presentation company.
+  eduk8u-setup:
+    build:
+      context: ./backend
+    container_name: hr-nexus-eduk8u-setup
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/hr_nexus_eduk8u
+      EDUK8U_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/hr_nexus_eduk8u
+      EDUK8U_ADMIN_EMAIL: ${EDUK8U_ADMIN_EMAIL:-hr.review@eduk8u.invalid}
+      # Optional. Left unset, the bootstrap generates one and prints it once:
+      #   docker compose -f docker-compose.eduk8u.yml logs eduk8u-setup
+      EDUK8U_ADMIN_PASSWORD: ${EDUK8U_ADMIN_PASSWORD:-}
+    command:
+      - /bin/sh
+      - -c
+      - >
+        npx tsx src/database/migrate.ts apply
+        --database hr_nexus_eduk8u &&
+        npx tsx src/database/bootstrapEduk8u.ts
+        --database hr_nexus_eduk8u
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: hr-nexus-eduk8u-backend
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      FRONTEND_URL: http://localhost:5174
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/hr_nexus_eduk8u
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.eduk8u}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+    ports:
+      - "127.0.0.1:5002:5000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eduk8u-setup:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: hr-nexus-eduk8u-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: http://localhost:5002/api
+    ports:
+      - "127.0.0.1:5174:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  # Named by the project, so it is never the presentation environment's volume.
+  eduk8u_postgres_data:

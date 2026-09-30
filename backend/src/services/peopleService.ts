@@ -23,6 +23,31 @@ export function likePattern(term: string): string {
   return `%${term.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
 }
 
+/**
+ * What an employees row describes, from employees.position_kind. `staff` is a
+ * person employed here and is what every ordinary record carries; `vacant` is a
+ * position on the org chart that nobody holds, whose name is the position label;
+ * `external` is a consultant or firm who appears on the chart without being
+ * employed here. The interface shows the two exceptions so a placeholder is
+ * never read as a colleague.
+ */
+export type PositionKind = "staff" | "vacant" | "external";
+
+/**
+ * How well established an employee's reporting line is, when something has
+ * graded it (employees.reporting_line_confidence, migration 0019). Null is the
+ * ordinary case: nobody graded it, so the chart shows the line plainly.
+ * `unconfirmed` means the source the chart was transcribed from does not settle
+ * the line, and the chart says so rather than asserting it.
+ */
+export type ReportingLineConfidence = "confirmed" | "inferred" | "unconfirmed";
+
+const toConfidence = (value: unknown): ReportingLineConfidence | null =>
+  value === "confirmed" || value === "inferred" || value === "unconfirmed" ? value : null;
+
+const toPositionKind = (value: unknown): PositionKind =>
+  value === "vacant" || value === "external" ? value : "staff";
+
 export interface PersonCard {
   id: number;
   fullName: string;
@@ -31,6 +56,7 @@ export interface PersonCard {
   departmentName: string | null;
   profileImage: string | null;
   skills: string[];
+  positionKind: PositionKind;
 }
 
 export interface DirectoryPage {
@@ -44,7 +70,7 @@ export interface DirectoryPage {
 const toCard = (row: {
   id: string | number; full_name: string; job_title: string | null;
   department_id: string | number | null; department_name: string | null;
-  profile_image: string | null; skills?: string[] | null;
+  profile_image: string | null; skills?: string[] | null; position_kind?: string | null;
 }): PersonCard => ({
   id: Number(row.id),
   fullName: row.full_name,
@@ -53,6 +79,7 @@ const toCard = (row: {
   departmentName: row.department_name,
   profileImage: row.profile_image,
   skills: row.skills ?? [],
+  positionKind: toPositionKind(row.position_kind),
 });
 
 export async function directory(
@@ -78,7 +105,7 @@ export async function directory(
   parameters.push(query.pageSize, (query.page - 1) * query.pageSize);
   const result = await db.query(
     `SELECT e.id, e.full_name, e.job_title, e.department_id, d.name AS department_name,
-            e.profile_image, p.skills, count(*) OVER () AS total
+            e.profile_image, e.position_kind, p.skills, count(*) OVER () AS total
      FROM public.employees e
      LEFT JOIN public.departments d ON d.id = e.department_id
      LEFT JOIN public.employee_profiles p ON p.employee_id = e.id
@@ -256,6 +283,24 @@ export interface OrgNode extends PersonLink {
   departmentName: string | null;
   /** Null when there is no visible manager: a root of the chart. */
   managerId: number | null;
+  /** Staff, an unfilled position, or an external party. See PositionKind. */
+  positionKind: PositionKind;
+  /**
+   * How far the line to `managerId` can be trusted, when it has been graded.
+   * Null while nobody has, which is every ordinary HR record.
+   */
+  reportingLineConfidence: ReportingLineConfidence | null;
+  /**
+   * Whether the seat is taken: `vacant`, `filled` by the person named here, or
+   * `filled_unnamed` when somebody holds it and who has not been recorded.
+   * Null for an ordinary employee, where the question does not apply.
+   */
+  occupancy: "vacant" | "filled" | "filled_unnamed" | null;
+  /** An administrator's note about the role. Never about a person. */
+  notes: string | null;
+  departmentId: number | null;
+  /** Everyone this position also reports to, beyond its primary manager. */
+  alsoReportsTo: number[];
 }
 
 /**
@@ -263,10 +308,131 @@ export interface OrgNode extends PersonLink {
  * Social fields only. A manager who has left does not appear, so their former
  * reports surface as roots rather than hanging from someone invisible.
  */
+/** A box's place on the chart this company was transcribed from. */
+export interface OrgLayoutBox {
+  id: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** A labelled box on the source chart that describes no post. */
+export interface OrgSourceNote {
+  id: number;
+  label: string;
+  body: string | null;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** A line the source draws which is not the employee's reporting line. */
+export interface OrgSourceLink {
+  childId: number;
+  parentId: number;
+  confidence: ReportingLineConfidence;
+  note: string | null;
+}
+
+/**
+ * The source drawing's own layout, when this company was built from one.
+ *
+ * Empty for a company that was not, which is how the chart decides to lay itself
+ * out automatically instead. Nothing here is hierarchy: it is where boxes sat on
+ * a page.
+ */
+export async function orgChartSourceLayout(
+  db: Db = pool,
+): Promise<{ boxes: OrgLayoutBox[]; links: OrgSourceLink[]; notes: OrgSourceNote[] }> {
+  const [boxes, links, notes] = await Promise.all([
+    db.query(
+      `SELECT l.employee_id, l.source_x, l.source_y, l.source_width, l.source_height
+       FROM public.org_chart_source_layout l
+       JOIN public.employees e ON e.id = l.employee_id
+       WHERE e.employment_status = ANY($1::text[])
+       ORDER BY l.employee_id`,
+      [VISIBLE_STATUSES],
+    ),
+    // The extra reporting lines as the chart needs them: with their grade, so a
+    // line somebody has not confirmed can be drawn as one.
+    db.query(
+      `SELECT a.employee_id AS child_employee_id, a.manager_id AS parent_employee_id,
+              a.confidence, a.note
+       FROM public.employee_additional_managers a
+       JOIN public.employees c ON c.id = a.employee_id
+       JOIN public.employees p ON p.id = a.manager_id
+       WHERE c.employment_status = ANY($1::text[]) AND p.employment_status = ANY($1::text[])
+       ORDER BY a.employee_id, a.manager_id`,
+      [VISIBLE_STATUSES],
+    ),
+    db.query(
+      `SELECT id, label, body, source_x, source_y, source_width, source_height
+       FROM public.org_chart_source_notes ORDER BY id`,
+    ),
+  ]);
+  return {
+    notes: notes.rows.map((row) => ({
+      id: Number(row.id),
+      label: row.label,
+      body: row.body,
+      x: Number(row.source_x),
+      y: Number(row.source_y),
+      width: Number(row.source_width),
+      height: Number(row.source_height),
+    })),
+    boxes: boxes.rows.map((row) => ({
+      id: Number(row.employee_id),
+      x: Number(row.source_x),
+      y: Number(row.source_y),
+      width: Number(row.source_width),
+      height: Number(row.source_height),
+    })),
+    links: links.rows.map((row) => ({
+      childId: Number(row.child_employee_id),
+      parentId: Number(row.parent_employee_id),
+      confidence: toConfidence(row.confidence) ?? "unconfirmed",
+      note: row.note,
+    })),
+  };
+}
+
+/**
+ * The company's own name, for the heading on a chart that leaves the building.
+ * Not a secret - it is the name of the organisation the reader works for - and
+ * it is read here rather than from company settings so that every signed-in
+ * role can load the chart, not only an administrator.
+ */
+export async function orgChartCompany(db: Db = pool): Promise<string | null> {
+  const result = await db.query<{ company_name: string | null }>(
+    "SELECT company_name FROM public.company_settings WHERE id = 1",
+  );
+  return result.rows[0]?.company_name ?? null;
+}
+
 export async function orgChart(db: Db = pool): Promise<OrgNode[]> {
+  // The extra reporting lines are read alongside the chart: they are part of
+  // the picture, and deliberately part of nothing else.
+  const extraRows = await db.query(
+    `SELECT a.employee_id, a.manager_id
+     FROM public.employee_additional_managers a
+     JOIN public.employees e ON e.id = a.employee_id AND e.employment_status = ANY($1::text[])
+     JOIN public.employees m ON m.id = a.manager_id AND m.employment_status = ANY($1::text[])
+     ORDER BY a.employee_id, a.manager_id`,
+    [VISIBLE_STATUSES],
+  );
+  const extra = new Map<number, number[]>();
+  for (const row of extraRows.rows) {
+    const key = Number(row.employee_id);
+    extra.set(key, [...(extra.get(key) ?? []), Number(row.manager_id)]);
+  }
+
   const result = await db.query(
     `SELECT e.id, e.full_name, e.job_title, e.profile_image, d.name AS department_name,
-            CASE WHEN m.id IS NOT NULL THEN e.manager_id END AS manager_id
+            e.position_kind, e.occupancy, e.position_notes, e.department_id,
+            CASE WHEN m.id IS NOT NULL THEN e.manager_id END AS manager_id,
+            CASE WHEN m.id IS NOT NULL THEN e.reporting_line_confidence END AS reporting_line_confidence
      FROM public.employees e
      LEFT JOIN public.departments d ON d.id = e.department_id
      LEFT JOIN public.employees m ON m.id = e.manager_id AND m.employment_status = ANY($1::text[])
@@ -279,5 +445,14 @@ export async function orgChart(db: Db = pool): Promise<OrgNode[]> {
     ...toLink(row),
     departmentName: row.department_name,
     managerId: row.manager_id === null ? null : Number(row.manager_id),
+    positionKind: toPositionKind(row.position_kind),
+    reportingLineConfidence: toConfidence(row.reporting_line_confidence),
+    occupancy:
+      row.occupancy === "vacant" || row.occupancy === "filled" || row.occupancy === "filled_unnamed"
+        ? row.occupancy
+        : null,
+    notes: row.position_notes ?? null,
+    departmentId: row.department_id === null ? null : Number(row.department_id),
+    alsoReportsTo: extra.get(Number(row.id)) ?? [],
   }));
 }

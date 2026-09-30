@@ -138,7 +138,8 @@ export async function openCycle(client: PoolClient, user: AuthenticatedUser, id:
   const inserted = await client.query<{ employee_id: string }>(
     `INSERT INTO public.review_participants (cycle_id, employee_id)
      SELECT $1, e.id FROM public.employees e
-     WHERE e.employment_status = ANY($2::text[]) AND ($3::int IS NULL OR e.department_id = $3::int)
+     WHERE e.employment_status = ANY($2::text[]) AND e.position_kind = 'staff'
+       AND ($3::int IS NULL OR e.department_id = $3::int)
      ORDER BY e.id
      RETURNING employee_id`,
     [id, VISIBLE_STATUSES, departmentId],

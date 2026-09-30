@@ -116,6 +116,10 @@ export async function loadCandidates(
        ORDER BY effective_from DESC
        LIMIT 1
      ) c ON TRUE
+     -- A position nobody holds has nobody to pay, and an external firm invoices
+     -- rather than being paid through payroll. Both are org-chart records, not
+     -- people. See staffOnly in auth/policy.
+     WHERE e.position_kind = 'staff'
      ORDER BY e.employee_number`,
     [period.end_date],
   );

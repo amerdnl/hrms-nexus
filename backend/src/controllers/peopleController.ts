@@ -7,7 +7,7 @@
  */
 import type { Request, Response } from "express";
 import { relationTo } from "../auth/policy.js";
-import { directory, orgChart, socialProfile } from "../services/peopleService.js";
+import { directory, orgChart, orgChartCompany, orgChartSourceLayout, socialProfile } from "../services/peopleService.js";
 import { listTimeline } from "../services/timelineService.js";
 import { parseIdParam } from "../utils/employeeValidation.js";
 
@@ -106,8 +106,17 @@ export async function getPersonTimeline(request: Request, response: Response): P
 /** GET /api/org/chart - the whole visible organisation. */
 export async function getOrgChart(_request: Request, response: Response): Promise<void> {
   try {
-    const nodes = await orgChart();
-    response.status(200).json({ success: true, data: { nodes } });
+    const [nodes, company, layout] = await Promise.all([
+      orgChart(),
+      orgChartCompany(),
+      orgChartSourceLayout(),
+    ]);
+    response.status(200).json({
+      success: true,
+      // `layout` is empty for a company that was not built from a source chart,
+      // and the client then lays the chart out itself.
+      data: { company, nodes, layout: layout.boxes, sourceLinks: layout.links, sourceNotes: layout.notes },
+    });
   } catch (error) {
     unavailable(response, error, "org chart");
   }
