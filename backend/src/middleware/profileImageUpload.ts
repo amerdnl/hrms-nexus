@@ -8,12 +8,42 @@ import multer from "multer";
 
 export const profileImageUrlPrefix = "/uploads/profile-images/";
 
-export const profileImagesDirectory = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../uploads/profile-images",
-);
+/**
+ * Where uploaded profile photographs are written.
+ *
+ * `PROFILE_IMAGE_DIR` exists for hosts that do not let a process write next to
+ * its own code. On a serverless host the deployed files are read-only and only
+ * a temporary directory can be written to, so the path has to be somewhere the
+ * host chooses rather than somewhere this file assumes.
+ */
+export const profileImagesDirectory = process.env.PROFILE_IMAGE_DIR
+  ? path.resolve(process.env.PROFILE_IMAGE_DIR)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../uploads/profile-images");
 
-mkdirSync(profileImagesDirectory, { recursive: true });
+/**
+ * Creating this directory must never be able to stop the server booting.
+ *
+ * This runs when the module is first imported, which is while the application
+ * is being assembled. On a read-only filesystem it throws EROFS, and because it
+ * is at the top level that one failure takes down the whole API - every route,
+ * not just the one that uploads a photograph. A host where photographs cannot
+ * be stored should refuse photographs, not refuse to start, so the failure is
+ * carried to the upload itself where it can be reported to the person doing it.
+ */
+let uploadsWritable = true;
+try {
+  mkdirSync(profileImagesDirectory, { recursive: true });
+} catch (error) {
+  uploadsWritable = false;
+  console.warn(
+    `Profile photographs are disabled: ${profileImagesDirectory} is not writable. ` +
+    `Set PROFILE_IMAGE_DIR to a writable path to enable them.`,
+    error,
+  );
+}
+
+/** Whether this host can store a profile photograph at all. */
+export const profileImagesEnabled = () => uploadsWritable;
 
 const extensionsByMimeType: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -23,7 +53,10 @@ const extensionsByMimeType: Record<string, string> = {
 
 const upload = multer({
   storage: multer.diskStorage({
-    destination: profileImagesDirectory,
+    // The callback form, not the string form: given a string, multer creates
+    // the directory itself while this module is being imported, which puts a
+    // second unguarded mkdir on the boot path and defeats the handling above.
+    destination: (_request, _file, callback) => callback(null, profileImagesDirectory),
     filename: (_request, file, callback) => {
       callback(null, `${randomUUID()}${extensionsByMimeType[file.mimetype]}`);
     },
@@ -75,6 +108,16 @@ export function acceptProfileImage(
   response: Response,
   next: NextFunction,
 ): void {
+  // Said plainly, and only to the person who tried. Letting multer attempt the
+  // write would surface this as an unexplained 500.
+  if (!uploadsWritable) {
+    response.status(503).json({
+      success: false,
+      message: "Profile photographs cannot be stored on this server.",
+    });
+    return;
+  }
+
   upload.single("image")(request, response, (error: unknown) => {
     if (error instanceof multer.MulterError) {
       const message =

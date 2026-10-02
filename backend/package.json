@@ -11,7 +11,10 @@
     "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test": "node --import tsx --test tests/*.test.ts",
     "migrate:status": "tsx src/database/migrate.ts status",
-    "migrate:apply": "tsx src/database/migrate.ts apply"
+    "migrate:apply": "tsx src/database/migrate.ts apply",
+    "db:schema": "tsx src/database/applySchema.ts",
+    "db:migrate": "tsx src/database/migrate.ts apply",
+    "db:bootstrap:eduk8u": "tsx src/database/bootstrapEduk8u.ts"
   },
   "keywords": [],
   "dependencies": {
