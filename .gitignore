@@ -28,3 +28,6 @@ coverage/
 
 backend/uploads/profile-images/*
 !backend/uploads/profile-images/.gitkeep
+
+# Local tooling state: git worktrees and editor scratch, never part of a build.
+.kilo/
