@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && npm run build:api",
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test": "node --import tsx --test tests/*.test.ts",
@@ -14,7 +14,8 @@
     "migrate:apply": "tsx src/database/migrate.ts apply",
     "db:schema": "tsx src/database/applySchema.ts",
     "db:migrate": "tsx src/database/migrate.ts apply",
-    "db:bootstrap:eduk8u": "tsx src/database/bootstrapEduk8u.ts"
+    "db:bootstrap:eduk8u": "tsx src/database/bootstrapEduk8u.ts",
+    "build:api": "esbuild src/app.ts --bundle --platform=node --target=node22 --format=cjs --packages=external --outfile=app.cjs --banner:js=\"const __vcImportMetaUrl = require('url').pathToFileURL(__filename).href;\" --define:import.meta.url=__vcImportMetaUrl --footer:js=\"module.exports = module.exports.default; module.exports.default = module.exports;\""
   },
   "keywords": [],
   "dependencies": {
@@ -36,6 +37,7 @@
     "@types/multer": "^2.2.0",
     "@types/node": "^26.1.2",
     "@types/pg": "^8.20.4",
+    "esbuild": "^0.28.1",
     "nodemon": "^3.1.14",
     "tsx": "^4.23.8",
     "typescript": "~6.0.2"
