@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { actorFromUser, recordAudit } from "../services/auditService.js";
 import { unlink } from "node:fs/promises";
 import path from "node:path";

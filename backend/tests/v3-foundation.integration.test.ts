@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { loadMigrations } from "../src/database/migrations.js";
 import { getZonedNow } from "../src/utils/attendanceVerification.js";
 import { withLab } from "./labHarness.js";

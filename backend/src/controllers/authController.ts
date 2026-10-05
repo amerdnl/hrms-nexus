@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import type { Request, Response } from "express";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { actorFromUser, recordAudit, systemActor } from "../services/auditService.js";

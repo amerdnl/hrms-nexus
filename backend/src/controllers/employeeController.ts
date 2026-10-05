@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { applyLifecycle, lockEmployee } from "../services/employeeLifecycleService.js";
 import type { Request, Response } from "express";
 import type { PoolClient } from "pg";

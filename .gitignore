@@ -32,5 +32,7 @@ backend/uploads/profile-images/*
 # Local tooling state: git worktrees and editor scratch, never part of a build.
 .kilo/
 
-# Built by `npm run build`; the serverless host's entry point.
-backend/app.cjs
+# api/index.js is a generated esbuild bundle but IS committed on purpose: it is
+# the deployed serverless function, and committing it keeps the host from having
+# to resolve, install or choose a module format for the API at all. Rebuild with
+# `npm --prefix backend run build:api` whenever backend/src changes.

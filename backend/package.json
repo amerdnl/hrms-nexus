@@ -15,11 +15,12 @@
     "db:schema": "tsx src/database/applySchema.ts",
     "db:migrate": "tsx src/database/migrate.ts apply",
     "db:bootstrap:eduk8u": "tsx src/database/bootstrapEduk8u.ts",
-    "build:api": "esbuild src/app.ts --bundle --platform=node --target=node22 --format=cjs --packages=external --outfile=app.cjs --banner:js=\"const __vcImportMetaUrl = require('url').pathToFileURL(__filename).href;\" --define:import.meta.url=__vcImportMetaUrl --footer:js=\"module.exports = module.exports.default; module.exports.default = module.exports;\""
+    "build:api": "esbuild src/app.ts --bundle --platform=node --target=node22 --format=cjs --outfile=../api/index.js --external:pg-native --external:pg-cloudflare --banner:js=\"/* GENERATED FILE - do not edit. Rebuild with: npm --prefix backend run build:api */\nconst __vcImportMetaUrl = require('url').pathToFileURL(__filename).href;\" --define:import.meta.url=__vcImportMetaUrl --footer:js=\"module.exports = module.exports.default || module.exports;\""
   },
   "keywords": [],
   "dependencies": {
-    "bcrypt": "^6.0.0",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
@@ -30,7 +31,6 @@
     "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",

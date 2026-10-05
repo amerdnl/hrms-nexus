@@ -23,7 +23,7 @@
  * hashed with bcrypt and only the hash is written; without it a random password
  * is generated and printed once, here, so it exists nowhere but the terminal.
  */
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import pg from "pg";
 import { calculatePeriod, openPeriod } from "../services/payrollService.js";

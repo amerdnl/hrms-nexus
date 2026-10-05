@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import type { PoolClient } from "pg";
 import { isEmployeeAccountActive } from "../utils/employeeValidation.js";

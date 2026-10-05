@@ -40,7 +40,7 @@
  * Either way the account is created owing a password change, so the credential
  * this script knows stops working the first time anyone signs in with it.
  */
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import pg from "pg";
 import {
