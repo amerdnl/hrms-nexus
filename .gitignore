@@ -36,3 +36,7 @@ backend/uploads/profile-images/*
 # the deployed serverless function, and committing it keeps the host from having
 # to resolve, install or choose a module format for the API at all. Rebuild with
 # `npm --prefix backend run build:api` whenever backend/src changes.
+
+# Local Vercel CLI link state; machine-specific and never part of a build. The
+# CLI also writes .env.local here, which the `.env.*` rule above already covers.
+.vercel/

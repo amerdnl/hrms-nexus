@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
 
+  "framework": null,
+
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
   "installCommand": "echo 'Install is handled by buildCommand; the API needs no install because api/index.js is self-contained.'",
