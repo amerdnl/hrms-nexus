@@ -3,6 +3,13 @@
 How the "EDUK8U® Group - Org Chart" approved by MD on 16 October 2024 was
 transcribed into HR Nexus, what is certain, and what Dr. Roy needs to confirm.
 
+> **Status.** This was written before Dr. Roy's answers and before migration 0022
+> added additional reporting relationships. Questions 2, 3 and 4 below are now
+> confirmed (interns report to every executive above them), and those second and
+> third lines are stored as additional reporting relationships rather than lost.
+> Where this document and `backend/src/database/eduk8uData.ts` differ, the data
+> file is authoritative.
+
 This document and the environment it describes are a **review copy**. Nothing
 here has been sent to, or taken from, any EDUK8U production system.
 
@@ -237,7 +244,7 @@ as labels, not as posts, and left out on purpose.
 The mapping above is generated from `backend/src/database/eduk8uData.ts`, which
 is the single source of truth for the review environment. Correcting the chart
 means editing that file and re-running the bootstrap, which is described in
-[EDUK8U_REVIEW_SETUP.md](EDUK8U_REVIEW_SETUP.md). `backend/tests/eduk8u-org.test.ts`
+the [README](../README.md#eduk8u-review-environment). `backend/tests/eduk8u-org.test.ts`
 holds the mapping to the connector list above, so an accidental change to a
 reporting line fails a test rather than reaching Dr. Roy.
 

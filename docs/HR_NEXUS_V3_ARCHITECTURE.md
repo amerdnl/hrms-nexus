@@ -3,7 +3,7 @@
 Designed 11 September 2026 against `HR_NEXUS_V3_DEFINITIVE_MASTER_EXECUTION.md`, on
 branch `feat/hr-nexus-v3` from the protected baseline `v2.0.0-rc1` (commit `2947aca`).
 V2's architecture, design system, migration runner and security model are preserved
-and extended; nothing here replaces them. Read `HR_NEXUS_V2_ARCHITECTURE.md` first.
+and extended; nothing here replaces them.
 
 ## 1. What V3 adds, in one paragraph
 

@@ -15,8 +15,8 @@
 #
 # This is a review environment on a developer's machine. It is not a production
 # deployment: the source directories are bind-mounted, the servers are the dev
-# servers, and the URLs are localhost. docs/EDUK8U_REVIEW_SETUP.md lists what an
-# externally reachable deployment would additionally need.
+# servers, and the URLs are localhost. The README's Deployment section covers
+# hosting HR Nexus somewhere reachable.
 name: hr-nexus-eduk8u
 
 services:
